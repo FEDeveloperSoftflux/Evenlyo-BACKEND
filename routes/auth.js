@@ -65,7 +65,7 @@ router.get('/me', authMiddleware, async (req, res) => {
 
 module.exports = router;
 
-// Example protected route
+//
 router.get('/protected', authMiddleware, (req, res) => {
   res.json({ message: 'You have accessed a protected route!', user: req.user });
 });

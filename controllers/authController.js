@@ -117,7 +117,7 @@ const jwt = require('jsonwebtoken');
 // Register a new user
 exports.register = async (req, res) => {
   try {
-    console.log('Register request body:', req.body);
+    // Removed debug log
     const { firstName, lastName, email, contactNumber, address, password } = req.body;
     if (!firstName || !lastName || !email || !contactNumber || !address || !password) {
       return res.status(400).json({ message: 'All fields are required' });
