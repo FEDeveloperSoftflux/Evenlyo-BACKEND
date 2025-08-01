@@ -23,7 +23,9 @@ const mongoose = require('mongoose');
 require('dotenv').config();
 // Connect to MongoDB Atlas
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {/* Connected to MongoDB Atlas */})
+  .then(() => {
+    console.log('Connected to MongoDB Atlas');
+  })
   .catch((err) => console.error('MongoDB connection error:', err));
 
 
