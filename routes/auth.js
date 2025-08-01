@@ -23,9 +23,14 @@ router.post('/logout', (req, res) => {
 
 const authController = require('../controllers/authController');
 const authMiddleware = require('../middleware/authMiddleware');
+const { requireVendor } = require('../middleware/roleMiddleware');
 
 // Register
 router.post('/register', authController.register);
+
+// Vendor Registration
+router.post('/register-vendor', authController.registerVendor);
+router.post('/verify-otp-register-vendor', authController.verifyOtpAndRegisterVendor);
 
 
 // OTP for registration
@@ -45,19 +50,49 @@ router.post('/login', authController.login);
 router.get('/me', authMiddleware, async (req, res) => {
   // Fetch user from DB for fresh info
   const User = require('../models/User');
+  const Vendor = require('../models/Vendor');
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json({ user: {
-      id: user._id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      fullName: user.fullName,
-      email: user.email,
-      phone: user.phone,
-      address: user.address,
-      role: user.userType
-    }});
+    
+    let responseData = {
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        fullName: user.fullName,
+        email: user.email,
+        phone: user.contactNumber,
+        address: user.address,
+        role: user.userType
+      }
+    };
+    
+    // If user is a vendor, include vendor profile
+    if (user.userType === 'vendor') {
+      const vendor = await Vendor.findOne({ userId: user._id });
+      if (vendor) {
+        responseData.vendor = {
+          id: vendor._id,
+          businessName: vendor.businessName,
+          businessEmail: vendor.businessEmail,
+          businessPhone: vendor.businessPhone,
+          businessAddress: vendor.businessAddress,
+          businessWebsite: vendor.businessWebsite,
+          teamType: vendor.teamType,
+          teamSize: vendor.teamSize,
+          businessLocation: vendor.businessLocation,
+          businessDescription: vendor.businessDescription,
+          approvalStatus: vendor.approvalStatus,
+          isApproved: vendor.isApproved,
+          rating: vendor.rating,
+          totalBookings: vendor.totalBookings,
+          completedBookings: vendor.completedBookings
+        };
+      }
+    }
+    
+    res.json(responseData);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
