@@ -1,3 +1,7 @@
+const User = require('../models/User');
+const Vendor = require('../models/Vendor');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const OTP = require('../models/OTP');
 const { sendOTPEmail } = require('../utils/mailer');
 
@@ -110,9 +114,6 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
-const User = require('../models/User');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 
 // Register a new user
 exports.register = async (req, res) => {
@@ -140,6 +141,144 @@ exports.register = async (req, res) => {
     await user.save();
     res.status(201).json({ message: 'Registration successful' });
   } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// --- Vendor Registration ---
+exports.registerVendor = async (req, res) => {
+  try {
+    const { 
+      firstName, lastName, email, contactNumber, address, password,
+      businessName, businessEmail, businessPhone, businessAddress, 
+      businessWebsite, teamType, teamSize, businessLocation, 
+      businessDescription 
+    } = req.body;
+    
+    // Validate required fields
+    if (!firstName || !lastName || !email || !contactNumber || !address || !password || !businessName) {
+      return res.status(400).json({ message: 'All required fields must be filled' });
+    }
+    
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({ message: 'Email already registered' });
+    }
+    
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Create user with vendor type
+    const user = new User({
+      firstName,
+      lastName,
+      email,
+      contactNumber,
+      address,
+      password: hashedPassword,
+      userType: 'vendor',
+      isActive: true
+    });
+    
+    const savedUser = await user.save();
+    
+    // Create vendor profile
+    const vendor = new Vendor({
+      userId: savedUser._id,
+      businessName,
+      businessEmail: businessEmail || email,
+      businessPhone: businessPhone || contactNumber,
+      businessAddress: businessAddress || address,
+      businessWebsite,
+      teamType: teamType || 'single',
+      teamSize,
+      businessLocation,
+      businessDescription,
+      approvalStatus: 'pending',
+      isApproved: false
+    });
+    
+    await vendor.save();
+    
+    res.status(201).json({ 
+      message: 'Vendor registration successful. Your account is pending approval.',
+      userId: savedUser._id,
+      vendorId: vendor._id
+    });
+    
+  } catch (err) {
+    console.error('Vendor registration error:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// Vendor OTP Registration
+exports.verifyOtpAndRegisterVendor = async (req, res) => {
+  try {
+    const { 
+      firstName, lastName, email, contactNumber, address, password, otp,
+      businessName, businessEmail, businessPhone, businessAddress, 
+      businessWebsite, teamType, teamSize, businessLocation, 
+      businessDescription 
+    } = req.body;
+    
+    // Validate required fields
+    if (!firstName || !lastName || !email || !contactNumber || !address || !password || !otp || !businessName) {
+      return res.status(400).json({ message: 'All required fields and OTP are required' });
+    }
+    
+    // Verify OTP
+    const valid = await verifyOTP(email, otp);
+    if (!valid) return res.status(400).json({ message: 'Invalid or expired OTP' });
+    
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(409).json({ message: 'Email already registered' });
+    
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Create user with vendor type
+    const user = new User({
+      firstName,
+      lastName,
+      email,
+      contactNumber,
+      address,
+      password: hashedPassword,
+      userType: 'vendor',
+      isActive: true
+    });
+    
+    const savedUser = await user.save();
+    
+    // Create vendor profile
+    const vendor = new Vendor({
+      userId: savedUser._id,
+      businessName,
+      businessEmail: businessEmail || email,
+      businessPhone: businessPhone || contactNumber,
+      businessAddress: businessAddress || address,
+      businessWebsite,
+      teamType: teamType || 'single',
+      teamSize,
+      businessLocation,
+      businessDescription,
+      approvalStatus: 'pending',
+      isApproved: false
+    });
+    
+    await vendor.save();
+    
+    res.status(201).json({ 
+      message: 'Vendor registration successful. Your account is pending approval.',
+      userId: savedUser._id,
+      vendorId: vendor._id
+    });
+    
+  } catch (err) {
+    console.error('Vendor OTP registration error:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };

@@ -63,6 +63,15 @@ const userSchema = new mongoose.Schema({
   lastLogin: Date
 }, { timestamps: true });
 
+// Virtual for fullName
+userSchema.virtual('fullName').get(function() {
+  return `${this.firstName} ${this.lastName}`;
+});
+
+// Ensure virtual fields are serialized
+userSchema.set('toJSON', { virtuals: true });
+userSchema.set('toObject', { virtuals: true });
+
 // Pre-save middleware
 userSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
