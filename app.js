@@ -23,15 +23,25 @@ const mongoose = require('mongoose');
 require('dotenv').config();
 // Connect to MongoDB Atlas
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('Connected to MongoDB Atlas'))
+  .then(() => {
+    console.log('Connected to MongoDB Atlas');
+  })
   .catch((err) => console.error('MongoDB connection error:', err));
 
 
 const app = express();
+const allowedOrigins = ['http://localhost:3000'];
+
 app.use(cors({
-  origin: 'http://localhost:5000',
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
-}));
+}))
 app.use(express.json());
 app.use(cookieParser());
 app.use(i18nextMiddleware.handle(i18next));
@@ -47,7 +57,7 @@ app.get('/', (req, res) => {
 });
 
 
-// Health check endpoint for frontend-backend connection test
+// Removed health check endpoint (demo/test)
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: req.t('health') });
 });
