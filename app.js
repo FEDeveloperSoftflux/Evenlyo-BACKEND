@@ -88,6 +88,14 @@ app.use('/api/listings', listingRoutes);
 const subCategoryRoutes = require('./routes/subcategories');
 app.use('/api/subcategories', subCategoryRoutes);
 
+// Booking routes
+const bookingRoutes = require('./routes/bookings');
+app.use('/api/booking', bookingRoutes);
+
+// Cart routes
+const cartRoutes = require('./routes/cart');
+app.use('/api/cart', cartRoutes);
+
 // Root endpoint with translation
 app.get('/', (req, res) => {
   res.send(req.t('welcome'));

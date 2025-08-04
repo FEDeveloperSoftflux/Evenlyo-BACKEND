@@ -29,7 +29,7 @@ const vendorSchema = new mongoose.Schema({
   },
   teamSize: {
     type: String,
-    enum: ['1-5', '6-10', '11-20', '21+'] // Adjust as needed
+    enum: ['1-5', '6-10', '11-20', '21+'] 
   },
   businessLocation: String,
   businessLogo: String,

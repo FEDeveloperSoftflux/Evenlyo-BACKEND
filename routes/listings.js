@@ -13,6 +13,11 @@ router.get('/vendor/:vendorId', listingController.getListingsByVendor);
 router.get('/service-type/:type', listingController.getListingsByServiceType);
 router.get('/:id', listingController.getListingById);
 
+// @route   GET /api/listing/:id/availability
+// @desc    Check listing availability for date range
+// @access  Public
+router.get('/:id/availability', listingController.checkListingAvailability);
+
 // Protected routes (authentication required)
 router.post('/', listingController.createListing);
 router.put('/:id', listingController.updateListing);

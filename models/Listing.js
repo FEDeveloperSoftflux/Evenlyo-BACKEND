@@ -73,6 +73,24 @@ const listingSchema = new mongoose.Schema({
       min: 0,
       description: String // e.g., "Refundable security deposit"
     },
+    multiDayDiscount: {
+      enabled: {
+        type: Boolean,
+        default: false
+      },
+      percent: {
+        type: Number,
+        min: 0,
+        max: 50, // Maximum 50% discount
+        default: 0
+      },
+      minDays: {
+        type: Number,
+        min: 2,
+        default: 3 // Minimum 3 days to get discount
+      },
+      description: String // e.g., "15% off bookings of 3+ days"
+    },
     packages: [{
       name: String,
       description: String,
