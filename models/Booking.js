@@ -133,8 +133,7 @@ const bookingSchema = new mongoose.Schema({
     vendorFeedback: String
   },
   invoiceUrl: String,
- timestamps: true
-});
+}, { timestamps: true });
 
 // Pre-save middleware
 bookingSchema.pre('save', function(next) {

@@ -148,8 +148,7 @@ const serviceItemSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
- timestamps: true
-});
+}, { timestamps: true });
 
 // Pre-save middleware
 serviceItemSchema.pre('save', function(next) {
