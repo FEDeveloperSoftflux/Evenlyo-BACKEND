@@ -17,9 +17,8 @@ const categorySchema = new mongoose.Schema({
   sortOrder: {
     type: Number,
     default: 0
-  },
- timestamps: true
-});
+  }
+}, { timestamps: true });
 
 // Pre-save middleware
 categorySchema.pre('save', function(next) {

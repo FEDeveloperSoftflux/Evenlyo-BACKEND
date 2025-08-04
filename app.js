@@ -2,6 +2,13 @@ const express = require('express');
 const i18next = require('i18next');
 const Backend = require('i18next-fs-backend');
 const i18nextMiddleware = require('i18next-http-middleware');
+const cookieParser = require('cookie-parser');
+const session = require('express-session');
+const mongoose = require('mongoose');
+const cors = require('cors');
+require('dotenv').config();
+
+
 // i18next configuration for localization
 i18next
   .use(Backend)
@@ -17,10 +24,7 @@ i18next
       caches: ['cookie'],
     },
   });
-const cors = require('cors');
-const cookieParser = require('cookie-parser');
-const mongoose = require('mongoose');
-require('dotenv').config();
+
 // Connect to MongoDB Atlas
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
@@ -30,36 +34,63 @@ mongoose.connect(process.env.MONGODB_URI)
 
 
 const app = express();
-const allowedOrigins = ['http://localhost:3000'];
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5000',
+  'http://127.0.0.1:5000',
+  'http://127.0.0.1:3000'
+];
 
 app.use(cors({
   origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, postman, swagger ui)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
 }))
 app.use(express.json());
 app.use(cookieParser());
 app.use(i18nextMiddleware.handle(i18next));
 
+// Session configuration
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: 'lax'
+  },
+  name: 'evenlyo.sid' // Custom session name
+}));
 
 // Auth routes
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
 
+// Category routes
+const categoryRoutes = require('./routes/categories');
+app.use('/api/categories', categoryRoutes);
+
+// Listing routes
+const listingRoutes = require('./routes/listings');
+app.use('/api/listings', listingRoutes);
+
+// Subcategory routes
+const subCategoryRoutes = require('./routes/subcategories');
+app.use('/api/subcategories', subCategoryRoutes);
+
 // Root endpoint with translation
 app.get('/', (req, res) => {
   res.send(req.t('welcome'));
-});
-
-
-// Removed health check endpoint (demo/test)
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: req.t('health') });
 });
 
 // Error handling middleware

@@ -78,15 +78,12 @@ const vendorSchema = new mongoose.Schema({
     default: 'pending'
   },
   rejectionReason: String,
+
   contactMeEnabled: {
     type: Boolean,
     default: true
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
   }
-});
+}, { timestamps: true });
 
 vendorSchema.index({ userId: 1 });
 vendorSchema.index({ mainCategories: 1 });

@@ -60,8 +60,8 @@ const roleSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
- timestamps: true
-});
+
+}, { timestamps: true });
 
 // Pre-save middleware
 roleSchema.pre('save', function(next) {
