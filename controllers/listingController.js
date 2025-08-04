@@ -2,6 +2,7 @@ const Listing = require('../models/Listing');
 const Category = require('../models/Category');
 const SubCategory = require('../models/SubCategory');
 const Vendor = require('../models/Vendor');
+const BookingRequest = require('../models/Booking');
 
 // @desc    Get available listings with filters
 // @route   GET /api/listings
@@ -936,6 +937,152 @@ const updateListing = async (req, res) => {
   }
 };
 
+// @desc    Check listing availability for date range (enhanced for multi-day)
+// @route   GET /api/listing/:id/availability
+// @access  Public
+const checkListingAvailability = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { start, end, detailed = false } = req.query;
+
+    if (!start || !end) {
+      return res.status(400).json({
+        success: false,
+        message: 'Start and end dates are required'
+      });
+    }
+
+    // Validate dates
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid date format'
+      });
+    }
+
+    if (startDate >= endDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Start date must be before end date'
+      });
+    }
+
+    // Check if listing exists and is active
+    const listing = await Listing.findOne({
+      _id: id,
+      isActive: true,
+      status: 'active'
+    }).select('title pricing.multiDayDiscount');
+
+    if (!listing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Listing not found or not available'
+      });
+    }
+
+    // Normalize dates for accurate comparison
+    const checkStart = new Date(startDate);
+    checkStart.setHours(0, 0, 0, 0);
+    
+    const checkEnd = new Date(endDate);
+    checkEnd.setHours(23, 59, 59, 999);
+
+    // Check for overlapping bookings that are not rejected or cancelled
+    const overlappingBookings = await BookingRequest.find({
+      listingId: id,
+      status: { $nin: ['rejected', 'cancelled'] },
+      $or: [
+        {
+          'details.startDate': { $lte: checkEnd },
+          'details.endDate': { $gte: checkStart }
+        }
+      ]
+    }).select('details.startDate details.endDate status trackingId details.duration');
+
+    const isAvailable = overlappingBookings.length === 0;
+    
+    // Calculate multi-day details
+    const diffTime = Math.abs(checkEnd - checkStart);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    const isMultiDay = diffDays > 1;
+
+    let response = {
+      success: true,
+      data: {
+        listingId: id,
+        listingTitle: listing.title,
+        requestedPeriod: {
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+          days: diffDays,
+          isMultiDay: isMultiDay
+        },
+        isAvailable,
+        conflictingBookings: overlappingBookings.map(booking => ({
+          trackingId: booking.trackingId,
+          startDate: booking.details.startDate,
+          endDate: booking.details.endDate,
+          status: booking.status,
+          isMultiDay: booking.details.duration?.isMultiDay || false
+        }))
+      }
+    };
+
+    // Add multi-day discount info if applicable
+    if (isMultiDay && listing.pricing?.multiDayDiscount?.enabled) {
+      const discount = listing.pricing.multiDayDiscount;
+      response.data.multiDayDiscount = {
+        eligible: diffDays >= discount.minDays,
+        percent: discount.percent,
+        minDays: discount.minDays,
+        description: discount.description
+      };
+    }
+
+    // Detailed day-by-day availability if requested
+    if (detailed === 'true' && isMultiDay) {
+      const dailyAvailability = [];
+      const currentDate = new Date(checkStart);
+      
+      for (let i = 0; i < diffDays; i++) {
+        const dayStart = new Date(currentDate);
+        const dayEnd = new Date(currentDate);
+        dayEnd.setHours(23, 59, 59, 999);
+        
+        const dayConflicts = overlappingBookings.filter(booking => {
+          const bookingStart = new Date(booking.details.startDate);
+          const bookingEnd = new Date(booking.details.endDate);
+          return bookingStart <= dayEnd && bookingEnd >= dayStart;
+        });
+        
+        dailyAvailability.push({
+          date: dayStart.toISOString().split('T')[0],
+          available: dayConflicts.length === 0,
+          conflicts: dayConflicts.length,
+          conflictingBookings: dayConflicts.map(b => b.trackingId)
+        });
+        
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      
+      response.data.dailyAvailability = dailyAvailability;
+    }
+
+    res.json(response);
+
+  } catch (error) {
+    console.error('Error checking availability:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while checking availability'
+    });
+  }
+};
+
 module.exports = {
   getAvailableListings,
   getListingById,
@@ -949,5 +1096,6 @@ module.exports = {
   getListingsByVendor,
   getListingsByServiceType,
   createListing,
-  updateListing
+  updateListing,
+  checkListingAvailability
 }; 

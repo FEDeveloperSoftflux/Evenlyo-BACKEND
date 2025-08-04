@@ -1,13 +1,16 @@
 const mongoose = require('mongoose');
 
-// Booking Schema
-const bookingSchema = new mongoose.Schema({
+// BookingRequest Schema - Updated to match requirements
+const bookingRequestSchema = new mongoose.Schema({
   trackingId: {
     type: String,
     unique: true,
-    required: true
+    required: true,
+    default: function() {
+      return 'TRK' + Date.now() + Math.random().toString(36).substr(2, 9).toUpperCase();
+    }
   },
-  clientId: {
+  userId: { // Updated from clientId for consistency
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
@@ -17,12 +20,12 @@ const bookingSchema = new mongoose.Schema({
     ref: 'Vendor',
     required: true
   },
-  serviceItemId: {
+  listingId: { // Updated from serviceItemId to match requirements
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'ServiceItem',
+    ref: 'Listing',
     required: true
   },
-  bookingDetails: {
+  details: { // Updated field name to match requirements
     startDate: {
       type: Date,
       required: true
@@ -41,13 +44,41 @@ const bookingSchema = new mongoose.Schema({
     },
     duration: {
       hours: Number,
-      days: Number
+      days: Number,
+      totalHours: Number, // Total hours across all days
+      isMultiDay: {
+        type: Boolean,
+        default: false
+      }
     },
-    location: {
+    schedule: [{ // For multi-day bookings with different daily schedules
+      date: {
+        type: Date,
+        required: true
+      },
+      startTime: {
+        type: String,
+        required: true
+      },
+      endTime: {
+        type: String,
+        required: true
+      },
+      dailyHours: Number,
+      notes: String
+    }],
+    eventLocation: { // Updated field name
       type: String,
       required: true
     },
-    instructions: String
+    eventType: String,
+    guestCount: Number,
+    specialRequests: String,
+    contactPreference: {
+      type: String,
+      enum: ['phone', 'email', 'whatsapp'],
+      default: 'email'
+    }
   },
   pricing: {
     bookingPrice: {
@@ -73,7 +104,7 @@ const bookingSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'accepted', 'paid', 'on_the_way', 'received', 'completed', 'rejected', 'cancelled'],
+    enum: ['pending', 'accepted', 'rejected', 'paid', 'on_the_way', 'received', 'completed', 'cancelled'],
     default: 'pending'
   },
   paymentStatus: {
@@ -136,12 +167,60 @@ const bookingSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Pre-save middleware
-bookingSchema.pre('save', function(next) {
+bookingRequestSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   
   // Generate tracking ID if not exists
   if (!this.trackingId) {
     this.trackingId = 'TRK' + Date.now() + Math.random().toString(36).substr(2, 9).toUpperCase();
+  }
+  
+  // Calculate multi-day booking details
+  if (this.details && this.details.startDate && this.details.endDate) {
+    const startDate = new Date(this.details.startDate);
+    const endDate = new Date(this.details.endDate);
+    const diffTime = Math.abs(endDate - startDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Include both start and end dates
+    
+    // Set multi-day flag
+    this.details.duration.isMultiDay = diffDays > 1;
+    this.details.duration.days = diffDays;
+    
+    // If no custom schedule provided and it's multi-day, create default schedule
+    if (this.details.duration.isMultiDay && (!this.details.schedule || this.details.schedule.length === 0)) {
+      this.details.schedule = [];
+      const currentDate = new Date(startDate);
+      
+      for (let i = 0; i < diffDays; i++) {
+        const scheduleDate = new Date(currentDate);
+        scheduleDate.setDate(currentDate.getDate() + i);
+        
+        // Calculate daily hours
+        const dailyStartTime = this.details.startTime || '09:00';
+        const dailyEndTime = this.details.endTime || '17:00';
+        const dailyHours = this.calculateHoursBetween(dailyStartTime, dailyEndTime);
+        
+        this.details.schedule.push({
+          date: scheduleDate,
+          startTime: dailyStartTime,
+          endTime: dailyEndTime,
+          dailyHours: dailyHours,
+          notes: i === 0 ? 'First day' : i === diffDays - 1 ? 'Last day' : `Day ${i + 1}`
+        });
+      }
+    }
+    
+    // Calculate total hours across all days
+    if (this.details.schedule && this.details.schedule.length > 0) {
+      this.details.duration.totalHours = this.details.schedule.reduce((total, day) => {
+        return total + (day.dailyHours || 8); // Default to 8 hours if not specified
+      }, 0);
+    } else {
+      // Single day calculation
+      const dailyHours = this.calculateHoursBetween(this.details.startTime, this.details.endTime);
+      this.details.duration.hours = dailyHours;
+      this.details.duration.totalHours = dailyHours;
+    }
   }
   
   // Add status to history if status changed
@@ -156,13 +235,27 @@ bookingSchema.pre('save', function(next) {
   next();
 });
 
-// Indexes for better performance
-bookingSchema.index({ trackingId: 1 });
-bookingSchema.index({ clientId: 1, status: 1 });
-bookingSchema.index({ vendorId: 1, status: 1 });
-bookingSchema.index({ serviceItemId: 1 });
-bookingSchema.index({ 'bookingDetails.startDate': 1, 'bookingDetails.endDate': 1 });
-bookingSchema.index({ paymentStatus: 1 });
-bookingSchema.index({ createdAt: -1 });
+// Helper method to calculate hours between two time strings
+bookingRequestSchema.methods.calculateHoursBetween = function(startTime, endTime) {
+  const start = new Date(`2000-01-01 ${startTime}`);
+  const end = new Date(`2000-01-01 ${endTime}`);
+  let diffHours = (end - start) / (1000 * 60 * 60);
+  
+  // Handle overnight bookings (e.g., 22:00 to 02:00)
+  if (diffHours < 0) {
+    diffHours += 24;
+  }
+  
+  return Math.max(diffHours, 0);
+};
 
-module.exports = mongoose.model('Booking', bookingSchema);
+// Indexes for better performance
+bookingRequestSchema.index({ trackingId: 1 });
+bookingRequestSchema.index({ userId: 1, status: 1 });
+bookingRequestSchema.index({ vendorId: 1, status: 1 });
+bookingRequestSchema.index({ listingId: 1 });
+bookingRequestSchema.index({ 'details.startDate': 1, 'details.endDate': 1 });
+bookingRequestSchema.index({ paymentStatus: 1 });
+bookingRequestSchema.index({ createdAt: -1 });
+
+module.exports = mongoose.model('BookingRequest', bookingRequestSchema);

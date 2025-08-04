@@ -1,0 +1,416 @@
+const asyncHandler = require('express-async-handler');
+const Cart = require('../models/Cart');
+const Listing = require('../models/Listing');
+const BookingRequest = require('../models/Booking');
+const Vendor = require('../models/Vendor');
+
+// Helper function to create listing snapshot
+const createListingSnapshot = (listing) => {
+  return {
+    title: listing.title,
+    featuredImage: listing.media?.featuredImage,
+    pricing: {
+      type: listing.pricing?.type,
+      perHour: listing.pricing?.perHour,
+      perDay: listing.pricing?.perDay,
+      perEvent: listing.pricing?.perEvent,
+      currency: listing.pricing?.currency || 'EUR'
+    },
+    vendorId: listing.vendor
+  };
+};
+
+// Helper function to check listing availability
+const checkAvailability = async (listingId, startDate, endDate) => {
+  // Check for overlapping bookings that are not rejected or cancelled
+  const overlappingBookings = await BookingRequest.find({
+    listingId,
+    status: { $nin: ['rejected', 'cancelled'] },
+    $or: [
+      {
+        'details.startDate': { $lte: endDate },
+        'details.endDate': { $gte: startDate }
+      }
+    ]
+  });
+
+  return overlappingBookings.length === 0;
+};
+
+// @desc    Add item to user cart
+// @route   POST /api/cart/add
+// @access  Private (User)
+const addToCart = asyncHandler(async (req, res) => {
+  const { listingId, tempDetails } = req.body;
+
+  if (!listingId) {
+    return res.status(400).json({
+      success: false,
+      message: 'Listing ID is required'
+    });
+  }
+
+  // Check if listing exists and is active
+  const listing = await Listing.findOne({
+    _id: listingId,
+    isActive: true,
+    status: 'active'
+  }).populate('vendor');
+
+  if (!listing) {
+    return res.status(404).json({
+      success: false,
+      message: 'Listing not found or not available'
+    });
+  }
+
+  // Get or create user's cart
+  let cart = await Cart.findOne({ userId: req.user.id });
+  if (!cart) {
+    cart = new Cart({ userId: req.user.id, items: [] });
+  }
+
+  // Create listing snapshot
+  const listingSnapshot = createListingSnapshot(listing);
+
+  // Add item to cart
+  await cart.addItem(listingId, listingSnapshot, tempDetails);
+
+  // Populate cart for response
+  await cart.populate('items.listingId', 'title featuredImage pricing vendor');
+
+  res.status(201).json({
+    success: true,
+    message: 'Item added to cart successfully',
+    data: {
+      cart
+    }
+  });
+});
+
+// @desc    Get user's cart
+// @route   GET /api/cart
+// @access  Private (User)
+const getCart = asyncHandler(async (req, res) => {
+  let cart = await Cart.findOne({ userId: req.user.id })
+    .populate({
+      path: 'items.listingId',
+      select: 'title featuredImage pricing vendor isActive status',
+      populate: {
+        path: 'vendor',
+        select: 'businessName'
+      }
+    });
+
+  if (!cart) {
+    cart = new Cart({ userId: req.user.id, items: [] });
+    await cart.save();
+  }
+
+  // Filter out any items that reference inactive or deleted listings
+  const validItems = cart.items.filter(item => 
+    item.listingId && 
+    item.listingId.isActive && 
+    item.listingId.status === 'active'
+  );
+
+  // Update cart if invalid items were found
+  if (validItems.length !== cart.items.length) {
+    cart.items = validItems;
+    await cart.save();
+  }
+
+  res.json({
+    success: true,
+    data: {
+      cart
+    }
+  });
+});
+
+// @desc    Remove item from cart
+// @route   DELETE /api/cart/:listingId
+// @access  Private (User)
+const removeFromCart = asyncHandler(async (req, res) => {
+  const { listingId } = req.params;
+
+  const cart = await Cart.findOne({ userId: req.user.id });
+  if (!cart) {
+    return res.status(404).json({
+      success: false,
+      message: 'Cart not found'
+    });
+  }
+
+  await cart.removeItem(listingId);
+
+  // Populate cart for response
+  await cart.populate({
+    path: 'items.listingId',
+    select: 'title featuredImage pricing vendor',
+    populate: {
+      path: 'vendor',
+      select: 'businessName'
+    }
+  });
+
+  res.json({
+    success: true,
+    message: 'Item removed from cart successfully',
+    data: {
+      cart
+    }
+  });
+});
+
+// @desc    Update item details in cart
+// @route   PUT /api/cart/:listingId
+// @access  Private (User)
+const updateCartItem = asyncHandler(async (req, res) => {
+  const { listingId } = req.params;
+  const { tempDetails } = req.body;
+
+  const cart = await Cart.findOne({ userId: req.user.id });
+  if (!cart) {
+    return res.status(404).json({
+      success: false,
+      message: 'Cart not found'
+    });
+  }
+
+  try {
+    await cart.updateItemDetails(listingId, tempDetails);
+    
+    // Populate cart for response
+    await cart.populate({
+      path: 'items.listingId',
+      select: 'title featuredImage pricing vendor',
+      populate: {
+        path: 'vendor',
+        select: 'businessName'
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Cart item updated successfully',
+      data: {
+        cart
+      }
+    });
+  } catch (error) {
+    res.status(404).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// @desc    Submit all cart items as booking requests
+// @route   POST /api/cart/submit
+// @access  Private (User)
+const submitCart = asyncHandler(async (req, res) => {
+  const cart = await Cart.findOne({ userId: req.user.id })
+    .populate('items.listingId', 'title pricing vendor isActive status');
+
+  if (!cart || cart.items.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Cart is empty'
+    });
+  }
+
+  const bookingResults = [];
+  const errors = [];
+
+  // Process each cart item
+  for (const cartItem of cart.items) {
+    try {
+      const listing = cartItem.listingId;
+      const tempDetails = cartItem.tempDetails;
+
+      // Validate listing is still active
+      if (!listing || !listing.isActive || listing.status !== 'active') {
+        errors.push({
+          listingId: listing?._id,
+          listingTitle: listing?.title,
+          error: 'Listing is no longer available'
+        });
+        continue;
+      }
+
+      // Validate required details
+      if (!tempDetails.eventDate || !tempDetails.eventTime || !tempDetails.eventLocation) {
+        errors.push({
+          listingId: listing._id,
+          listingTitle: listing.title,
+          error: 'Missing required booking details (date, time, location)'
+        });
+        continue;
+      }
+
+      // Check availability if dates are provided
+      if (tempDetails.eventDate) {
+        const startDate = new Date(tempDetails.eventDate);
+        const endDate = tempDetails.endDate ? new Date(tempDetails.endDate) : startDate;
+        
+        const isAvailable = await checkAvailability(listing._id, startDate, endDate);
+        if (!isAvailable) {
+          errors.push({
+            listingId: listing._id,
+            listingTitle: listing.title,
+            error: 'Selected dates are not available'
+          });
+          continue;
+        }
+      }
+
+      // Calculate duration
+      const startDate = new Date(tempDetails.eventDate);
+      const endDate = tempDetails.endDate ? new Date(tempDetails.endDate) : startDate;
+      const diffTime = Math.abs(endDate - startDate);
+      const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1); // Include both start and end dates
+      const isMultiDay = diffDays > 1;
+      
+      // Calculate hours per day
+      const calculateHours = (startTime, endTime) => {
+        const start = new Date(`2000-01-01 ${startTime}`);
+        const end = new Date(`2000-01-01 ${endTime}`);
+        let diffHours = (end - start) / (1000 * 60 * 60);
+        if (diffHours < 0) diffHours += 24; // Handle overnight
+        return Math.max(diffHours, 0);
+      };
+      
+      const dailyHours = calculateHours(tempDetails.eventTime, tempDetails.endTime || '23:59');
+      const totalHours = dailyHours * diffDays;
+
+      // Enhanced pricing calculation for multi-day bookings
+      let bookingPrice = 0;
+      
+      if (listing.pricing.type === 'daily' && listing.pricing.perDay) {
+        bookingPrice = listing.pricing.perDay * diffDays;
+      } else if (listing.pricing.type === 'hourly' && listing.pricing.perHour) {
+        bookingPrice = listing.pricing.perHour * totalHours;
+      } else if (listing.pricing.type === 'per_event' && listing.pricing.perEvent) {
+        // For multi-day events, might need special handling
+        bookingPrice = listing.pricing.perEvent * (isMultiDay ? diffDays : 1);
+      }
+      
+      // Apply multi-day discounts if configured
+      if (isMultiDay && listing.pricing.multiDayDiscount) {
+        const discountPercent = listing.pricing.multiDayDiscount.percent || 0;
+        const minDays = listing.pricing.multiDayDiscount.minDays || 2;
+        
+        if (diffDays >= minDays) {
+          const discount = (bookingPrice * discountPercent) / 100;
+          bookingPrice = bookingPrice - discount;
+        }
+      }
+
+      // Create booking request with multi-day support
+      const bookingRequest = new BookingRequest({
+        userId: req.user.id,
+        vendorId: listing.vendor,
+        listingId: listing._id,
+        details: {
+          startDate: tempDetails.eventDate,
+          endDate: tempDetails.endDate || tempDetails.eventDate,
+          startTime: tempDetails.eventTime,
+          endTime: tempDetails.endTime || '23:59',
+          duration: {
+            hours: dailyHours,
+            days: diffDays,
+            totalHours: totalHours,
+            isMultiDay: isMultiDay
+          },
+          eventLocation: tempDetails.eventLocation,
+          eventType: tempDetails.eventType,
+          guestCount: tempDetails.guestCount,
+          specialRequests: tempDetails.specialRequests,
+          contactPreference: tempDetails.contactPreference || 'email'
+        },
+        pricing: {
+          bookingPrice,
+          securityPrice: listing.pricing.securityFee || 0,
+          totalPrice: bookingPrice + (listing.pricing.securityFee || 0),
+          ...(isMultiDay && {
+            dailyRate: Math.round(bookingPrice / diffDays),
+            multiDayDiscount: listing.pricing.multiDayDiscount || null
+          })
+        }
+      });
+
+      await bookingRequest.save();
+      
+      // Populate the booking request
+      await bookingRequest.populate([
+        { path: 'vendorId', select: 'businessName businessEmail businessPhone' },
+        { path: 'listingId', select: 'title featuredImage pricing' }
+      ]);
+
+      bookingResults.push({
+        bookingId: bookingRequest._id,
+        listingTitle: listing.title,
+        status: 'success'
+      });
+
+    } catch (error) {
+      errors.push({
+        listingId: cartItem.listingId?._id,
+        listingTitle: cartItem.listingId?.title,
+        error: error.message
+      });
+    }
+  }
+
+  // Clear cart if any bookings were created successfully
+  if (bookingResults.length > 0) {
+    await cart.clearCart();
+  }
+
+  res.json({
+    success: bookingResults.length > 0,
+    message: `${bookingResults.length} booking requests created successfully`,
+    data: {
+      successfulBookings: bookingResults,
+      errors: errors,
+      summary: {
+        total: cart.items.length,
+        successful: bookingResults.length,
+        failed: errors.length
+      }
+    }
+  });
+});
+
+// @desc    Clear user's cart
+// @route   DELETE /api/cart
+// @access  Private (User)
+const clearCart = asyncHandler(async (req, res) => {
+  const cart = await Cart.findOne({ userId: req.user.id });
+  if (!cart) {
+    return res.status(404).json({
+      success: false,
+      message: 'Cart not found'
+    });
+  }
+
+  await cart.clearCart();
+
+  res.json({
+    success: true,
+    message: 'Cart cleared successfully',
+    data: {
+      cart
+    }
+  });
+});
+
+module.exports = {
+  addToCart,
+  getCart,
+  removeFromCart,
+  updateCartItem,
+  submitCart,
+  clearCart
+};
