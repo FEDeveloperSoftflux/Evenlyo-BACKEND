@@ -4,6 +4,7 @@ const Vendor = require('../models/Vendor');
 const Admin = require('../models/Admin');
 const OTP = require('../models/OTP');
 const { sendOTPEmail } = require('../utils/mailer');
+const { auth } = require('../config/firebase');
 
 // --- Model loading utility ---
 const getModelByUserType = (userType) => {
@@ -19,24 +20,16 @@ const getModelByUserType = (userType) => {
   }
 };
 
-// --- Login ---
-exports.login = async (req, res) => {
+// --- Shared Login Logic ---
+const performLogin = async (req, res, userType) => {
   try {
-    const { email, password, userType } = req.body;
+    const { email, password } = req.body;
 
     // Validate required fields
-    if (!email || !password || !userType) {
+    if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Email, password, and userType are required'
-      });
-    }
-
-    // Validate userType
-    if (!['client', 'vendor', 'admin'].includes(userType)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid userType. Must be client, vendor, or admin'
+        message: 'Email and password are required'
       });
     }
 
@@ -69,6 +62,14 @@ exports.login = async (req, res) => {
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
+      });
+    }
+
+    // Check if user is a social login user trying to login with password
+    if (user.provider === 'google') {
+      return res.status(400).json({
+        success: false,
+        message: 'This account uses Google Sign-In. Please use Google authentication.'
       });
     }
 
@@ -150,6 +151,81 @@ exports.login = async (req, res) => {
         })
       }
     });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// --- Separate Login APIs ---
+// Client Login
+exports.clientLogin = async (req, res) => {
+  return performLogin(req, res, 'client');
+};
+
+// Vendor Login  
+exports.vendorLogin = async (req, res) => {
+  return performLogin(req, res, 'vendor');
+};
+
+// Admin Login
+exports.adminLogin = async (req, res) => {
+  return performLogin(req, res, 'admin');
+};
+
+// General Login (backward compatibility) - can be removed if not needed
+exports.login = async (req, res) => {
+  try {
+    let { email, password, userType } = req.body;
+
+    // Validate required fields
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and password are required'
+      });
+    }
+
+    // If userType is not provided, try to detect it automatically
+    if (!userType) {
+      // Check which user types exist for this email
+      const allUsers = await User.find({ email, isActive: true });
+      
+      if (allUsers.length === 0) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
+        });
+      }
+      
+      // If multiple user types exist for same email, require userType to be specified
+      if (allUsers.length > 1) {
+        const userTypes = allUsers.map(u => u.userType);
+        return res.status(400).json({
+          success: false,
+          message: `Multiple accounts found for this email. Please specify userType.`,
+          availableUserTypes: userTypes
+        });
+      }
+      
+      // Single user found, use their userType
+      userType = allUsers[0].userType;
+    }
+
+    // Validate userType if provided
+    if (userType && !['client', 'vendor', 'admin'].includes(userType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid userType. Must be client, vendor, or admin'
+      });
+    }
+
+    return performLogin(req, res, userType);
 
   } catch (error) {
     console.error('Login error:', error);
@@ -393,6 +469,14 @@ exports.sendOtpForForgotPassword = async (req, res) => {
       });
     }
 
+    // Check if user is a social login user
+    if (user.provider === 'google') {
+      return res.status(400).json({
+        success: false,
+        message: 'This account uses Google Sign-In. Password reset is not available for social login accounts. Please use Google to sign in.'
+      });
+    }
+
     await generateAndSendOTP(email);
     res.json({ 
       success: true,
@@ -414,6 +498,22 @@ exports.verifyOtpForForgotPassword = async (req, res) => {
       return res.status(400).json({ 
         success: false,
         message: 'Email and OTP are required' 
+      });
+    }
+
+    // Check if user exists and is not a social login user
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'No account found with this email'
+      });
+    }
+
+    if (user.provider === 'google') {
+      return res.status(400).json({
+        success: false,
+        message: 'This account uses Google Sign-In. Password reset is not available for social login accounts.'
       });
     }
 
@@ -454,6 +554,14 @@ exports.resetPassword = async (req, res) => {
       return res.status(404).json({ 
         success: false,
         message: 'User not found' 
+      });
+    }
+
+    // Check if user is a social login user
+    if (user.provider === 'google') {
+      return res.status(400).json({
+        success: false,
+        message: 'This account uses Google Sign-In. Password reset is not available for social login accounts. Please use Google to sign in.'
       });
     }
 
@@ -628,6 +736,134 @@ exports.registerVendor = async (req, res) => {
       success: false,
       message: 'Server error', 
       error: err.message 
+    });
+  }
+};
+
+// --- Google Authentication ---
+exports.googleAuth = async (req, res) => {
+  try {
+    const { idToken } = req.body;
+
+    // Validate required fields
+    if (!idToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID token is required'
+      });
+    }
+
+    // Verify the ID token with Firebase
+    let decodedToken;
+    try {
+      decodedToken = await auth.verifyIdToken(idToken);
+    } catch (error) {
+      console.error('Firebase token verification error:', error);
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired ID token'
+      });
+    }
+
+    // Extract user information from decoded token
+    const { uid, email, name, picture } = decodedToken;
+
+    if (!email || !name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and name are required from Google account'
+      });
+    }
+
+    // Check if user already exists
+    let user = await User.findOne({ email, userType: 'client', isActive: true });
+
+    if (user) {
+      // User exists - handle login
+      if (user.provider === 'email') {
+        // User registered with email/password, link Google account
+        user.googleId = uid;
+        user.provider = 'google';
+        user.password = null; // Remove password for Google users
+        if (picture && !user.profileImage) {
+          user.profileImage = picture;
+        }
+      }
+
+      // Update last login
+      user.lastLogin = new Date();
+      await user.save();
+
+      // Store session data
+      req.session.user = {
+        id: user._id,
+        email: user.email,
+        userType: user.userType,
+        firstName: user.firstName,
+        lastName: user.lastName
+      };
+
+      return res.json({
+        success: true,
+        message: 'Login successful',
+        user: {
+          id: user._id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          userType: user.userType,
+          profileImage: user.profileImage
+        }
+      });
+    } else {
+      // User doesn't exist - create new user
+      const [firstName, ...lastNameParts] = name.split(' ');
+      const lastName = lastNameParts.join(' ') || '';
+
+      user = new User({
+        firstName,
+        lastName,
+        email,
+        userType: 'client',
+        googleId: uid,
+        provider: 'google',
+        password: null, // Explicitly set password to null for Google users
+        profileImage: picture || undefined,
+        isActive: true,
+        lastLogin: new Date()
+      });
+
+      await user.save();
+
+      // Store session data
+      req.session.user = {
+        id: user._id,
+        email: user.email,
+        userType: user.userType,
+        firstName: user.firstName,
+        lastName: user.lastName
+      };
+
+      return res.status(201).json({
+        success: true,
+        message: 'Registration and login successful',
+        user: {
+          id: user._id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          userType: user.userType,
+          profileImage: user.profileImage
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('Google authentication error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };

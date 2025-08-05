@@ -50,3 +50,6 @@ build/
 # Temporary files
 .tmp/
 temp/
+
+# Firebase service account key
+serviceAccountKey.json
