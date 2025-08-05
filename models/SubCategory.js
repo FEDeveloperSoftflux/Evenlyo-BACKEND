@@ -22,8 +22,7 @@ const subCategorySchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
- timestamps: true
-});
+}, { timestamps: true });
 
 // Pre-save middleware
 subCategorySchema.pre('save', function(next) {

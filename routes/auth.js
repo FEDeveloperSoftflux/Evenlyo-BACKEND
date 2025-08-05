@@ -1,106 +1,122 @@
 
+
 const express = require('express');
 const router = express.Router();
-
-// Check if email is already registered
-router.post('/check-email', async (req, res) => {
-  const User = require('../models/User');
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ exists: false, message: 'Email required' });
-  const user = await User.findOne({ email });
-  res.json({ exists: !!user });
-});
-
-// Logout: clear the cookie
-router.post('/logout', (req, res) => {
-  res.clearCookie('token', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-  });
-  res.json({ message: 'Logged out successfully' });
-});
-
 const authController = require('../controllers/authController');
-const authMiddleware = require('../middleware/authMiddleware');
-const { requireVendor } = require('../middleware/roleMiddleware');
+const {
+  requireAuth,
+  rateLimit,
+  csrfProtection
+} = require('../middleware/authMiddleware');
 
-// Register
-router.post('/register', authController.register);
+// --- Public Routes ---
+
+// General login route (backward compatibility)
+router.post('/login',
+  rateLimit(20, 15 * 60 * 1000), // Increased to 20 attempts per 15 minutes for testing
+  csrfProtection,
+  authController.login
+);
+
+// Separate login routes for each user type
+router.post('/client/login',
+  rateLimit(20, 15 * 60 * 1000),
+  csrfProtection,
+  authController.clientLogin
+);
+
+router.post('/vendor/login',
+  rateLimit(20, 15 * 60 * 1000),
+  csrfProtection,
+  authController.vendorLogin
+);
+
+router.post('/admin/login',
+  rateLimit(20, 15 * 60 * 1000),
+  csrfProtection,
+  authController.adminLogin
+);
+
+// Logout route
+router.post('/logout', authController.logout);
+
+// OTP routes
+router.post('/send-otp',
+  rateLimit(10, 5 * 60 * 1000), // Increased to 10 attempts per 5 minutes for testing
+  authController.sendOtpForRegister
+);
+
+// Client Registration
+router.post('/client/register',
+  rateLimit(10, 5 * 60 * 1000), // Increased to 10 attempts per 5 minutes for testing
+  csrfProtection,
+  authController.registerClient
+);
 
 // Vendor Registration
-router.post('/register-vendor', authController.registerVendor);
-router.post('/verify-otp-register-vendor', authController.verifyOtpAndRegisterVendor);
+router.post('/vendor/register',
+  rateLimit(10, 5 * 60 * 1000), // Increased to 10 attempts per 5 minutes for testing
+  csrfProtection,
+  authController.registerVendor
+);
 
+// Password reset routes
+router.post('/send-forgot-otp',
+  rateLimit(10, 5 * 60 * 1000), // Increased to 10 attempts per 5 minutes for testing
+  authController.sendOtpForForgotPassword
+);
 
-// OTP for registration
-router.post('/send-otp', authController.sendOtpForRegister);
-router.post('/verify-otp-register', authController.verifyOtpAndRegister);
+router.post('/verify-forgot-otp',
+  rateLimit(10, 5 * 60 * 1000), // Increased to 10 attempts per 5 minutes for testing
+  authController.verifyOtpForForgotPassword
+);
 
-// Forgot Password OTP endpoints
-router.post('/send-otp-forgot', authController.sendOtpForForgotPassword);
-router.post('/verify-otp-forgot', authController.verifyOtpForForgotPassword);
-router.post('/reset-password', authController.resetPassword);
+router.post('/reset-password',
+  rateLimit(10, 5 * 60 * 1000), // Increased to 10 attempts per 5 minutes for testing
+  csrfProtection,
+  authController.resetPassword
+);
 
-// Login
-router.post('/login', authController.login);
+// Google Authentication
+router.post('/google',
+  rateLimit(10, 5 * 60 * 1000), // Rate limit for Google auth
+  authController.googleAuth
+);
 
+// --- Protected Routes ---
 
-// Get current user from cookie
-router.get('/me', authMiddleware, async (req, res) => {
-  // Fetch user from DB for fresh info
-  const User = require('../models/User');
-  const Vendor = require('../models/Vendor');
+// Get current user (requires authentication)
+router.get('/me', requireAuth, authController.getCurrentUser);
+
+// --- Health Check Route ---
+router.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Auth service is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Firebase health check route
+router.get('/firebase-health', (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    
-    let responseData = {
-      user: {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        fullName: user.fullName,
-        email: user.email,
-        phone: user.contactNumber,
-        address: user.address,
-        role: user.userType
-      }
-    };
-    
-    // If user is a vendor, include vendor profile
-    if (user.userType === 'vendor') {
-      const vendor = await Vendor.findOne({ userId: user._id });
-      if (vendor) {
-        responseData.vendor = {
-          id: vendor._id,
-          businessName: vendor.businessName,
-          businessEmail: vendor.businessEmail,
-          businessPhone: vendor.businessPhone,
-          businessAddress: vendor.businessAddress,
-          businessWebsite: vendor.businessWebsite,
-          teamType: vendor.teamType,
-          teamSize: vendor.teamSize,
-          businessLocation: vendor.businessLocation,
-          businessDescription: vendor.businessDescription,
-          approvalStatus: vendor.approvalStatus,
-          isApproved: vendor.isApproved,
-          rating: vendor.rating,
-          totalBookings: vendor.totalBookings,
-          completedBookings: vendor.completedBookings
-        };
-      }
-    }
-    
-    res.json(responseData);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
+    const { admin, projectId } = require('../config/firebase');
+    const app = admin.app();
+
+    res.json({
+      success: true,
+      message: 'Firebase Admin SDK is properly configured',
+      projectId: projectId || app.options.projectId || 'evenlyo-marketplace',
+      appName: app.name || 'default',
+      authReady: !!admin.auth()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Firebase configuration error',
+      error: error.message
+    });
   }
 });
 
 module.exports = router;
-
-//
-router.get('/protected', authMiddleware, (req, res) => {
-  res.json({ message: 'You have accessed a protected route!', user: req.user });
-});

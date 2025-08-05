@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
+    "seed": "node utils/seeder.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -17,15 +18,23 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
-    "i18next": "^25.3.2",
+    "express-async-handler": "^1.2.0",
+    "express-session": "^1.17.3",
+    "firebase-admin": "^13.4.0",
     "i18next-fs-backend": "^2.6.0",
     "i18next-http-backend": "^3.0.2",
     "i18next-http-middleware": "^3.8.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.17.0",
-    "nodemailer": "^7.0.5"
+    "node-fetch": "^2.7.0",
+    "nodemailer": "^7.0.5",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
+    "axios": "^1.11.0",
     "nodemon": "^3.1.10"
   }
 }
