@@ -1,5 +1,4 @@
 
-
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
@@ -51,6 +50,11 @@ router.post('/client/register',
   rateLimit(10, 5 * 60 * 1000), // Increased to 10 attempts per 5 minutes for testing
   csrfProtection,
   authController.registerClient
+);
+
+router.post('/verify-register-otp', 
+  rateLimit(10, 5 * 60 * 1000), // Increased to 10 attempts per 5 minutes for testing
+  authController.verifyOtpAndRegister
 );
 
 // Vendor Registration

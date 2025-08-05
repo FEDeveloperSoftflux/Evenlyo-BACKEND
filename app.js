@@ -96,9 +96,27 @@ app.use('/api/booking', bookingRoutes);
 const cartRoutes = require('./routes/cart');
 app.use('/api/cart', cartRoutes);
 
+// Plan routes
+const planRoutes = require('./routes/plans');
+app.use('/api/plans', planRoutes);
+
 // Root endpoint with translation
 app.get('/', (req, res) => {
   res.send(req.t('welcome'));
+});
+
+
+/// for test
+
+// Debug endpoint to check session (remove in production)
+app.get('/api/debug/session', (req, res) => {
+  res.json({
+    sessionExists: !!req.session,
+    sessionID: req.sessionID,
+    sessionData: req.session,
+    cookies: req.cookies,
+    user: req.session?.user || null
+  });
 });
 
 // Error handling middleware
