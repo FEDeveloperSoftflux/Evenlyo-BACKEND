@@ -29,7 +29,7 @@ const vendorSchema = new mongoose.Schema({
   },
   teamSize: {
     type: String,
-    enum: ['1-5', '6-10', '11-20', '21+'] // Adjust as needed
+    enum: ['1-5', '6-10', '11-20', '21+'] 
   },
   businessLocation: String,
   businessLogo: String,
@@ -78,15 +78,12 @@ const vendorSchema = new mongoose.Schema({
     default: 'pending'
   },
   rejectionReason: String,
+
   contactMeEnabled: {
     type: Boolean,
     default: true
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
   }
-});
+}, { timestamps: true });
 
 vendorSchema.index({ userId: 1 });
 vendorSchema.index({ mainCategories: 1 });
