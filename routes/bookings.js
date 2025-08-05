@@ -10,6 +10,8 @@ const {
   getBookingHistory,
   getVendorBookingHistory
 } = require('../controllers/bookingController');
+
+
 const { requireAuth, requireClient, requireVendor } = require('../middleware/authMiddleware');
 
 // @route   POST /api/booking/request
