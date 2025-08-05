@@ -274,43 +274,50 @@ exports.getCurrentUser = async (req, res) => {
     }
 
     const { id, userType } = req.session.user;
-    const UserModel = getModelByUserType(userType);
     
     let userData;
+    let responseUser = {
+      id: req.session.user.id,
+      email: req.session.user.email,
+      firstName: req.session.user.firstName,
+      lastName: req.session.user.lastName,
+      userType: req.session.user.userType
+    };
     
     if (userType === 'client') {
       userData = await User.findById(id).select('-password');
+      if (!userData) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
     } else if (userType === 'vendor') {
       userData = await Vendor.findOne({ userId: id }).populate('userId', '-password');
+      if (!userData) {
+        return res.status(404).json({
+          success: false,
+          message: 'Vendor profile not found'
+        });
+      }
+      responseUser.businessName = userData.businessName;
+      responseUser.approvalStatus = userData.approvalStatus;
     } else if (userType === 'admin') {
       userData = await Admin.findOne({ userId: id }).populate('userId', '-password');
-    }
-
-    if (!userData) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
+      if (!userData) {
+        return res.status(404).json({
+          success: false,
+          message: 'Admin profile not found'
+        });
+      }
+      responseUser.role = userData.role;
+      responseUser.permissions = userData.permissions;
+      responseUser.department = userData.department;
     }
 
     res.json({
       success: true,
-      user: {
-        id: req.session.user.id,
-        email: req.session.user.email,
-        firstName: req.session.user.firstName,
-        lastName: req.session.user.lastName,
-        userType: req.session.user.userType,
-        ...(userType === 'admin' && {
-          role: userData.role,
-          permissions: userData.permissions,
-          department: userData.department
-        }),
-        ...(userType === 'vendor' && {
-          businessName: userData.businessName,
-          approvalStatus: userData.approvalStatus
-        })
-      }
+      user: responseUser
     });
 
   } catch (error) {
