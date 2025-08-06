@@ -1,5 +1,6 @@
 const SubCategory = require('../models/SubCategory');
 const Category = require('../models/Category');
+const mongoose = require('mongoose');
 
 // @desc    Get all subcategories
 // @route   GET /api/subcategories
@@ -102,8 +103,8 @@ const getSubCategoryById = async (req, res) => {
 const getSubCategoriesByCategory = async (req, res) => {
   try {
     const { categoryId } = req.params;
-    const { isActive = true } = req.query;
-    
+    const { isActive } = req.query;
+
     // Verify category exists
     const category = await Category.findById(categoryId);
     if (!category) {
@@ -112,21 +113,27 @@ const getSubCategoriesByCategory = async (req, res) => {
         message: 'Category not found'
       });
     }
-    
+
+    // Build query object
     const query = {
-      mainCategory: categoryId,
-      isActive: isActive === 'true'
+      mainCategory: new mongoose.Types.ObjectId(categoryId)
     };
-    
+
+    if (isActive !== undefined) {
+      query.isActive = isActive === 'true';
+    }
+
+    // Fetch subcategories
     const subCategories = await SubCategory.find(query)
       .populate('mainCategory', 'name icon')
       .sort({ sortOrder: 1, name: 1 });
-    
+
     res.json({
       success: true,
       data: subCategories,
-      category: category
+      category
     });
+
   } catch (error) {
     console.error('Error fetching subcategories by category:', error);
     res.status(500).json({
