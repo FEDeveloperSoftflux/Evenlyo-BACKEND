@@ -248,7 +248,7 @@ exports.logout = async (req, res) => {
         });
       }
       
-      res.clearCookie('connect.sid');
+      res.clearCookie('evenlyo.sid');
       res.json({
         success: true,
         message: 'Logout successful'
