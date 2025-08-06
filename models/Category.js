@@ -2,12 +2,22 @@ const mongoose = require('mongoose');
 
 // Main Category Schema
 const categorySchema = new mongoose.Schema({
+
   name: {
+    en : {
     type: String,
     required: true,
     unique: true,
     trim: true
+    },
+    nl: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true
+    }
   },
+
   icon: String,
   description: String,
   isActive: {
@@ -31,3 +41,6 @@ categorySchema.index({ name: 1 });
 categorySchema.index({ isActive: 1, sortOrder: 1 });
 
 module.exports = mongoose.model('Category', categorySchema);
+
+
+
