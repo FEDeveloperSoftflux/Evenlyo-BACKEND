@@ -5,7 +5,7 @@ const Category = require('../models/Category');
 // @access  Public
 const getCategories = async (req, res) => {
   try {
-    const { page = 1, limit = 10, isActive, search } = req.query;
+    const { page = 1, limit = 5, isActive, search } = req.query;
     
     // Build query object
     const query = {};
@@ -89,9 +89,31 @@ const getCategoryById = async (req, res) => {
   }
 };
 
-
+// @desc    Get all categories (no pagination, filters, or search)
+// @route   GET /api/categories/all
+// @access  Public
+const getAllCategories = async (req, res) => {
+  try {
+    const categories = await Category.find()
+      .sort({ sortOrder: 1, name: 1 });
+    
+    res.json({
+      success: true,
+      data: categories,
+      count: categories.length
+    });
+  } catch (error) {
+    console.error('Error fetching all categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching categories',
+      error: error.message
+    });
+  }
+};
 
 module.exports = {
   getCategories,
   getCategoryById,
+  getAllCategories,
 };

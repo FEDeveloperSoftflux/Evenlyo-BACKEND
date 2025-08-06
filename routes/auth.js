@@ -37,7 +37,7 @@ router.post('/admin/login',
 );
 
 // Logout route
-router.post('/logout', authController.logout);
+router.post('/logout', requireAuth, authController.logout);
 
 // OTP routes
 router.post('/send-otp',
