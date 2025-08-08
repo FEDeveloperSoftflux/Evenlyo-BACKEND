@@ -19,7 +19,16 @@ const categorySchema = new mongoose.Schema({
   },
 
   icon: String,
-  description: String,
+  description: {
+    en: {
+      type: String,
+      trim: true
+    },
+    nl: {
+      type: String,
+      trim: true
+    }
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -37,7 +46,8 @@ categorySchema.pre('save', function(next) {
 });
 
 // Indexes for better performance
-categorySchema.index({ name: 1 });
+categorySchema.index({ 'name.en': 1 });
+categorySchema.index({ 'name.nl': 1 });
 categorySchema.index({ isActive: 1, sortOrder: 1 });
 
 module.exports = mongoose.model('Category', categorySchema);
