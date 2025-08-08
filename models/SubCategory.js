@@ -3,9 +3,16 @@ const mongoose = require('mongoose');
 // Sub Category Schema
 const subCategorySchema = new mongoose.Schema({
   name: {
-    type: String,
-    required: true,
-    trim: true
+    en: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    nl: {
+      type: String,
+      required: true,
+      trim: true
+    }
   },
   mainCategory: {
     type: mongoose.Schema.Types.ObjectId,
@@ -13,7 +20,16 @@ const subCategorySchema = new mongoose.Schema({
     required: true
   },
   icon: String,
-  description: String,
+  description: {
+    en: {
+      type: String,
+      trim: true
+    },
+    nl: {
+      type: String,
+      trim: true
+    }
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -30,8 +46,9 @@ subCategorySchema.pre('save', function(next) {
   next();
 });
 
-// Compound index to ensure unique subcategory names within each main category
-subCategorySchema.index({ name: 1, mainCategory: 1 }, { unique: true });
+// Compound index to ensure unique subcategory names within each main category for each language
+subCategorySchema.index({ 'name.en': 1, mainCategory: 1 }, { unique: true });
+subCategorySchema.index({ 'name.nl': 1, mainCategory: 1 }, { unique: true });
 subCategorySchema.index({ mainCategory: 1, isActive: 1, sortOrder: 1 });
 
 module.exports = mongoose.model('SubCategory', subCategorySchema);
