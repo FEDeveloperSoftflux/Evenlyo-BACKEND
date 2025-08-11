@@ -34,14 +34,14 @@ router.get('/profile/:vendorId', vendorController.getVendorProfile);
 // --- Protected Routes (Vendor Only) ---
 
 // @desc    Get current vendor's profile
-// @route   GET /api/vendor/profile
+// @route   GET /api/vendor/my-profile
 // @access  Private (Vendor)
-router.get('/profile', requireAuth, requireVendor, vendorController.getVendorProfile);
+router.get('/vendorprofile', requireAuth, requireVendor, vendorController.getVendorProfile);
 
 // @desc    Update vendor profile
-// @route   PUT /api/vendor/profile
+// @route   PUT /api/vendor/my-profile
 // @access  Private (Vendor)
-router.put('/profile', requireAuth, requireVendor, vendorController.updateVendorProfile);
+router.put('/vendorprofile', requireAuth, requireVendor, vendorController.updateVendorProfile);
 
 // @desc    Get vendor business details and analytics
 // @route   GET /api/vendor/business-details
