@@ -2,11 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
-const {
-  requireAuth,
-  rateLimit,
-  csrfProtection
-} = require('../middleware/authMiddleware');
+const { requireAuth,rateLimit,csrfProtection} = require('../middleware/authMiddleware');
 
 // --- Public Routes ---
 
@@ -17,7 +13,7 @@ router.post('/login',
   authController.login
 );
 
-// Separate login routes for each user type
+// Login route
 router.post('/client/login',
   rateLimit(20, 15 * 60 * 1000),
   csrfProtection,
@@ -57,13 +53,6 @@ router.post('/verify-register-otp',
   authController.verifyOtpAndRegister
 );
 
-// Vendor Registration
-router.post('/vendor/register',
-  rateLimit(10, 5 * 60 * 1000), // Increased to 10 attempts per 5 minutes for testing
-  csrfProtection,
-  authController.registerVendor
-);
-
 // Password reset routes
 router.post('/send-forgot-otp',
   rateLimit(10, 5 * 60 * 1000), // Increased to 10 attempts per 5 minutes for testing
@@ -91,6 +80,8 @@ router.post('/google',
 
 // Get current user (requires authentication)
 router.get('/me', requireAuth, authController.getCurrentUser);
+
+
 
 // --- Health Check Route ---
 router.get('/health', (req, res) => {

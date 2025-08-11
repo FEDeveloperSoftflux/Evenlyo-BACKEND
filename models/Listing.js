@@ -3,21 +3,44 @@ const mongoose = require('mongoose');
 // Listing Schema
 const listingSchema = new mongoose.Schema({
   title: {
-    type: String,
-    required: true,
-    trim: true,
-    maxlength: 200
+    en: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 200
+    },
+    nl: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 200
+    }
   },
   subtitle: {
-    type: String,
-    trim: true,
-    maxlength: 150
+    en: {
+      type: String,
+      trim: true,
+      maxlength: 150
+    },
+    nl: {
+      type: String,
+      trim: true,
+      maxlength: 150
+    }
   },
   description: {
-    type: String,
-    required: true,
-    trim: true,
-    maxlength: 2000
+    en: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 2000
+    },
+    nl: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 2000
+    }
   },
   vendor: {
     type: mongoose.Schema.Types.ObjectId,
@@ -121,8 +144,20 @@ const listingSchema = new mongoose.Schema({
       type: Number,
       min: 0
     },
-    description: String,
-    specialties: [String],
+    description: {
+      en: {
+        type: String,
+        trim: true
+      },
+      nl: {
+        type: String,
+        trim: true
+      }
+    },
+    specialties: {
+      en: [String],
+      nl: [String]
+    },
     previousClients: [String],
     certifications: [String]
   },
@@ -164,7 +199,16 @@ const listingSchema = new mongoose.Schema({
   personalInfo: {
     displayName: String, // Professional name like "DJ Ray Beatz"
     realName: String,
-    bio: String,
+    bio: {
+      en: {
+        type: String,
+        trim: true
+      },
+      nl: {
+        type: String,
+        trim: true
+      }
+    },
     profileImage: String,
     coverImage: String
   },
@@ -198,16 +242,40 @@ const listingSchema = new mongoose.Schema({
     videos: [String]   // Array of video URLs
   },
   features: [{
-    name: String,
-    description: String,
+    name: {
+      en: {
+        type: String,
+        trim: true
+      },
+      nl: {
+        type: String,
+        trim: true
+      }
+    },
+    description: {
+      en: {
+        type: String,
+        trim: true
+      },
+      nl: {
+        type: String,
+        trim: true
+      }
+    },
     isIncluded: {
       type: Boolean,
       default: true
     }
   }],
   requirements: [{
-    type: String,
-    trim: true
+    en: {
+      type: String,
+      trim: true
+    },
+    nl: {
+      type: String,
+      trim: true
+    }
   }],
   tags: [{
     type: String,
@@ -394,7 +462,7 @@ listingSchema.index({ 'location.city': 1, isActive: 1 });
 listingSchema.index({ status: 1, isActive: 1, isFeatured: -1, sortOrder: -1 });
 listingSchema.index({ tags: 1 });
 listingSchema.index({ 'ratings.average': -1, 'bookings.completed': -1 });
-listingSchema.index({ title: 'text', description: 'text', tags: 'text' });
+listingSchema.index({ 'title.en': 'text', 'title.nl': 'text', 'description.en': 'text', 'description.nl': 'text', tags: 'text' });
 
 // Compound index for category-based filtering
 listingSchema.index({ 

@@ -2,8 +2,7 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Vendor = require('../models/Vendor');
 const Admin = require('../models/Admin');
-const OTP = require('../models/OTP');
-const { sendOTPEmail } = require('../utils/mailer');
+const { generateAndSendOTP, verifyOTP } = require('../utils/otpUtils');
 const { auth } = require('../config/firebase');
 
 // --- Model loading utility ---
@@ -164,22 +163,22 @@ const performLogin = async (req, res, userType) => {
 
 // --- Separate Login APIs ---
 // Client Login
-exports.clientLogin = async (req, res) => {
+const clientLogin = async (req, res) => {
   return performLogin(req, res, 'client');
 };
 
 // Vendor Login  
-exports.vendorLogin = async (req, res) => {
+const vendorLogin = async (req, res) => {
   return performLogin(req, res, 'vendor');
 };
 
 // Admin Login
-exports.adminLogin = async (req, res) => {
+const adminLogin = async (req, res) => {
   return performLogin(req, res, 'admin');
 };
 
 // General Login (backward compatibility) - can be removed if not needed
-exports.login = async (req, res) => {
+const login = async (req, res) => {
   try {
     let { email, password, userType } = req.body;
 
@@ -238,7 +237,7 @@ exports.login = async (req, res) => {
 };
 
 // --- Logout---
-exports.logout = async (req, res) => {
+const logout = async (req, res) => {
   try {
     req.session.destroy((err) => {
       if (err) {
@@ -264,7 +263,7 @@ exports.logout = async (req, res) => {
 };
 
 // --- Get Current User ---
-exports.getCurrentUser = async (req, res) => {
+const getCurrentUser = async (req, res) => {
   try {
     if (!req.session.user) {
       return res.status(401).json({
@@ -332,31 +331,8 @@ exports.getCurrentUser = async (req, res) => {
   }
 };
 
-// --- Reusable OTP helpers ---
-async function generateAndSendOTP(email) {
-  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
-  await OTP.create({ email, code: otpCode, expiresAt });
-  await sendOTPEmail(email, otpCode);
-}
-
-async function verifyOTP(email, code) {
-  const otpDoc = await OTP.findOne({
-    email,
-    code,
-    expiresAt: { $gt: new Date() },
-    verified: false
-  }).sort({ createdAt: -1 });
-
-  if (!otpDoc) return false;
-
-  otpDoc.verified = true;
-  await otpDoc.save();
-  return true;
-}
-
 // --- Registration OTP endpoints ---
-exports.sendOtpForRegister = async (req, res) => {
+const sendOtpForRegister = async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) {
@@ -380,14 +356,22 @@ exports.sendOtpForRegister = async (req, res) => {
   }
 };
 
-exports.verifyOtpAndRegister = async (req, res) => {
+const verifyOtpAndRegister = async (req, res, userType = 'client') => {
   try {
-    const { firstName, lastName, email, contactNumber, address, password, otp, userType } = req.body;
+    const { firstName, lastName, email, contactNumber, address, password, confirmPassword, otp } = req.body;
 
-    if (!firstName || !lastName || !email || !contactNumber || !address || !password || !otp || !userType) {
+    if (!firstName || !lastName || !email || !contactNumber || !address || !password || !confirmPassword || !otp) {
       return res.status(400).json({
         success: false,
-        message: 'All fields and OTP are required'
+        message: 'All fields including password confirmation and OTP are required'
+      });
+    }
+
+    // Validate password confirmation
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password and confirm password do not match'
       });
     }
 
@@ -396,6 +380,14 @@ exports.verifyOtpAndRegister = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Invalid userType. Registration only available for client or vendor'
+      });
+    }
+
+    // Currently only client registration is implemented
+    if (userType === 'vendor') {
+      return res.status(400).json({
+        success: false,
+        message: 'Vendor registration is not yet implemented. Please use client registration.'
       });
     }
 
@@ -434,20 +426,18 @@ exports.verifyOtpAndRegister = async (req, res) => {
 
     await user.save();
 
-    // Create role-specific profile if vendor
-    if (userType === 'vendor') {
-      const vendor = new Vendor({
-        userId: user._id,
-        businessName: `${firstName} ${lastName}`,
-        businessEmail: email,
-        approvalStatus: 'pending'
-      });
-      await vendor.save();
-    }
+    // Future: Create role-specific profile if vendor
+    // if (userType === 'vendor') {
+    //   // Vendor profile creation logic will be implemented here
+    // }
+
+    const successMessage = userType === 'vendor' 
+      ? 'Vendor registration successful. Your account is pending approval.'
+      : 'Client registration successful';
 
     res.status(201).json({
       success: true,
-      message: 'Registration successful'
+      message: successMessage
     });
   } catch (err) {
     console.error('Verify OTP/Register error:', err);
@@ -460,7 +450,7 @@ exports.verifyOtpAndRegister = async (req, res) => {
 };
 
 // --- Forgot Password OTP endpoints ---
-exports.sendOtpForForgotPassword = async (req, res) => {
+const sendOtpForForgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) {
@@ -501,7 +491,7 @@ exports.sendOtpForForgotPassword = async (req, res) => {
   }
 };
 
-exports.verifyOtpForForgotPassword = async (req, res) => {
+const verifyOtpForForgotPassword = async (req, res) => {
   try {
     const { email, otp } = req.body;
     if (!email || !otp) {
@@ -535,6 +525,9 @@ exports.verifyOtpForForgotPassword = async (req, res) => {
       });
     }
 
+    // Store verified email in session for password reset
+    req.session.verifiedEmailForReset = email;
+
     res.json({
       success: true,
       message: 'OTP verified. You may now reset your password.'
@@ -549,13 +542,24 @@ exports.verifyOtpForForgotPassword = async (req, res) => {
   }
 };
 
-exports.resetPassword = async (req, res) => {
+const resetPassword = async (req, res) => {
   try {
-    const { email, newPassword } = req.body;
-    if (!email || !newPassword) {
+    const { password } = req.body;
+    
+    // Get email from session (set after OTP verification)
+    const email = req.session.verifiedEmailForReset;
+    
+    if (!email) {
       return res.status(400).json({
         success: false,
-        message: 'Email and new password are required'
+        message: 'Session expired. Please verify OTP again before resetting password.'
+      });
+    }
+    
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password is required'
       });
     }
 
@@ -576,9 +580,12 @@ exports.resetPassword = async (req, res) => {
     }
 
     // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
     user.password = hashedPassword;
     await user.save();
+
+    // Clear the session data after successful password reset
+    delete req.session.verifiedEmailForReset;
 
     res.json({
       success: true,
@@ -595,163 +602,47 @@ exports.resetPassword = async (req, res) => {
 };
 
 // --- Client Registration ---
-exports.registerClient = async (req, res) => {
-  try {
-    const { firstName, lastName, email, contactNumber, address, password, otp } = req.body;
-
-    if (!firstName || !lastName || !email || !contactNumber || !address || !password || !otp) {
-      return res.status(400).json({
-        success: false,
-        message: 'All fields and OTP are required'
-      });
-    }
-
-    // Verify OTP
-    const valid = await verifyOTP(email, otp);
-    if (!valid) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid or expired OTP'
-      });
-    }
-
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(409).json({
-        success: false,
-        message: 'Email already registered'
-      });
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create client user
-    const user = new User({
-      firstName,
-      lastName,
-      email,
-      contactNumber,
-      address,
-      password: hashedPassword,
-      userType: 'client',
-      isActive: true
-    });
-
-    await user.save();
-
-    res.status(201).json({
-      success: true,
-      message: 'Client registration successful'
-    });
-  } catch (err) {
-    console.error('Client registration error:', err);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: err.message
-    });
-  }
+const registerClient = async (req, res) => {
+  return verifyOtpAndRegister(req, res, 'client');
 };
 
-// --- Vendor Registration ---
-exports.registerVendor = async (req, res) => {
+// --- General Registration (backward compatibility) ---
+const verifyOtpAndRegisterGeneral = async (req, res) => {
   try {
-    const {
-      firstName,
-      lastName,
-      email,
-      contactNumber,
-      address,
-      password,
-      otp,
-      businessName,
-      businessEmail,
-      businessPhone,
-      businessAddress,
-      businessWebsite,
-      teamType,
-      teamSize,
-      businessLocation,
-      businessDescription
-    } = req.body;
-
-    if (!firstName || !lastName || !email || !contactNumber || !address || !password || !otp || !businessName) {
+    const { userType } = req.body;
+    
+    // If userType is provided in body, use it; otherwise default to 'client'
+    const targetUserType = userType || 'client';
+    
+    // Validate userType
+    if (!['client', 'vendor'].includes(targetUserType)) {
       return res.status(400).json({
         success: false,
-        message: 'All required fields and OTP are required'
+        message: 'Invalid userType. Must be client or vendor'
       });
     }
 
-    // Verify OTP
-    const valid = await verifyOTP(email, otp);
-    if (!valid) {
+    // Currently only client registration is implemented
+    if (targetUserType === 'vendor') {
       return res.status(400).json({
         success: false,
-        message: 'Invalid or expired OTP'
+        message: 'Vendor registration is not yet implemented. Please use client registration.'
       });
     }
-
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(409).json({
-        success: false,
-        message: 'Email already registered'
-      });
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create vendor user
-    const user = new User({
-      firstName,
-      lastName,
-      email,
-      contactNumber,
-      address,
-      password: hashedPassword,
-      userType: 'vendor',
-      isActive: true
-    });
-
-    await user.save();
-
-    // Create vendor profile
-    const vendor = new Vendor({
-      userId: user._id,
-      businessName,
-      businessEmail: businessEmail || email,
-      businessPhone,
-      businessAddress,
-      businessWebsite,
-      teamType: teamType || 'single',
-      teamSize,
-      businessLocation,
-      businessDescription,
-      approvalStatus: 'pending'
-    });
-
-    await vendor.save();
-
-    res.status(201).json({
-      success: true,
-      message: 'Vendor registration successful. Your account is pending approval.'
-    });
-  } catch (err) {
-    console.error('Vendor registration error:', err);
+    
+    return verifyOtpAndRegister(req, res, targetUserType);
+  } catch (error) {
+    console.error('General registration error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error',
-      error: err.message
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
 // --- Google Authentication ---
-exports.googleAuth = async (req, res) => {
+const googleAuth = async (req, res) => {
   try {
     const { idToken } = req.body;
 
@@ -876,4 +767,28 @@ exports.googleAuth = async (req, res) => {
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
+};
+
+// --- Grouped Exports ---
+module.exports = {
+  // Authentication
+  clientLogin,
+  vendorLogin,
+  adminLogin,
+  login,
+  logout,
+  getCurrentUser,
+  googleAuth,
+
+  // Registration
+  registerClient,
+  verifyOtpAndRegister: verifyOtpAndRegisterGeneral,
+
+  // OTP Management
+  sendOtpForRegister,
+  sendOtpForForgotPassword,
+  verifyOtpForForgotPassword,
+
+  // Password Management
+  resetPassword
 };

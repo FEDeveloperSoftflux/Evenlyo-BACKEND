@@ -65,15 +65,42 @@ const bookingRequestSchema = new mongoose.Schema({
         required: true
       },
       dailyHours: Number,
-      notes: String
+      notes: {
+        en: {
+          type: String,
+          trim: true
+        },
+        nl: {
+          type: String,
+          trim: true
+        }
+      }
     }],
     eventLocation: { // Updated field name
       type: String,
       required: true
     },
-    eventType: String,
+    eventType: {
+      en: {
+        type: String,
+        trim: true
+      },
+      nl: {
+        type: String,
+        trim: true
+      }
+    },
     guestCount: Number,
-    specialRequests: String,
+    specialRequests: {
+      en: {
+        type: String,
+        trim: true
+      },
+      nl: {
+        type: String,
+        trim: true
+      }
+    },
     contactPreference: {
       type: String,
       enum: ['phone', 'email', 'whatsapp'],
@@ -104,7 +131,7 @@ const bookingRequestSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'accepted', 'rejected', 'paid', 'on_the_way', 'received', 'completed', 'cancelled'],
+    enum: ['pending', 'accepted', 'rejected', 'paid', 'on_the_way', 'received', 'picked_up', 'completed', 'cancelled', 'claim'],
     default: 'pending'
   },
   paymentStatus: {
@@ -133,10 +160,28 @@ const bookingRequestSchema = new mongoose.Schema({
       userType: String,
       name: String
     },
-    notes: String
+    notes: {
+      en: {
+        type: String,
+        trim: true
+      },
+      nl: {
+        type: String,
+        trim: true
+      }
+    }
   }],
   cancellationDetails: {
-    reason: String,
+    reason: {
+      en: {
+        type: String,
+        trim: true
+      },
+      nl: {
+        type: String,
+        trim: true
+      }
+    },
     requestedBy: {
       type: String,
       enum: ['client', 'vendor']
@@ -148,7 +193,48 @@ const bookingRequestSchema = new mongoose.Schema({
       default: 0
     }
   },
-  rejectionReason: String,
+  rejectionReason: {
+    en: {
+      type: String,
+      trim: true
+    },
+    nl: {
+      type: String,
+      trim: true
+    }
+  },
+  claimDetails: {
+    reason: {
+      en: {
+        type: String,
+        trim: true
+      },
+      nl: {
+        type: String,
+        trim: true
+      }
+    },
+    claimedBy: {
+      type: String,
+      enum: ['client', 'vendor']
+    },
+    claimedAt: Date,
+    status: {
+      type: String,
+      enum: ['pending', 'resolved', 'rejected'],
+      default: 'pending'
+    },
+    adminNotes: {
+      en: {
+        type: String,
+        trim: true
+      },
+      nl: {
+        type: String,
+        trim: true
+      }
+    }
+  },
   deliveryDetails: {
     driverInfo: {
       name: String,
@@ -160,8 +246,26 @@ const bookingRequestSchema = new mongoose.Schema({
     returnTime: Date
   },
   feedback: {
-    clientFeedback: String,
-    vendorFeedback: String
+    clientFeedback: {
+      en: {
+        type: String,
+        trim: true
+      },
+      nl: {
+        type: String,
+        trim: true
+      }
+    },
+    vendorFeedback: {
+      en: {
+        type: String,
+        trim: true
+      },
+      nl: {
+        type: String,
+        trim: true
+      }
+    }
   },
   invoiceUrl: String,
 }, { timestamps: true });
@@ -205,7 +309,10 @@ bookingRequestSchema.pre('save', function(next) {
           startTime: dailyStartTime,
           endTime: dailyEndTime,
           dailyHours: dailyHours,
-          notes: i === 0 ? 'First day' : i === diffDays - 1 ? 'Last day' : `Day ${i + 1}`
+          notes: {
+            en: i === 0 ? 'First day' : i === diffDays - 1 ? 'Last day' : `Day ${i + 1}`,
+            nl: i === 0 ? 'Eerste dag' : i === diffDays - 1 ? 'Laatste dag' : `Dag ${i + 1}`
+          }
         });
       }
     }
@@ -228,7 +335,10 @@ bookingRequestSchema.pre('save', function(next) {
     this.statusHistory.push({
       status: this.status,
       timestamp: new Date(),
-      notes: 'Status updated'
+      notes: {
+        en: 'Status updated',
+        nl: 'Status bijgewerkt'
+      }
     });
   }
   

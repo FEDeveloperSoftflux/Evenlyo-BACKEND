@@ -22,8 +22,6 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: function() {
-      // Password is required only for email/password authentication
-      // Social login users (Google, etc.) should have password set to null
       return !this.provider || this.provider === 'email';
     },
     minlength: 8,
@@ -35,11 +33,6 @@ const userSchema = new mongoose.Schema({
       // Contact number is required only for non-Google logins
       return !this.provider || this.provider === 'email';
     }
-  },
-  // Social login fields
-  googleId: {
-    type: String,
-    sparse: true // Allow null values but maintain uniqueness when present
   },
   provider: {
     type: String,
