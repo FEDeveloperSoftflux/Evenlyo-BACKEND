@@ -15,9 +15,11 @@ const {
 router.get('/all', vendorController.getAllVendors);
 
 // @desc    Get vendors by category and subcategory
-// @route   GET /api/vendor/bycategory
+// @route   GET /api/vendor/bycategory (query params)
+// @route   GET /api/vendor/bycategory/:categoryId (path param)
 // @access  Public
 router.get('/bycategory', vendorController.getVendorsByCategory);
+router.get('/bycategory/:categoryId', vendorController.getVendorsByCategory);
 
 // @desc    Get featured vendors for homepage display
 // @route   GET /api/vendor/featured

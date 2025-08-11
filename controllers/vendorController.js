@@ -575,7 +575,8 @@ const getFeaturedVendors = asyncHandler(async (req, res) => {
 });
 
 // @desc    Get vendors by category and subcategory
-// @route   GET /api/vendor/by-category
+// @route   GET /api/vendor/bycategory (query params)
+// @route   GET /api/vendor/bycategory/:categoryId (path param)
 // @access  Public
 const getVendorsByCategory = asyncHandler(async (req, res) => {
   const { 
@@ -586,15 +587,18 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
     sortBy = 'rating',
     sortOrder = 'desc'
   } = req.query;
+  
+  // Handle both path parameter and query parameter for category
+  const categoryId = req.params.categoryId || category;
 
   // Build query object
   const query = {
     approvalStatus: 'approved'
   };
 
-  // Filter by main category
-  if (category) {
-    query.mainCategories = category;
+  // Filter by main category (use categoryId from path param or category from query param)
+  if (categoryId) {
+    query.mainCategories = categoryId;
   }
 
   // Filter by subcategory
