@@ -372,5 +372,10 @@ module.exports = {
 
   // Security helpers
   rateLimit,
-  csrfProtection
+  csrfProtection,
+
+  // Route combinations
+  clientRoutes,
+  vendorRoutes,
+  adminRoutes
 };

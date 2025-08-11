@@ -8,17 +8,36 @@ const serviceItemSchema = new mongoose.Schema({
     required: true
   },
   title: {
-    type: String,
-    required: true,
-    trim: true
+    en: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    nl: {
+      type: String,
+      required: true,
+      trim: true
+    }
   },
   subTitle: {
-    type: String,
-    trim: true
+    en: {
+      type: String,
+      trim: true
+    },
+    nl: {
+      type: String,
+      trim: true
+    }
   },
   description: {
-    type: String,
-    required: true
+    en: {
+      type: String,
+      required: true
+    },
+    nl: {
+      type: String,
+      required: true
+    }
   },
   mainCategory: {
     type: mongoose.Schema.Types.ObjectId,

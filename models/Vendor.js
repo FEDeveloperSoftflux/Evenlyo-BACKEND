@@ -34,7 +34,16 @@ const vendorSchema = new mongoose.Schema({
   businessLocation: String,
   businessLogo: String,
   bannerImage: String,
-  businessDescription: String,
+  businessDescription: {
+    en: {
+      type: String,
+      trim: true
+    },
+    nl: {
+      type: String,
+      trim: true
+    }
+  },
   mainCategories: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category'

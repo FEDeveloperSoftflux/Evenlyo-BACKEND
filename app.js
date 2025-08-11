@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const i18next = require('i18next');
 const Backend = require('i18next-fs-backend');
 const i18nextMiddleware = require('i18next-http-middleware');
@@ -60,6 +61,9 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(i18nextMiddleware.handle(i18next));
 
+// Serve static files for uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Session configuration
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
@@ -101,6 +105,18 @@ app.use('/api/cart', cartRoutes);
 // Plan routes
 const planRoutes = require('./routes/plans');
 app.use('/api/plans', planRoutes);
+
+// Vendor routes
+const vendorRoutes = require('./routes/vendors');
+app.use('/api/vendor', vendorRoutes);
+
+// Blog routes
+const blogRoutes = require('./routes/blogs');
+app.use('/api/blogs', blogRoutes);
+
+// Settings routes
+const settingsRoutes = require('./routes/settings');
+app.use('/api/settings', settingsRoutes);
 
 // Root endpoint with translation
 app.get('/', (req, res) => {

@@ -2,10 +2,18 @@ const mongoose = require('mongoose');
 
 const planSchema = new mongoose.Schema({
   planName: {
-    type: String,
-    required: true,
-    trim: true,
-    unique: true
+    en: {
+      type: String,
+      required: true,
+      trim: true,
+      unique: true
+    },
+    nl: {
+      type: String,
+      required: true,
+      trim: true,
+      unique: true
+    }
   },
   planPrice: {
     type: Number,
@@ -19,8 +27,14 @@ const planSchema = new mongoose.Schema({
     default: 'monthly'
   },
   features: [{
-    type: String,
-    required: true
+    en: {
+      type: String,
+      required: true
+    },
+    nl: {
+      type: String,
+      required: true
+    }
   }],
   discount: {
     percentage: {
@@ -60,8 +74,14 @@ const planSchema = new mongoose.Schema({
     default: true
   },
   description: {
-    type: String,
-    trim: true
+    en: {
+      type: String,
+      trim: true
+    },
+    nl: {
+      type: String,
+      trim: true
+    }
   },
   sortOrder: {
     type: Number,

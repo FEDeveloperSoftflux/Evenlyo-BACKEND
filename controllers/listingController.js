@@ -191,310 +191,6 @@ const getListingById = async (req, res) => {
   }
 };
 
-// @desc    Get listings by category
-// @route   GET /api/listings/category/:categoryId
-// @access  Public
-const getListingsByCategory = async (req, res) => {
-  try {
-    const { categoryId } = req.params;
-    const { page = 1, limit = 12, sortBy = 'sortOrder', sortOrder = 'desc', city, isAvailable = true } = req.query;
-
-    // Verify category exists
-    const category = await Category.findById(categoryId);
-    if (!category || !category.isActive) {
-      return res.status(404).json({
-        success: false,
-        message: 'Category not found'
-      });
-    }
-
-    const query = {
-      category: categoryId,
-      status: 'active',
-      isActive: true,
-      'availability.isAvailable': isAvailable === 'true'
-    };
-
-    // Filter by city if provided
-    if (city) {
-      query['location.city'] = { $regex: city, $options: 'i' };
-    }
-
-    const skip = (page - 1) * limit;
-    
-    // Build sort object
-    const sortOptions = {};
-    if (sortBy === 'price') {
-      sortOptions['pricing.amount'] = sortOrder === 'desc' ? -1 : 1;
-    } else if (sortBy === 'rating') {
-      sortOptions['ratings.average'] = sortOrder === 'desc' ? -1 : 1;
-    } else {
-      sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
-    }
-
-    const listings = await Listing.find(query)
-      .populate('vendor', '_id businessName businessLocation')
-      .populate('subCategory', 'name icon')
-      .sort(sortOptions)
-      .skip(skip)
-      .limit(parseInt(limit))
-      .select('-seo -__v');
-
-    const total = await Listing.countDocuments(query);
-
-    res.json({
-      success: true,
-      data: listings,
-      category: category,
-      pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / limit),
-        total,
-        limit: parseInt(limit)
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching listings by category:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching listings by category',
-      error: error.message
-    });
-  }
-};
-
-// @desc    Get listings by category (POST with body)
-// @route   POST /api/listings/category
-// @access  Public
-const getListingsByCategoryPost = async (req, res) => {
-  try {
-    const { categoryId } = req.body;
-    const { page = 1, limit = 12, sortBy = 'sortOrder', sortOrder = 'desc', city, isAvailable = true } = req.query;
-
-    if (!categoryId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Category ID is required'
-      });
-    }
-
-    // Verify category exists
-    const category = await Category.findById(categoryId);
-    if (!category || !category.isActive) {
-      return res.status(404).json({
-        success: false,
-        message: 'Category not found'
-      });
-    }
-
-    const query = {
-      category: categoryId,
-      status: 'active',
-      isActive: true,
-      'availability.isAvailable': isAvailable === 'true'
-    };
-
-    // Filter by city if provided
-    if (city) {
-      query['location.city'] = { $regex: city, $options: 'i' };
-    }
-
-    const skip = (page - 1) * limit;
-    
-    // Build sort object
-    const sortOptions = {};
-    if (sortBy === 'price') {
-      sortOptions['pricing.amount'] = sortOrder === 'desc' ? -1 : 1;
-    } else if (sortBy === 'rating') {
-      sortOptions['ratings.average'] = sortOrder === 'desc' ? -1 : 1;
-    } else {
-      sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
-    }
-
-    const listings = await Listing.find(query)
-      .populate('vendor', 'businessName businessEmail contactNumber businessLocation businessDescription personalInfo')
-      .populate('category', 'name icon')
-      .populate('subCategory', 'name icon')
-      .sort(sortOptions)
-      .skip(skip)
-      .limit(parseInt(limit))
-      .select('-seo -__v');
-
-    const total = await Listing.countDocuments(query);
-
-    res.json({
-      success: true,
-      data: listings,
-      category: category,
-      pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / limit),
-        total,
-        limit: parseInt(limit)
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching listings by category (POST):', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching listings by category',
-      error: error.message
-    });
-  }
-};
-
-// @desc    Get listings by subcategory
-// @route   GET /api/listings/subcategory/:subCategoryId
-// @access  Public
-const getListingsBySubCategory = async (req, res) => {
-  try {
-    const { subCategoryId } = req.params;
-    const { page = 1, limit = 12, sortBy = 'sortOrder', sortOrder = 'desc', city, isAvailable = true } = req.query;
-
-    // Verify subcategory exists
-    const subCategory = await SubCategory.findById(subCategoryId).populate('mainCategory', 'name icon');
-    if (!subCategory || !subCategory.isActive) {
-      return res.status(404).json({
-        success: false,
-        message: 'Subcategory not found'
-      });
-    }
-
-    const query = {
-      subCategory: subCategoryId,
-      status: 'active',
-      isActive: true,
-      'availability.isAvailable': isAvailable === 'true'
-    };
-
-    // Filter by city if provided
-    if (city) {
-      query['location.city'] = { $regex: city, $options: 'i' };
-    }
-
-    const skip = (page - 1) * limit;
-    
-    // Build sort object
-    const sortOptions = {};
-    if (sortBy === 'price') {
-      sortOptions['pricing.amount'] = sortOrder === 'desc' ? -1 : 1;
-    } else if (sortBy === 'rating') {
-      sortOptions['ratings.average'] = sortOrder === 'desc' ? -1 : 1;
-    } else {
-      sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
-    }
-
-    const listings = await Listing.find(query)
-      .populate('vendor', '_id businessName businessLocation')
-      .populate('category', 'name icon')
-      .sort(sortOptions)
-      .skip(skip)
-      .limit(parseInt(limit))
-      .select('-seo -__v');
-
-    const total = await Listing.countDocuments(query);
-
-    res.json({
-      success: true,
-      data: listings,
-      subCategory: subCategory,
-      pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / limit),
-        total,
-        limit: parseInt(limit)
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching listings by subcategory:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching listings by subcategory',
-      error: error.message
-    });
-  }
-};
-
-// @desc    Get listings by subcategory (POST with body)
-// @route   POST /api/listings/subcategory
-// @access  Public
-const getListingsBySubCategoryPost = async (req, res) => {
-  try {
-    const { subCategoryId } = req.body;
-    const { page = 1, limit = 12, sortBy = 'sortOrder', sortOrder = 'desc', city, isAvailable = true } = req.query;
-
-    if (!subCategoryId) {
-      return res.status(400).json({
-        success: false,
-        message: 'SubCategory ID is required'
-      });
-    }
-
-    // Verify subcategory exists
-    const subCategory = await SubCategory.findById(subCategoryId).populate('mainCategory', 'name icon');
-    if (!subCategory || !subCategory.isActive) {
-      return res.status(404).json({
-        success: false,
-        message: 'Subcategory not found'
-      });
-    }
-
-    const query = {
-      subCategory: subCategoryId,
-      status: 'active',
-      isActive: true,
-      'availability.isAvailable': isAvailable === 'true'
-    };
-
-    // Filter by city if provided
-    if (city) {
-      query['location.city'] = { $regex: city, $options: 'i' };
-    }
-
-    const skip = (page - 1) * limit;
-    
-    // Build sort object
-    const sortOptions = {};
-    if (sortBy === 'price') {
-      sortOptions['pricing.amount'] = sortOrder === 'desc' ? -1 : 1;
-    } else if (sortBy === 'rating') {
-      sortOptions['ratings.average'] = sortOrder === 'desc' ? -1 : 1;
-    } else {
-      sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
-    }
-
-    const listings = await Listing.find(query)
-      .populate('vendor', 'businessName businessEmail contactNumber businessLocation businessDescription personalInfo')
-      .populate('category', 'name icon')
-      .populate('subCategory', 'name icon')
-      .sort(sortOptions)
-      .skip(skip)
-      .limit(parseInt(limit))
-      .select('-seo -__v');
-
-    const total = await Listing.countDocuments(query);
-
-    res.json({
-      success: true,
-      data: listings,
-      subCategory: subCategory,
-      pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / limit),
-        total,
-        limit: parseInt(limit)
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching listings by subcategory (POST):', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching listings by subcategory',
-      error: error.message
-    });
-  }
-};
-
 // @desc    Get featured listings
 // @route   GET /api/listings/featured
 // @access  Public
@@ -1083,13 +779,138 @@ const checkListingAvailability = async (req, res) => {
   }
 };
 
+// @desc    Filter listings by category or subcategory with essential details
+// @route   GET /api/listings/filter
+// @access  Public
+const filterListings = async (req, res) => {
+  try {
+    const {
+      categoryId,
+      subCategoryId,
+      page = 1,
+      limit = 12,
+      sortBy = 'ratings.average',
+      sortOrder = 'desc'
+    } = req.query;
+
+    // Validate that at least one filter is provided
+    if (!categoryId && !subCategoryId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide either categoryId or subCategoryId to filter listings'
+      });
+    }
+
+    // Build query object
+    const query = {
+      status: 'active',
+      isActive: true,
+      'availability.isAvailable': true
+    };
+
+    // Filter by category AND/OR subcategory
+    if (categoryId && subCategoryId) {
+      // If both category and subcategory are provided, filter by both
+      query.category = categoryId;
+      query.subCategory = subCategoryId;
+    } else if (subCategoryId) {
+      // If only subcategory is provided
+      query.subCategory = subCategoryId;
+    } else if (categoryId) {
+      // If only category is provided
+      query.category = categoryId;
+    }
+
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+
+    // Build sort object
+    const sortOptions = {};
+    if (sortBy === 'price') {
+      // Sort by pricing per event (most common)
+      sortOptions['pricing.perEvent'] = sortOrder === 'desc' ? -1 : 1;
+    } else if (sortBy === 'rating') {
+      sortOptions['ratings.average'] = sortOrder === 'desc' ? -1 : 1;
+    } else if (sortBy === 'popularity') {
+      sortOptions['bookings.completed'] = sortOrder === 'desc' ? -1 : 1;
+    } else if (sortBy === 'newest') {
+      sortOptions['createdAt'] = sortOrder === 'desc' ? -1 : 1;
+    } else {
+      sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+    }
+
+    // Get listings with essential information
+    const listings = await Listing.find(query)
+      .populate('vendor', 'businessName businessLocation rating')
+      .populate('category', 'name')
+      .populate('subCategory', 'name')
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .select('title description pricing location ratings media.featuredImage');
+
+    // Get total count for pagination
+    const total = await Listing.countDocuments(query);
+
+    // Format the response data
+    const formattedListings = listings.map(listing => {
+      // Get the main pricing (prefer per event, then per day, then per hour)
+      let pricingPerEvent = null;
+      if (listing.pricing.perEvent) {
+        pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perEvent}`;
+      } else if (listing.pricing.perDay) {
+        pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perDay}/day`;
+      } else if (listing.pricing.perHour) {
+        pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perHour}/hour`;
+      } else {
+        pricingPerEvent = 'Quote on request';
+      }
+
+      return {
+        id: listing._id,
+        title: listing.title,
+        description: listing.description,
+        vendorName: listing.vendor?.businessName || 'Unknown Vendor',
+        rating: listing.ratings?.average || 0,
+        ratingCount: listing.ratings?.count || 0,
+        pricingPerEvent,
+        location: `${listing.location.city}${listing.location.region ? ', ' + listing.location.region : ''}`,
+        featuredImage: listing.media?.featuredImage,
+        category: listing.category?.name,
+        subCategory: listing.subCategory?.name
+      };
+    });
+
+    res.json({
+      success: true,
+      data: formattedListings,
+      pagination: {
+        current: parseInt(page),
+        pages: Math.ceil(total / limit),
+        total,
+        limit: parseInt(limit)
+      },
+      filter: {
+        categoryId: categoryId || null,
+        subCategoryId: subCategoryId || null,
+        sortBy,
+        sortOrder
+      }
+    });
+
+  } catch (error) {
+    console.error('Error filtering listings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error filtering listings',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getAvailableListings,
   getListingById,
-  getListingsByCategory,
-  getListingsByCategoryPost,
-  getListingsBySubCategory,
-  getListingsBySubCategoryPost,
   getFeaturedListings,
   getPopularListings,
   searchListings,
@@ -1097,5 +918,6 @@ module.exports = {
   getListingsByServiceType,
   createListing,
   updateListing,
-  checkListingAvailability
+  checkListingAvailability,
+  filterListings
 }; 
