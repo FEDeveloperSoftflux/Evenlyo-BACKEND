@@ -1,6 +1,7 @@
 const Vendor = require('../models/Vendor');
 const User = require('../models/User');
 const Listing = require('../models/Listing');
+const mongoose = require('mongoose');
 const asyncHandler = require('express-async-handler');
 
 // @desc    Get vendor profile (public and private access)
@@ -9,7 +10,7 @@ const asyncHandler = require('express-async-handler');
 // @access  Public/Private
 const getVendorProfile = asyncHandler(async (req, res) => {
   const vendorId = req.params.vendorId || req.user?.id;
-  
+
   let vendor;
   if (req.params.vendorId) {
     // Public access to vendor profile by vendor ID
@@ -34,7 +35,7 @@ const getVendorProfile = asyncHandler(async (req, res) => {
 
   // For public access, filter out private information
   const isPublicAccess = !!req.params.vendorId;
-  
+
   const profileData = {
     _id: vendor._id,
     businessInfo: {
@@ -63,7 +64,7 @@ const getVendorProfile = asyncHandler(async (req, res) => {
       rating: vendor.rating,
       totalBookings: vendor.totalBookings,
       completedBookings: vendor.completedBookings,
-      completionRate: vendor.totalBookings > 0 ? 
+      completionRate: vendor.totalBookings > 0 ?
         ((vendor.completedBookings / vendor.totalBookings) * 100).toFixed(1) : 0
     },
     status: {
@@ -190,15 +191,15 @@ const getVendorBusinessDetails = asyncHandler(async (req, res) => {
 
   // Get listings count
   const listingsCount = await Listing.countDocuments({ vendor: vendor._id });
-  const activeListingsCount = await Listing.countDocuments({ 
-    vendor: vendor._id, 
+  const activeListingsCount = await Listing.countDocuments({
+    vendor: vendor._id,
     status: 'active',
-    isActive: true 
+    isActive: true
   });
 
   // Get average listing price
   const listings = await Listing.find({ vendor: vendor._id }, 'pricing.amount');
-  const averagePrice = listings.length > 0 
+  const averagePrice = listings.length > 0
     ? listings.reduce((sum, listing) => sum + (listing.pricing?.amount || 0), 0) / listings.length
     : 0;
 
@@ -230,7 +231,7 @@ const getVendorBusinessDetails = asyncHandler(async (req, res) => {
       rating: vendor.rating,
       totalBookings: vendor.totalBookings,
       completedBookings: vendor.completedBookings,
-      completionRate: vendor.totalBookings > 0 ? 
+      completionRate: vendor.totalBookings > 0 ?
         ((vendor.completedBookings / vendor.totalBookings) * 100).toFixed(1) : 0
     },
     listings: {
@@ -271,7 +272,7 @@ const getVendorBusinessDetails = asyncHandler(async (req, res) => {
 // @access  Private (Vendor)
 const getVendorDashboard = asyncHandler(async (req, res) => {
   const vendor = await Vendor.findOne({ userId: req.user.id });
-  
+
   if (!vendor) {
     return res.status(404).json({
       success: false,
@@ -281,14 +282,14 @@ const getVendorDashboard = asyncHandler(async (req, res) => {
 
   // Get listings stats
   const totalListings = await Listing.countDocuments({ vendor: vendor._id });
-  const activeListings = await Listing.countDocuments({ 
-    vendor: vendor._id, 
+  const activeListings = await Listing.countDocuments({
+    vendor: vendor._id,
     status: 'active',
-    isActive: true 
+    isActive: true
   });
-  const draftListings = await Listing.countDocuments({ 
-    vendor: vendor._id, 
-    status: 'draft' 
+  const draftListings = await Listing.countDocuments({
+    vendor: vendor._id,
+    status: 'draft'
   });
 
   // Get recent listings
@@ -313,7 +314,7 @@ const getVendorDashboard = asyncHandler(async (req, res) => {
       bookings: {
         total: vendor.totalBookings,
         completed: vendor.completedBookings,
-        completionRate: vendor.totalBookings > 0 ? 
+        completionRate: vendor.totalBookings > 0 ?
           ((vendor.completedBookings / vendor.totalBookings) * 100).toFixed(1) : 0
       },
       rating: {
@@ -338,9 +339,9 @@ const getVendorDashboard = asyncHandler(async (req, res) => {
 // @route   GET /api/vendor/all
 // @access  Public
 const getAllVendors = asyncHandler(async (req, res) => {
-  const { 
-    page = 1, 
-    limit = 10, 
+  const {
+    page = 1,
+    limit = 10,
     status = 'approved',
     category,
     location,
@@ -349,7 +350,7 @@ const getAllVendors = asyncHandler(async (req, res) => {
   } = req.query;
 
   const query = {};
-  
+
   // Filter by approval status
   if (status !== 'all') {
     query.approvalStatus = status;
@@ -366,7 +367,7 @@ const getAllVendors = asyncHandler(async (req, res) => {
   }
 
   const skip = (page - 1) * limit;
-  
+
   // Build sort object
   const sortOptions = {};
   if (sortBy === 'rating') {
@@ -403,7 +404,7 @@ const getAllVendors = asyncHandler(async (req, res) => {
 // @route   GET /api/vendor/featured
 // @access  Public
 const getFeaturedVendors = asyncHandler(async (req, res) => {
-  const { 
+  const {
     limit = 6,
     featured = false,
     category,
@@ -428,7 +429,7 @@ const getFeaturedVendors = asyncHandler(async (req, res) => {
   console.log('Featured vendors query:', query); // Debug log
 
   // Sort by rating and total bookings for featured vendors
-  const sortOptions = featured === 'true' 
+  const sortOptions = featured === 'true'
     ? { 'rating.average': -1, 'totalBookings': -1 }
     : { createdAt: -1 };
 
@@ -472,7 +473,7 @@ const getFeaturedVendors = asyncHandler(async (req, res) => {
     ];
 
     // Get business description in preferred language
-    const description = typeof vendor.businessDescription === 'object' 
+    const description = typeof vendor.businessDescription === 'object'
       ? vendor.businessDescription.en || vendor.businessDescription.nl || ''
       : vendor.businessDescription || '';
 
@@ -518,7 +519,7 @@ const getFeaturedVendors = asyncHandler(async (req, res) => {
         bookings: {
           total: vendor.totalBookings || 0,
           completed: vendor.completedBookings || 0,
-          completionRate: vendor.totalBookings > 0 
+          completionRate: vendor.totalBookings > 0
             ? ((vendor.completedBookings / vendor.totalBookings) * 100).toFixed(1)
             : 0
         }
@@ -579,15 +580,15 @@ const getFeaturedVendors = asyncHandler(async (req, res) => {
 // @route   GET /api/vendor/bycategory/:categoryId (path param)
 // @access  Public
 const getVendorsByCategory = asyncHandler(async (req, res) => {
-  const { 
+  const {
     category,
     subcategory,
-    page = 1, 
+    page = 1,
     limit = 10,
     sortBy = 'rating',
     sortOrder = 'desc'
   } = req.query;
-  
+
   // Handle both path parameter and query parameter for category
   const categoryId = req.params.categoryId || category;
 
@@ -601,13 +602,21 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
     query.mainCategories = categoryId;
   }
 
-  // Filter by subcategory
+  // Filter by subcategory (expecting ObjectId)
   if (subcategory) {
-    query.subCategories = subcategory;
+    // Validate if subcategory is a valid ObjectId
+    if (mongoose.Types.ObjectId.isValid(subcategory)) {
+      query.subCategories = subcategory;
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid subcategory ID format'
+      });
+    }
   }
 
   const skip = (page - 1) * limit;
-  
+
   // Build sort object
   const sortOptions = {};
   if (sortBy === 'rating') {
@@ -645,7 +654,7 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
   // Format data with requested information
   const formattedVendors = vendors.map(vendor => {
     // Get business description in preferred language
-    const description = typeof vendor.businessDescription === 'object' 
+    const description = typeof vendor.businessDescription === 'object'
       ? vendor.businessDescription.en || vendor.businessDescription.nl || ''
       : vendor.businessDescription || '';
 

@@ -769,7 +769,7 @@ const googleAuth = async (req, res) => {
   }
 };
 
-// --- Grouped Exports ---
+// --- Exports ---
 module.exports = {
   // Authentication
   clientLogin,
