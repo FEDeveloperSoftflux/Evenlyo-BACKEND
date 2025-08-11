@@ -29,66 +29,30 @@ const commentSchema = new mongoose.Schema({
 
 const blogSchema = new mongoose.Schema({
   title: {
-    en: {
-      type: String,
-      required: true,
-      trim: true,
-      maxlength: 200
-    },
-    nl: {
-      type: String,
-      required: true,
-      trim: true,
-      maxlength: 200
-    }
+    type: String,
+    required: true,
+    trim: true,
+    maxlength: 200
   },
   description: {
-    en: {
-      type: String,
-      required: true,
-      trim: true,
-      maxlength: 500
-    },
-    nl: {
-      type: String,
-      required: true,
-      trim: true,
-      maxlength: 500
-    }
+    type: String,
+    required: true,
+    trim: true,
+    maxlength: 500
   },
   content: {
-    en: {
-      type: String,
-      required: true
-    },
-    nl: {
-      type: String,
-      required: true
-    }
+    type: String,
+    required: true
   },
   author: {
-    en: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    nl: {
-      type: String,
-      required: true,
-      trim: true
-    }
+    type: String,
+    required: true,
+    trim: true
   },
   category: {
-    en: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    nl: {
-      type: String,
-      required: true,
-      trim: true
-    }
+    type: String,
+    required: true,
+    trim: true
   },
   readTime: {
     type: Number,
@@ -107,16 +71,10 @@ const blogSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  tags: {
-    en: [{
-      type: String,
-      trim: true
-    }],
-    nl: [{
-      type: String,
-      trim: true
-    }]
-  },
+  tags: [{
+    type: String,
+    trim: true
+  }],
   views: {
     type: Number,
     default: 0
@@ -128,7 +86,7 @@ const blogSchema = new mongoose.Schema({
 
 // Index for better query performance
 blogSchema.index({ isPublished: 1, createdAt: -1 });
-blogSchema.index({ 'category.en': 1, 'category.nl': 1 });
+blogSchema.index({ category: 1 });
 blogSchema.index({ isMain: 1 });
 
 // Virtual for formatted date

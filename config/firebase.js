@@ -10,7 +10,8 @@ try {
   console.log('Using Firebase service account from serviceAccountKey.json');
 } catch (error) {
   // Fall back to environment variables
-  if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
+  if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) 
+    {
     serviceAccount = {
       type: "service_account",
       project_id: process.env.FIREBASE_PROJECT_ID,
@@ -31,8 +32,7 @@ if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
     projectId: serviceAccount.project_id, // Explicitly set project ID
-    // Optional: Add your Firebase project configuration
-    // databaseURL: `https://${serviceAccount.project_id}-default-rtdb.firebaseio.com`
+
   });
 }
 
