@@ -1,6 +1,7 @@
 const Vendor = require('../models/Vendor');
 const User = require('../models/User');
 const Listing = require('../models/Listing');
+const mongoose = require('mongoose');
 const asyncHandler = require('express-async-handler');
 
 // @desc    Get vendor profile (public and private access)
@@ -581,7 +582,7 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
   const { 
     category,
     subcategory,
-    page = 1, 
+    page = 1,
     limit = 10,
     sortBy = 'rating',
     sortOrder = 'desc'
@@ -592,14 +593,30 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
     approvalStatus: 'approved'
   };
 
-  // Filter by main category
+  // Filter by main category (expecting ObjectId)
   if (category) {
-    query.mainCategories = category;
+    // Validate if category is a valid ObjectId
+    if (mongoose.Types.ObjectId.isValid(category)) {
+      query.mainCategories = category;
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid category ID format'
+      });
+    }
   }
 
-  // Filter by subcategory
+  // Filter by subcategory (expecting ObjectId)
   if (subcategory) {
-    query.subCategories = subcategory;
+    // Validate if subcategory is a valid ObjectId
+    if (mongoose.Types.ObjectId.isValid(subcategory)) {
+      query.subCategories = subcategory;
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid subcategory ID format'
+      });
+    }
   }
 
   const skip = (page - 1) * limit;
