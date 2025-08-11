@@ -20,7 +20,7 @@ const planSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
-  planTenure: {
+  Period: {
     type: String,
     required: true,
     enum: ['monthly'],

@@ -35,6 +35,13 @@ mongoose.connect(process.env.MONGODB_URI)
 
 
 const app = express();
+
+// ...existing code...
+
+// Chat route
+const chatRoutes = require('./routes/chat');
+app.use('/api/chat', chatRoutes);
+
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
@@ -117,6 +124,10 @@ app.use('/api/blogs', blogRoutes);
 // Settings routes
 const settingsRoutes = require('./routes/settings');
 app.use('/api/settings', settingsRoutes);
+
+// Support routes
+const supportRoutes = require('./routes/support');
+app.use('/api/support', supportRoutes);
 
 // Root endpoint with translation
 app.get('/', (req, res) => {
