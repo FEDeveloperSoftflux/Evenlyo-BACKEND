@@ -351,6 +351,12 @@ const listingSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   }
+  ,
+  popular: {
+    type: Boolean,
+    default: false,
+    description: 'Indicates if the listing is popular based on certain criteria (e.g., high bookings, high ratings, etc.)'
+  }
 }, { 
   timestamps: true,
   toJSON: { virtuals: true },

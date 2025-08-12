@@ -23,7 +23,7 @@ const commentSchema = new mongoose.Schema({
   },
   isApproved: {
     type: Boolean,
-    default: false
+    default: true
   }
 });
 

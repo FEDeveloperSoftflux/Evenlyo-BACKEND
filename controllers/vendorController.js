@@ -1,3 +1,119 @@
+// @desc    Get all details related to a vendor (business, user, listings, popular)
+// @route   GET /api/vendor/details/:vendorId
+// @access  Public
+const getVendorFullDetails = async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(vendorId)) {
+      return res.status(400).json({ success: false, message: 'Invalid vendor ID' });
+    }
+
+    // Fetch vendor with user details
+    const vendor = await Vendor.findById(vendorId)
+      .populate('userId', 'firstName lastName profileImage')
+      .lean();
+    if (!vendor) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+
+    // Business details
+    const businessDetails = {
+      email: vendor.businessEmail,
+      phone: vendor.businessPhone,
+      rating: vendor.rating?.average || 0,
+      businessName: vendor.businessName,
+      location: vendor.businessLocation,
+      employees: vendor.teamSize || null,
+      description: typeof vendor.businessDescription === 'object' ? (vendor.businessDescription.en || vendor.businessDescription.nl || '') : vendor.businessDescription,
+      whyChooseUs: vendor.whyChooseUs || '',
+      reviews: vendor.rating?.totalReviews || 0,
+      bannerImage: vendor.bannerImage || '',
+      profileImage: vendor.userId?.profileImage || ''
+    };
+
+    // User details
+    const userDetails = {
+      name: vendor.userId ? `${vendor.userId.firstName} ${vendor.userId.lastName}` : ''
+    };
+
+    // All listings for this vendor (similar to filter API)
+    const listings = await Listing.find({ vendor: vendorId, status: 'active', isActive: true })
+      .select('title description pricing location ratings media.featuredImage category subCategory')
+      .populate('category', 'name')
+      .populate('subCategory', 'name')
+      .lean();
+    const formattedListings = listings.map(listing => {
+      let pricingPerEvent = null;
+      if (listing.pricing?.perEvent) {
+        pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perEvent}`;
+      } else if (listing.pricing?.perDay) {
+        pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perDay}/day`;
+      } else if (listing.pricing?.perHour) {
+        pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perHour}/hour`;
+      } else {
+        pricingPerEvent = 'Quote on request';
+      }
+      return {
+        id: listing._id,
+        title: listing.title,
+        description: listing.description,
+        rating: listing.ratings?.average || 0,
+        ratingCount: listing.ratings?.count || 0,
+        pricingPerEvent,
+        location: listing.location?.city || '',
+        featuredImage: listing.media?.featuredImage,
+        category: listing.category?.name,
+        subCategory: listing.subCategory?.name
+      };
+    });
+
+    // Popular listings for this vendor
+    const popularListings = await Listing.find({ vendor: vendorId, status: 'active', isActive: true })
+      .sort({ 'bookings.completed': -1, views: -1, 'ratings.average': -1 })
+      .limit(5)
+      .select('title description pricing location ratings media.featuredImage category subCategory')
+      .populate('category', 'name')
+      .populate('subCategory', 'name')
+      .lean();
+    const formattedPopularListings = popularListings.map(listing => {
+      let pricingPerEvent = null;
+      if (listing.pricing?.perEvent) {
+        pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perEvent}`;
+      } else if (listing.pricing?.perDay) {
+        pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perDay}/day`;
+      } else if (listing.pricing?.perHour) {
+        pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perHour}/hour`;
+      } else {
+        pricingPerEvent = 'Quote on request';
+      }
+      return {
+        id: listing._id,
+        title: listing.title,
+        description: listing.description,
+        rating: listing.ratings?.average || 0,
+        ratingCount: listing.ratings?.count || 0,
+        pricingPerEvent,
+        location: listing.location?.city || '',
+        featuredImage: listing.media?.featuredImage,
+        category: listing.category?.name,
+        subCategory: listing.subCategory?.name
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        businessDetails,
+        userDetails,
+        listings: formattedListings,
+        popularListings: formattedPopularListings
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching vendor details:', error);
+    res.status(500).json({ success: false, message: 'Error fetching vendor details', error: error.message });
+  }
+};
 const Vendor = require('../models/Vendor');
 const User = require('../models/User');
 const Listing = require('../models/Listing');
@@ -698,5 +814,6 @@ module.exports = {
   getVendorDashboard,
   getAllVendors,
   getFeaturedVendors,
-  getVendorsByCategory
+  getVendorsByCategory,
+  getVendorFullDetails
 };

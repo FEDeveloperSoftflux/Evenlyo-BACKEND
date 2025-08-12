@@ -272,6 +272,35 @@ const getPopularListings = async (req, res) => {
   }
 };
 
+
+// Utility: Update 'popular' field for all listings based on criteria
+// Criteria: completed bookings > 10 and average rating > 4.5
+const updatePopularListings = async (req, res) => {
+  try {
+    const listings = await Listing.find();
+    let updatedCount = 0;
+    for (const listing of listings) {
+      const isPopular = (listing.bookings && listing.bookings.completed > 10) && (listing.ratings && listing.ratings.average >= 4.5);
+      if (listing.popular !== isPopular) {
+        listing.popular = isPopular;
+        await listing.save();
+        updatedCount++;
+      }
+    }
+    if (res) {
+      res.json({ success: true, message: `Updated ${updatedCount} listings' popular status.` });
+    }
+    return updatedCount;
+  } catch (error) {
+    if (res) {
+      res.status(500).json({ success: false, message: 'Error updating popular status', error: error.message });
+    }
+    throw error;
+  }
+};
+
+// Optionally, you can expose this as an admin route or call it on a schedule.
+
 // @desc    Search listings with advanced filters
 // @route   GET /api/listings/search
 // @access  Public
@@ -920,4 +949,5 @@ module.exports = {
   updateListing,
   checkListingAvailability,
   filterListings
+  ,updatePopularListings
 }; 

@@ -34,6 +34,11 @@ const vendorSchema = new mongoose.Schema({
   businessLocation: String,
   businessLogo: String,
   bannerImage: String,
+  whyChooseUs: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   businessDescription: {
     en: {
       type: String,
