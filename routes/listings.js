@@ -12,6 +12,9 @@ router.get('/vendor/:vendorId', listingController.getListingsByVendor);
 router.get('/service-type/:type', listingController.getListingsByServiceType);
 router.get('/:id', listingController.getListingById);
 
+// Admin/utility route to update popular status (protect in production)
+router.post('/update-popular', listingController.updatePopularListings);
+
 // @route   GET /api/listing/:id/availability
 // @desc    Check listing availability for date range
 // @access  Public

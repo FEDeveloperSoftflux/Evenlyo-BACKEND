@@ -386,7 +386,7 @@ const addCommentWithPromotion = asyncHandler(async (req, res) => {
       email: email.toLowerCase().trim(),
       content: content.trim(),
       createdAt: new Date(),
-      isApproved: false // Comments need approval by default
+      isApproved: true // Instantly approve comments
     };
 
     // Add comment to blog
