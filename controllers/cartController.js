@@ -168,7 +168,36 @@ const removeFromCart = asyncHandler(async (req, res) => {
 // @access  Private (User)
 const updateCartItem = asyncHandler(async (req, res) => {
   const { listingId } = req.params;
-  const { tempDetails } = req.body;
+  const {
+    startDate,
+    endDate,
+    startTime,
+    endTime,
+    location,
+    description
+  } = req.body;
+
+  // Validation
+  if (!startDate || !location) {
+    return res.status(400).json({
+      success: false,
+      message: 'startDate and location are required.'
+    });
+  }
+
+  let isMultiDay = false;
+  let start = new Date(startDate);
+  let end = endDate ? new Date(endDate) : start;
+  const diffTime = Math.abs(end - start);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  isMultiDay = diffDays > 1;
+
+  if (!isMultiDay && (!startTime || !endTime)) {
+    return res.status(400).json({
+      success: false,
+      message: 'startTime and endTime are required for single-day events.'
+    });
+  }
 
   const cart = await Cart.findOne({ userId: req.user.id });
   if (!cart) {
@@ -178,9 +207,19 @@ const updateCartItem = asyncHandler(async (req, res) => {
     });
   }
 
+  // Prepare tempDetails for update
+  const tempDetails = {
+    eventDate: startDate,
+    endDate: endDate || null,
+    eventTime: !isMultiDay ? startTime : undefined,
+    endTime: !isMultiDay ? endTime : undefined,
+    eventLocation: location,
+    description: description || '',
+  };
+
   try {
     await cart.updateItemDetails(listingId, tempDetails);
-    
+
     // Populate cart for response
     await cart.populate({
       path: 'items.listingId',
