@@ -117,11 +117,24 @@ const createBookingRequest = asyncHandler(async (req, res) => {
     }
   } = req.body;
 
+  // Calculate duration and multi-day details early to determine validation
+  const startDateObj = new Date(startDate);
+  const endDateObj = new Date(endDate);
+  const diffTime = Math.abs(endDateObj - startDateObj);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Include both start and end dates
+  const isMultiDay = diffDays > 1;
+
   // Validate required fields
-  if (!listingId || !vendorId || !startDate || !endDate || !startTime || !endTime || !eventLocation) {
+  if (!listingId || !vendorId || !startDate || !endDate || !eventLocation) {
     return res.status(400).json({
       success: false,
       message: 'Missing required fields'
+    });
+  }
+  if (!isMultiDay && (!startTime || !endTime)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Start time and end time are required for single-day bookings.'
     });
   }
 
@@ -156,24 +169,23 @@ const createBookingRequest = asyncHandler(async (req, res) => {
     });
   }
 
-  // Calculate duration and multi-day details
-  const startDateObj = new Date(startDate);
-  const endDateObj = new Date(endDate);
-  const diffTime = Math.abs(endDateObj - startDateObj);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Include both start and end dates
-  const isMultiDay = diffDays > 1;
-  
-  // Calculate hours per day
-  const calculateHours = (startTime, endTime) => {
-    const startTimeObj = new Date(`2000-01-01 ${startTime}`);
-    const endTimeObj = new Date(`2000-01-01 ${endTime}`);
-    let diffHours = (endTimeObj - startTimeObj) / (1000 * 60 * 60);
-    if (diffHours < 0) diffHours += 24; // Handle overnight
-    return Math.max(diffHours, 0);
-  };
-  
-  const dailyHours = calculateHours(startTime, endTime);
-  const totalHours = dailyHours * diffDays;
+  // Calculate hours per day (only for single-day)
+  let dailyHours = 0;
+  let totalHours = 0;
+  if (!isMultiDay) {
+    const calculateHours = (startTime, endTime) => {
+      const startTimeObj = new Date(`2000-01-01 ${startTime}`);
+      const endTimeObj = new Date(`2000-01-01 ${endTime}`);
+      let diffHours = (endTimeObj - startTimeObj) / (1000 * 60 * 60);
+      if (diffHours < 0) diffHours += 24; // Handle overnight
+      return Math.max(diffHours, 0);
+    };
+    dailyHours = calculateHours(startTime, endTime);
+    totalHours = dailyHours;
+  } else {
+    dailyHours = 0;
+    totalHours = 0;
+  }
 
   // Enhanced pricing calculation for multi-day bookings
   let bookingPrice = 0;
@@ -226,8 +238,7 @@ const createBookingRequest = asyncHandler(async (req, res) => {
     details: {
       startDate,
       endDate,
-      startTime,
-      endTime,
+      ...(isMultiDay ? {} : { startTime, endTime }),
       duration: {
         hours: dailyHours,
         days: diffDays,
