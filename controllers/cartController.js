@@ -249,6 +249,7 @@ const updateCartItem = asyncHandler(async (req, res) => {
 // @route   POST /api/cart/submit
 // @access  Private (User)
 const submitCart = asyncHandler(async (req, res) => {
+  const { listingIds } = req.body;
   const cart = await Cart.findOne({ userId: req.user.id })
     .populate('items.listingId', 'title pricing vendor isActive status');
 
@@ -259,11 +260,24 @@ const submitCart = asyncHandler(async (req, res) => {
     });
   }
 
+  // If listingIds provided, filter items; else process all
+  let itemsToProcess = cart.items;
+  if (Array.isArray(listingIds) && listingIds.length > 0) {
+    itemsToProcess = cart.items.filter(item => listingIds.includes(item.listingId._id.toString()));
+  }
+
+  if (itemsToProcess.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'No valid listings selected for booking request.'
+    });
+  }
+
   const bookingResults = [];
   const errors = [];
 
-  // Process each cart item
-  for (const cartItem of cart.items) {
+  // Process each selected cart item
+  for (const cartItem of itemsToProcess) {
     try {
       const listing = cartItem.listingId;
       const tempDetails = cartItem.tempDetails;
@@ -402,9 +416,10 @@ const submitCart = asyncHandler(async (req, res) => {
     }
   }
 
-  // Clear cart if any bookings were created successfully
+  // Remove only processed items from cart if any bookings were created successfully
   if (bookingResults.length > 0) {
-    await cart.clearCart();
+    cart.items = cart.items.filter(item => !itemsToProcess.some(proc => proc.listingId._id.toString() === item.listingId._id.toString()));
+    await cart.save();
   }
 
   res.json({
@@ -414,7 +429,7 @@ const submitCart = asyncHandler(async (req, res) => {
       successfulBookings: bookingResults,
       errors: errors,
       summary: {
-        total: cart.items.length,
+        total: cart.items.length + bookingResults.length,
         successful: bookingResults.length,
         failed: errors.length
       }
