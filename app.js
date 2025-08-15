@@ -38,9 +38,6 @@ const app = express();
 
 // ...existing code...
 
-// Chat route
-const chatRoutes = require('./routes/chat');
-app.use('/api/chat', chatRoutes);
 
 const allowedOrigins = [
   'http://localhost:3000',
