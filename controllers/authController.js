@@ -680,22 +680,16 @@ const googleAuth = async (req, res) => {
     let user = await User.findOne({ email, userType: 'client', isActive: true });
 
     if (user) {
-      // User exists - handle login
+      // User exists - block Google login if registered with email/password
       if (user.provider === 'email') {
-        // User registered with email/password, link Google account
-        user.googleId = uid;
-        user.provider = 'google';
-        user.password = null; // Remove password for Google users
-        if (picture && !user.profileImage) {
-          user.profileImage = picture;
-        }
+        return res.status(403).json({
+          success: false,
+          message: 'This email is registered with email/password. Please use email and password to login.'
+        });
       }
-
-      // Update last login
+      // User is a Google user, allow login
       user.lastLogin = new Date();
       await user.save();
-
-      // Store session data
       req.session.user = {
         id: user._id,
         email: user.email,
@@ -703,7 +697,6 @@ const googleAuth = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName
       };
-
       return res.json({
         success: true,
         message: 'Login successful',

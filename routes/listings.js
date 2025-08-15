@@ -20,6 +20,11 @@ router.post('/update-popular', listingController.updatePopularListings);
 // @access  Public
 router.get('/:id/availability', listingController.checkListingAvailability);
 
+// @route   GET /api/cakenade/:id
+// @desc    Get calendar data (booked and available days) for a listing
+// @access  Public
+router.get('/calendar/:id', listingController.getListingCalendar);
+
 // Protected routes (authentication required)
 router.post('/', listingController.createListing);
 router.put('/:id', listingController.updateListing);

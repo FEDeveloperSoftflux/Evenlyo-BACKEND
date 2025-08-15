@@ -1,3 +1,65 @@
+// @desc    Get calendar data (booked and available days/times) for a listing
+// @route   GET /api/listing/:id/calendar
+// @access  Public
+const getListingCalendar = async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Find listing and get availability info
+    const listing = await Listing.findById(id).select('availability');
+    if (!listing) {
+      return res.status(404).json({ success: false, message: 'Listing not found' });
+    }
+
+    // Get all bookings for this listing that are not cancelled/rejected
+    const bookings = await BookingRequest.find({
+      listingId: id,
+      status: { $nin: ['rejected', 'cancelled'] }
+    }).select('details.startDate details.endDate details.startTime details.endTime');
+
+    // Collect all booked date ranges with time
+    const bookedSlots = [];
+    bookings.forEach(b => {
+      const start = new Date(b.details.startDate);
+      const end = new Date(b.details.endDate);
+      let current = new Date(start);
+      while (current <= end) {
+        bookedSlots.push({
+          date: current.toISOString().split('T')[0],
+          startTime: b.details.startTime,
+          endTime: b.details.endTime
+        });
+        current.setDate(current.getDate() + 1);
+      }
+    });
+
+    // Remove duplicate booked slots (same date, time)
+    const uniqueBookedSlots = Array.from(
+      new Map(bookedSlots.map(slot => [slot.date + slot.startTime + slot.endTime, slot])).values()
+    );
+
+    // Prepare available days with time slots
+    const availableDays = (listing.availability?.availableDays || []);
+    const availableTimeSlots = (listing.availability?.availableTimeSlots || []);
+
+    // For each available day, attach available time slots
+    const availableSchedule = availableDays.map(day => ({
+      day,
+      timeSlots: availableTimeSlots
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        listingId: id,
+        availableSchedule,
+        bookedSlots: uniqueBookedSlots
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching listing calendar:', error);
+    res.status(500).json({ success: false, message: 'Server error while fetching calendar' });
+  }
+};
 const Listing = require('../models/Listing');
 const Category = require('../models/Category');
 const SubCategory = require('../models/SubCategory');
@@ -948,6 +1010,7 @@ module.exports = {
   createListing,
   updateListing,
   checkListingAvailability,
+  getListingCalendar,
   filterListings
   ,updatePopularListings
 }; 
