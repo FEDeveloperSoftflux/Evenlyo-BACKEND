@@ -590,7 +590,7 @@ const getClientActionButtons = (status) => {
       });
       break;
       
-    case 'on_the_way':
+    case 'on the way':
       buttons.push({
         action: 'track',
         label: 'Track Delivery',
@@ -616,7 +616,7 @@ const getClientActionButtons = (status) => {
       );
       break;
       
-    case 'picked_up':
+    case 'picked up':
       buttons.push(
         {
           action: 'mark_complete',
