@@ -5,13 +5,11 @@ const listingSchema = new mongoose.Schema({
   title: {
     en: {
       type: String,
-      required: true,
       trim: true,
       maxlength: 200
     },
     nl: {
       type: String,
-      required: true,
       trim: true,
       maxlength: 200
     }
@@ -31,13 +29,11 @@ const listingSchema = new mongoose.Schema({
   description: {
     en: {
       type: String,
-      required: true,
       trim: true,
       maxlength: 2000
     },
     nl: {
       type: String,
-      required: true,
       trim: true,
       maxlength: 2000
     }
@@ -154,10 +150,7 @@ const listingSchema = new mongoose.Schema({
         trim: true
       }
     },
-    specialties: {
-      en: [String],
-      nl: [String]
-    },
+  specialties: [String],
     previousClients: [String],
     certifications: [String]
   },
