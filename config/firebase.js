@@ -36,11 +36,35 @@ if (!admin.apps.length) {
   });
 }
 
+
 // Get Firebase Auth instance
 const auth = admin.auth();
+
+/**
+ * Send a push notification to a device using FCM token
+ * @param {string} token - FCM device token
+ * @param {string} title - Notification title
+ * @param {string} body - Notification body
+ * @returns {Promise<object>} FCM response
+ */
+async function sendNotification(token, title, body) {
+  if (!token) throw new Error('No FCM token provided');
+  const message = {
+    notification: { title, body },
+    token,
+  };
+  try {
+    const response = await admin.messaging().send(message);
+    return { success: true, response };
+  } catch (error) {
+    console.error('FCM send error:', error);
+    return { success: false, error: error.message };
+  }
+}
 
 module.exports = {
   admin,
   auth,
+  sendNotification,
   projectId: serviceAccount.project_id // Export project ID for easy access
 };

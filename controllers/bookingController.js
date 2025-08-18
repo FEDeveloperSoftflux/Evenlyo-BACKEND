@@ -1,3 +1,10 @@
+const { sendNotification } = require('../config/firebase');
+// Helper to send push notification to booking user
+async function notifyBookingUser(booking, title, body) {
+  if (booking && booking.userId && booking.userId.fcmToken) {
+    await sendNotification(booking.userId.fcmToken, title, body);
+  }
+}
 const asyncHandler = require('express-async-handler');
 const BookingRequest = require('../models/Booking');
 const Listing = require('../models/Listing');
@@ -361,9 +368,12 @@ const acceptBooking = asyncHandler(async (req, res) => {
   await booking.save();
 
   await booking.populate([
-    { path: 'userId', select: 'firstName lastName email contactNumber' },
+    { path: 'userId', select: 'firstName lastName email contactNumber fcmToken' },
     { path: 'listingId', select: 'title featuredImage pricing' }
   ]);
+
+  // Send push notification
+  await notifyBookingUser(booking, 'Booking Accepted', 'Your booking has been accepted.');
 
   res.json({
     success: true,
@@ -408,9 +418,12 @@ const rejectBooking = asyncHandler(async (req, res) => {
   await booking.save();
 
   await booking.populate([
-    { path: 'userId', select: 'firstName lastName email contactNumber' },
+    { path: 'userId', select: 'firstName lastName email contactNumber fcmToken' },
     { path: 'listingId', select: 'title featuredImage pricing' }
   ]);
+
+  // Send push notification
+  await notifyBookingUser(booking, 'Booking Rejected', 'Your booking request was rejected.');
 
   res.json({
     success: true,
@@ -472,10 +485,15 @@ const markBookingAsPaid = asyncHandler(async (req, res) => {
 
   await booking.save();
 
+
   await booking.populate([
+    { path: 'userId', select: 'firstName lastName email contactNumber fcmToken' },
     { path: 'vendorId', select: 'businessName businessEmail businessPhone' },
     { path: 'listingId', select: 'title featuredImage pricing' }
   ]);
+
+  // Send push notification
+  await notifyBookingUser(booking, 'Payment Received', 'Your booking payment was received.');
 
   res.json({
     success: true,
@@ -901,6 +919,11 @@ const markBookingOnTheWay = asyncHandler(async (req, res) => {
 
   await booking.save();
 
+  await booking.populate([
+    { path: 'userId', select: 'fcmToken' }
+  ]);
+  await notifyBookingUser(booking, 'On The Way', 'Your booking is on the way.');
+
   res.json({
     success: true,
     message: 'Booking marked as on the way',
@@ -928,6 +951,11 @@ const markBookingReceived = asyncHandler(async (req, res) => {
   booking.status = 'received';
   booking.deliveryDetails.deliveryTime = new Date();
   await booking.save();
+
+  await booking.populate([
+    { path: 'userId', select: 'fcmToken' }
+  ]);
+  await notifyBookingUser(booking, 'Booking Received', 'Your booking has been received.');
 
   res.json({
     success: true,
@@ -972,6 +1000,11 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
 
   await booking.save();
 
+  await booking.populate([
+    { path: 'userId', select: 'fcmToken' }
+  ]);
+  await notifyBookingUser(booking, 'Picked Up', 'Your booking has been picked up.');
+
   res.json({
     success: true,
     message: 'Booking marked as picked up',
@@ -1004,6 +1037,11 @@ const markBookingComplete = asyncHandler(async (req, res) => {
   }
 
   await booking.save();
+
+  await booking.populate([
+    { path: 'userId', select: 'fcmToken' }
+  ]);
+  await notifyBookingUser(booking, 'Booking Completed', 'Your booking is now complete.');
 
   res.json({
     success: true,

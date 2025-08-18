@@ -4,15 +4,17 @@ const http = require('http');
 const { Server } = require('socket.io');
 
 const PORT = process.env.PORT || 5000;
+
 const server = http.createServer(app);
 
-// Initialize Socket.io
+// Initialize Socket.io and attach to app
 const io = new Server(server, {
   cors: {
     origin: '*', // Adjust as needed for security
     methods: ['GET', 'POST']
   }
 });
+app.set('io', io);
 
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);

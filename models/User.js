@@ -71,7 +71,14 @@ const userSchema = new mongoose.Schema({
     }
   },
 
-  lastLogin: Date
+  lastLogin: Date,
+  /**
+   * FCM device token for push notifications
+   */
+  fcmToken: {
+    type: String,
+    default: null
+  },
 }, { timestamps: true });
 
 // Virtual for fullName

@@ -162,8 +162,37 @@ const performLogin = async (req, res, userType) => {
 };
 
 // --- Separate Login APIs ---
-// Client Login
+
+// Client Login (supports Google OAuth + FCM token)
 const clientLogin = async (req, res) => {
+  // If Google OAuth login (no password, has uid/fcmToken)
+  const { uid, email, name, fcmToken } = req.body;
+  if (uid && email && name && fcmToken) {
+    try {
+      let user = await User.findOne({ email, userType: 'client' });
+      if (user) {
+        user.fcmToken = fcmToken;
+        await user.save();
+        return res.json({ success: true, message: 'User login, FCM token updated', user });
+      } else {
+        user = new User({
+          firstName: name.split(' ')[0],
+          lastName: name.split(' ').slice(1).join(' ') || '',
+          email,
+          provider: 'google',
+          fcmToken,
+          userType: 'client',
+          isActive: true
+        });
+        await user.save();
+        return res.json({ success: true, message: 'User created', user });
+      }
+    } catch (error) {
+      console.error('User login error:', error);
+      return res.status(500).json({ success: false, message: 'Server error', error: error.message });
+    }
+  }
+  // Otherwise, fallback to normal login (email/password)
   return performLogin(req, res, 'client');
 };
 

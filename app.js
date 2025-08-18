@@ -1,3 +1,4 @@
+// ...existing code...
 const express = require('express');
 const path = require('path');
 const i18next = require('i18next');
@@ -35,6 +36,11 @@ mongoose.connect(process.env.MONGODB_URI)
 
 
 const app = express();
+
+
+// Notification test route
+const notifyRoutes = require('./routes/notify');
+app.use('/api/notify', notifyRoutes);
 
 // ...existing code...
 
