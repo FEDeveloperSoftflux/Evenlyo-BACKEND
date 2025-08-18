@@ -10,7 +10,6 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
-
 // i18next configuration for localization
 i18next
   .use(Backend)
@@ -34,9 +33,7 @@ mongoose.connect(process.env.MONGODB_URI)
   })
   .catch((err) => console.error('MongoDB connection error:', err));
 
-
 const app = express();
-
 
 // Notification test route
 const notifyRoutes = require('./routes/notify');
@@ -44,13 +41,14 @@ app.use('/api/notify', notifyRoutes);
 
 // ...existing code...
 
-
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:5000',
   'http://127.0.0.1:5000',
   'http://127.0.0.1:3000',
+  'http://localhost:5500',
+  'http://127.0.0.1:5500',
   'http://127.0.0.1:3001'
 ];
 
@@ -66,7 +64,8 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-}))
+}));
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(i18nextMiddleware.handle(i18next));
@@ -132,11 +131,14 @@ app.use('/api/settings', settingsRoutes);
 const supportRoutes = require('./routes/support');
 app.use('/api/support', supportRoutes);
 
+// Chat routes (NEW)
+const chatRoutes = require('./routes/chat');
+app.use('/api/chat', chatRoutes);
+
 // Root endpoint with translation
 app.get('/', (req, res) => {
   res.send(req.t('welcome'));
 });
-
 
 /// for test
 
@@ -148,6 +150,18 @@ app.get('/api/debug/session', (req, res) => {
     sessionData: req.session,
     cookies: req.cookies,
     user: req.session?.user || null
+  });
+});
+
+// Chat debug endpoint (remove in production)
+app.get('/api/debug/chat-status', (req, res) => {
+  const { getActiveUsersCount, getActiveUsers } = require('./utils/socketHandler');
+  
+  res.json({
+    activeUsersCount: getActiveUsersCount(),
+    activeUsers: getActiveUsers(),
+    socketIOReady: !!req.app.get('io'),
+    timestamp: new Date().toISOString()
   });
 });
 
