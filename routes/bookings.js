@@ -48,6 +48,7 @@ router.post('/:id/reject', requireAuth, requireVendor, rejectBooking);
 // @desc    Get accepted bookings awaiting payment
 // @access  Private (User/Client)
 // @purpose Client views bookings that have been accepted by vendors and need payment
+// On Cart page for Accepted TAB
 router.get('/accepted', requireAuth, requireClient, getAcceptedBookings);
 
 // @route   POST /api/booking/:id/pay
