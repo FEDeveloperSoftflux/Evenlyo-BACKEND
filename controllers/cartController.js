@@ -207,15 +207,22 @@ const updateCartItem = asyncHandler(async (req, res) => {
     });
   }
 
-  // Prepare tempDetails for update
-  const tempDetails = {
-    eventDate: startDate,
-    endDate: endDate || null,
-    eventTime: !isMultiDay ? startTime : undefined,
-    endTime: !isMultiDay ? endTime : undefined,
+  // Prepare tempDetails conditionally
+  let tempDetails = {
     eventLocation: location,
-    description: description || '',
+    description: description || ''
   };
+
+  if (isMultiDay) {
+    // Multi-day event
+    tempDetails.startDate = startDate;
+    tempDetails.endDate = endDate || startDate;
+  } else {
+    // Single-day event
+    tempDetails.eventDate = startDate;
+    tempDetails.startTime = startTime;
+    tempDetails.endTime = endTime;
+  }
 
   try {
     await cart.updateItemDetails(listingId, tempDetails);
@@ -233,9 +240,7 @@ const updateCartItem = asyncHandler(async (req, res) => {
     res.json({
       success: true,
       message: 'Cart item updated successfully',
-      data: {
-        cart
-      }
+      data: { cart }
     });
   } catch (error) {
     res.status(404).json({
@@ -244,6 +249,7 @@ const updateCartItem = asyncHandler(async (req, res) => {
     });
   }
 });
+
 
 // @desc    Submit all cart items as booking requests
 // @route   POST /api/cart/submit

@@ -15,8 +15,12 @@ const cartSchema = new mongoose.Schema({
       required: true
     },
     tempDetails: {
-      eventDate: Date,
-      eventTime: String,
+      // For single and multi-day event support
+      startDate: Date,
+      endDate: Date,
+      startTime: String,
+      endTime: String,
+      // Legacy/compatibility fields
       eventLocation: String,
       duration: {
         hours: Number,
