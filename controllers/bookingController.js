@@ -1017,12 +1017,19 @@ const markBookingComplete = asyncHandler(async (req, res) => {
 // @route   POST /api/booking/:id/claim
 // @access  Private (Client)
 const createClaim = asyncHandler(async (req, res) => {
-  const { reason } = req.body;
-  
+  const { reason, claimType } = req.body;
+
   if (!reason || !reason.en) {
     return res.status(400).json({
       success: false,
       message: 'Claim reason is required'
+    });
+  }
+
+  if (!claimType) {
+    return res.status(400).json({
+      success: false,
+      message: 'Claim type is required'
     });
   }
 
@@ -1042,6 +1049,7 @@ const createClaim = asyncHandler(async (req, res) => {
   booking.status = 'claim';
   booking.claimDetails = {
     reason: reason,
+    claimType: claimType,
     claimedBy: 'client',
     claimedAt: new Date(),
     status: 'pending'
