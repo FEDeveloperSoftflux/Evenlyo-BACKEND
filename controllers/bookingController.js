@@ -1,3 +1,4 @@
+
 const asyncHandler = require('express-async-handler');
 const BookingRequest = require('../models/Booking');
 const Listing = require('../models/Listing');
@@ -1057,6 +1058,57 @@ const createClaim = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Cancel a booking (Client action, only within 30 min)
+// @route   POST /api/booking/:id/cancel
+// @access  Private (Client)
+const cancelBooking = asyncHandler(async (req, res) => {
+  const booking = await BookingRequest.findOne({
+    _id: req.params.id,
+    userId: req.user.id,
+    status: { $in: ['pending', 'accepted', 'paid'] }
+  });
+
+  if (!booking) {
+    return res.status(404).json({
+      success: false,
+      message: 'Booking not found or not eligible for cancellation.'
+    });
+  }
+
+  // Check if within 30 minutes of creation
+  const now = new Date();
+  const createdAt = new Date(booking.createdAt);
+  const diffMinutes = (now - createdAt) / (1000 * 60);
+  if (diffMinutes > 30) {
+    return res.status(400).json({
+      success: false,
+      message: 'Cancellation period expired. You can only cancel within 30 minutes of booking.'
+    });
+  }
+
+  booking.status = 'cancelled';
+  booking.statusHistory.push({
+    status: 'cancelled',
+    updatedBy: {
+      userId: req.user.id,
+      userType: 'client',
+      name: req.user.firstName + ' ' + req.user.lastName
+    },
+    notes: {
+      en: 'Booking cancelled by client',
+      nl: 'Boeking geannuleerd door klant'
+    }
+  });
+  await booking.save();
+
+  // TODO: Send notification to vendor/admin if needed
+
+  res.json({
+    success: true,
+    message: 'Booking cancelled successfully.',
+    data: { booking }
+  });
+});
 // @desc    Get booking details
 // @route   GET /api/booking/:id
 // @access  Private (User/Vendor)
@@ -1136,5 +1188,6 @@ module.exports = {
   markBookingPickedUp,
   markBookingComplete,
   createClaim,
-  getBookingDetails
+  getBookingDetails,
+  cancelBooking
 };
