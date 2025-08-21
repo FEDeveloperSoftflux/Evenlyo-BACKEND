@@ -657,7 +657,7 @@ const verifyOtpAndRegisterGeneral = async (req, res) => {
 // --- Google Authentication ---
 const googleAuth = async (req, res) => {
   try {
-    const { idToken } = req.body;
+    const { idToken, fcmToken } = req.body;
 
     // Validate required fields
     if (!idToken) {
@@ -702,6 +702,9 @@ const googleAuth = async (req, res) => {
       }
       // User is a Google user, allow login
       user.lastLogin = new Date();
+      if (fcmToken) {
+        user.fcmToken = fcmToken;
+      }
       await user.save();
       req.session.user = {
         id: user._id,
@@ -737,7 +740,8 @@ const googleAuth = async (req, res) => {
         password: null, // Explicitly set password to null for Google users
         profileImage: picture || undefined,
         isActive: true,
-        lastLogin: new Date()
+        lastLogin: new Date(),
+        ...(fcmToken && { fcmToken })
       });
 
       await user.save();
