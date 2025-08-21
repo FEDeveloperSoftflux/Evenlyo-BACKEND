@@ -1,4 +1,3 @@
-
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
@@ -106,5 +105,12 @@ router.get('/firebase-health', (req, res) => {
     });
   }
 });
+
+// Vendor Registration
+router.post('/vendor/register',
+  rateLimit(10, 5 * 60 * 1000),
+  csrfProtection,
+  authController.registerVendor
+);
 
 module.exports = router;

@@ -739,6 +739,123 @@ const googleAuth = async (req, res) => {
   }
 };
 
+// --- Vendor Registration ---
+const registerVendor = async (req, res) => {
+  try {
+    const {
+      accountType, // 'personal' or 'business'
+      firstName,
+      lastName,
+      email,
+      contactNumber,
+      city,
+      postalCode,
+      fullAddress,
+      passportDetails,
+      mainCategories,
+      subCategories,
+      password,
+      confirmPassword,
+      otp,
+      // Business fields
+      businessName,
+      businessType,
+      businessNumber,
+      businessWebsite,
+      teamSize
+    } = req.body;
+
+    // Validate accountType
+    if (!['personal', 'business'].includes(accountType)) {
+      return res.status(400).json({ success: false, message: 'Invalid account type' });
+    }
+
+    // Common validations
+    if (!email || !contactNumber || !password || !confirmPassword || !otp) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+    if (password !== confirmPassword) {
+      return res.status(400).json({ success: false, message: 'Password and confirm password do not match' });
+    }
+
+    // Personal account validations
+    if (accountType === 'personal') {
+      if (!firstName || !lastName || !city || !postalCode || !fullAddress || !passportDetails || !mainCategories || !subCategories) {
+        return res.status(400).json({ success: false, message: 'Missing required personal account fields' });
+      }
+    }
+    // Business account validations
+    if (accountType === 'business') {
+      if (!businessName || !businessType || !businessNumber || !teamSize) {
+        return res.status(400).json({ success: false, message: 'Missing required business account fields' });
+      }
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({ success: false, message: 'Email already registered' });
+    }
+
+    // Verify OTP
+    const valid = await verifyOTP(email, otp);
+    if (!valid) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user
+    const user = new User({
+      firstName: accountType === 'personal' ? firstName : businessName,
+      lastName: accountType === 'personal' ? lastName : '',
+      email,
+      contactNumber,
+      address: {
+        city: city || '',
+        postalCode: postalCode || '',
+        fullAddress: fullAddress || ''
+      },
+      password: hashedPassword,
+      userType: 'vendor',
+      isActive: true
+    });
+    await user.save();
+
+    // Create vendor profile
+    const vendorData = {
+      userId: user._id,
+      mainCategories: mainCategories || [],
+      subCategories: subCategories || [],
+      isApproved: false,
+      approvalStatus: 'pending',
+      // Personal fields
+      ...(accountType === 'personal' && {
+        passportDetails,
+      }),
+      // Business fields
+      ...(accountType === 'business' && {
+        businessName,
+        businessType,
+        businessPhone: businessNumber,
+        businessWebsite,
+        teamSize,
+      })
+    };
+    const vendor = new Vendor(vendorData);
+    await vendor.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Vendor registration successful. Your account is pending approval.'
+    });
+  } catch (err) {
+    console.error('Vendor registration error:', err);
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+};
+
 // --- Exports ---
 module.exports = {
   // Authentication
@@ -753,6 +870,7 @@ module.exports = {
   // Registration
   registerClient,
   verifyOtpAndRegister: verifyOtpAndRegisterGeneral,
+  registerVendor,
 
   // OTP Management
   sendOtpForRegister,
