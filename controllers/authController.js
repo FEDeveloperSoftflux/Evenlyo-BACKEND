@@ -22,7 +22,7 @@ const getModelByUserType = (userType) => {
 // --- Shared Login Logic ---
 const performLogin = async (req, res, userType) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, fcmToken } = req.body;
 
     // Validate required fields
     if (!email || !password) {
@@ -70,6 +70,12 @@ const performLogin = async (req, res, userType) => {
         success: false,
         message: 'This account uses Google Sign-In. Please use Google authentication.'
       });
+    }
+
+    // Update FCM token if provided
+    if (fcmToken) {
+      user.fcmToken = fcmToken;
+      await user.save();
     }
 
     // Verify password
