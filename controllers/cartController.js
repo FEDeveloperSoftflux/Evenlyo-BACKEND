@@ -174,11 +174,13 @@ const updateCartItem = asyncHandler(async (req, res) => {
     startTime,
     endTime,
     location,
+    eventLocation,
     description
   } = req.body;
 
+
   // Validation
-  if (!startDate || !location) {
+  if (!startDate || !eventLocation) {
     return res.status(400).json({
       success: false,
       message: 'startDate and location are required.'
@@ -209,7 +211,7 @@ const updateCartItem = asyncHandler(async (req, res) => {
 
   // Prepare tempDetails conditionally
   let tempDetails = {
-    eventLocation: location,
+    eventLocation: eventLocation,
     description: description || ''
   };
 
@@ -249,7 +251,6 @@ const updateCartItem = asyncHandler(async (req, res) => {
     });
   }
 });
-
 
 // @desc    Submit all cart items as booking requests
 // @route   POST /api/cart/submit
