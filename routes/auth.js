@@ -6,13 +6,6 @@ const { requireAuth,rateLimit,csrfProtection} = require('../middleware/authMiddl
 
 // --- Public Routes ---
 
-// General login route (backward compatibility)
-router.post('/login',
-  rateLimit(20, 15 * 60 * 1000), // Increased to 20 attempts per 15 minutes for testing
-  csrfProtection,
-  authController.login
-);
-
 // Login route
 router.post('/client/login',
   rateLimit(20, 15 * 60 * 1000),
@@ -37,42 +30,42 @@ router.post('/logout', requireAuth, authController.logout);
 
 // OTP routes
 router.post('/send-otp',
-  rateLimit(10, 5 * 60 * 1000), // Increased to 10 attempts per 5 minutes for testing
+  rateLimit(10, 5 * 60 * 1000), 
   authController.sendOtpForRegister
 );
 
 // Client Registration
 router.post('/client/register',
-  rateLimit(10, 5 * 60 * 1000), // Increased to 10 attempts per 5 minutes for testing
+  rateLimit(10, 5 * 60 * 1000), 
   csrfProtection,
   authController.registerClient
 );
 
 router.post('/verify-register-otp', 
-  rateLimit(10, 5 * 60 * 1000), // Increased to 10 attempts per 5 minutes for testing
+  rateLimit(10, 5 * 60 * 1000), 
   authController.verifyOtpAndRegister
 );
 
 // Password reset routes
 router.post('/send-forgot-otp',
-  rateLimit(10, 5 * 60 * 1000), // Increased to 10 attempts per 5 minutes for testing
+  rateLimit(10, 5 * 60 * 1000), 
   authController.sendOtpForForgotPassword
 );
 
 router.post('/verify-forgot-otp',
-  rateLimit(10, 5 * 60 * 1000), // Increased to 10 attempts per 5 minutes for testing
+  rateLimit(10, 5 * 60 * 1000),
   authController.verifyOtpForForgotPassword
 );
 
 router.post('/reset-password',
-  rateLimit(10, 5 * 60 * 1000), // Increased to 10 attempts per 5 minutes for testing
+  rateLimit(10, 5 * 60 * 1000),
   csrfProtection,
   authController.resetPassword
 );
 
 // Google Authentication
 router.post('/google',
-  rateLimit(10, 5 * 60 * 1000), // Rate limit for Google auth
+  rateLimit(10, 5 * 60 * 1000),
   authController.googleAuth
 );
 
