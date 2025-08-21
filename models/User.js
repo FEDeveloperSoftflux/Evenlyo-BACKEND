@@ -72,9 +72,7 @@ const userSchema = new mongoose.Schema({
   },
 
   lastLogin: Date,
-  /**
-   * FCM device token for push notifications
-   */
+
   fcmToken: {
     type: String,
     default: null

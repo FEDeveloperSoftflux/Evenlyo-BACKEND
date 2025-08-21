@@ -617,9 +617,6 @@ const resetPassword = async (req, res) => {
 
 
 // --- Client Registration ---
-// (Already defined above in CLIENT AUTH APIs)
-
-// --- General Registration (backward compatibility) ---
 const verifyOtpAndRegisterGeneral = async (req, res) => {
   try {
     const { userType } = req.body;
@@ -702,7 +699,8 @@ const googleAuth = async (req, res) => {
       }
       // User is a Google user, allow login
       user.lastLogin = new Date();
-      if (fcmToken) {
+      if (fcmToken) 
+        {
         user.fcmToken = fcmToken;
       }
       await user.save();
