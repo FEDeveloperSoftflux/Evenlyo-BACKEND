@@ -168,16 +168,7 @@ const removeFromCart = asyncHandler(async (req, res) => {
 // @access  Private (User)
 const updateCartItem = asyncHandler(async (req, res) => {
   const { listingId } = req.params;
-  const {
-    startDate,
-    endDate,
-    startTime,
-    endTime,
-    location,
-    eventLocation,
-    description
-  } = req.body;
-
+  const { startDate, endDate, startTime, endTime, location, eventLocation, description } = req.body;
 
   // Validation
   if (!startDate || !eventLocation) {
@@ -242,7 +233,9 @@ const updateCartItem = asyncHandler(async (req, res) => {
     res.json({
       success: true,
       message: 'Cart item updated successfully',
-      data: { cart }
+      data: {
+        cart
+      }
     });
   } catch (error) {
     res.status(404).json({
@@ -251,6 +244,8 @@ const updateCartItem = asyncHandler(async (req, res) => {
     });
   }
 });
+
+
 
 // @desc    Submit all cart items as booking requests
 // @route   POST /api/cart/submit
