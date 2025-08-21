@@ -27,13 +27,7 @@ const cartSchema = new mongoose.Schema({
         days: Number
       },
       specialRequests: String,
-      guestCount: Number,
-      eventType: String,
-      contactPreference: {
-        type: String,
-        enum: ['phone', 'email', 'whatsapp'],
-        default: 'email'
-      }
+
     },
     addedAt: {
       type: Date,
