@@ -36,11 +36,19 @@ const bookingRequestSchema = new mongoose.Schema({
     },
     startTime: {
       type: String,
-      required: true
+      required: function() {
+        // Only required if startDate and endDate are the same (single-day booking)
+        return this.details && this.details.startDate && this.details.endDate &&
+          new Date(this.details.startDate).toDateString() === new Date(this.details.endDate).toDateString();
+      }
     },
     endTime: {
       type: String,
-      required: true
+      required: function() {
+        // Only required if startDate and endDate are the same (single-day booking)
+        return this.details && this.details.startDate && this.details.endDate &&
+          new Date(this.details.startDate).toDateString() === new Date(this.details.endDate).toDateString();
+      }
     },
     duration: {
       hours: Number,

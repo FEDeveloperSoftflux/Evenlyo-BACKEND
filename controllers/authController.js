@@ -19,8 +19,48 @@ const getModelByUserType = (userType) => {
   }
 };
 
+// ================= CLIENT AUTH APIs =================
+// --- Client Login ---
+const performClientLogin = async (req, res) => {
+  // ...existing code for performLogin with userType 'client'...
+  return performLogin(req, res, 'client');
+};
+
+// --- Client Registration ---
+const registerClient = async (req, res) => {
+  return verifyOtpAndRegister(req, res, 'client');
+};
+
+// --- Get Current Client User ---
+// (Reuses getCurrentUser, but you can add client-specific logic here if needed)
+
+// ================= VENDOR AUTH APIs =================
+// --- Vendor Login ---
+const performVendorLogin = async (req, res) => {
+  // ...existing code for performLogin with userType 'vendor'...
+  return performLogin(req, res, 'vendor');
+};
+
+// --- Vendor Registration (Not yet implemented) ---
+// (You can add vendor registration logic here in the future)
+
+// --- Get Current Vendor User ---
+// (Reuses getCurrentUser, but you can add vendor-specific logic here if needed)
+
+// ================= ADMIN AUTH APIs =================
+// --- Admin Login ---
+const performAdminLogin = async (req, res) => {
+  // ...existing code for performLogin with userType 'admin'...
+  return performLogin(req, res, 'admin');
+};
+
+// --- Get Current Admin User ---
+// (Reuses getCurrentUser, but you can add admin-specific logic here if needed)
+
+// ================= SHARED/GENERAL AUTH APIs =================
 // --- Shared Login Logic ---
 const performLogin = async (req, res, userType) => {
+  // ...existing code for performLogin...
   try {
     const { email, password, fcmToken } = req.body;
 
@@ -167,7 +207,10 @@ const performLogin = async (req, res, userType) => {
   }
 };
 
+
 // --- Separate Login APIs ---
+// Client Login
+const clientLogin = performClientLogin;
 
 // Client Login (supports Google OAuth + FCM token)
 const clientLogin = async (req, res) => {
@@ -202,74 +245,13 @@ const clientLogin = async (req, res) => {
   return performLogin(req, res, 'client');
 };
 
-// Vendor Login  
-const vendorLogin = async (req, res) => {
-  return performLogin(req, res, 'vendor');
-};
+// Vendor Login
+const vendorLogin = performVendorLogin;
 
 // Admin Login
-const adminLogin = async (req, res) => {
-  return performLogin(req, res, 'admin');
-};
+const adminLogin = performAdminLogin;
 
-// General Login (backward compatibility) - can be removed if not needed
-const login = async (req, res) => {
-  try {
-    let { email, password, userType } = req.body;
 
-    // Validate required fields
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email and password are required'
-      });
-    }
-
-    // If userType is not provided, try to detect it automatically
-    if (!userType) {
-      // Check which user types exist for this email
-      const allUsers = await User.find({ email, isActive: true });
-
-      if (allUsers.length === 0) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid credentials'
-        });
-      }
-
-      // If multiple user types exist for same email, require userType to be specified
-      if (allUsers.length > 1) {
-        const userTypes = allUsers.map(u => u.userType);
-        return res.status(400).json({
-          success: false,
-          message: `Multiple accounts found for this email. Please specify userType.`,
-          availableUserTypes: userTypes
-        });
-      }
-
-      // Single user found, use their userType
-      userType = allUsers[0].userType;
-    }
-
-    // Validate userType if provided
-    if (userType && !['client', 'vendor', 'admin'].includes(userType)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid userType. Must be client, vendor, or admin'
-      });
-    }
-
-    return performLogin(req, res, userType);
-
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-};
 
 // --- Logout---
 const logout = async (req, res) => {
@@ -636,10 +618,9 @@ const resetPassword = async (req, res) => {
   }
 };
 
+
 // --- Client Registration ---
-const registerClient = async (req, res) => {
-  return verifyOtpAndRegister(req, res, 'client');
-};
+// (Already defined above in CLIENT AUTH APIs)
 
 // --- General Registration (backward compatibility) ---
 const verifyOtpAndRegisterGeneral = async (req, res) => {
@@ -803,7 +784,7 @@ module.exports = {
   clientLogin,
   vendorLogin,
   adminLogin,
-  login,
+  
   logout,
   getCurrentUser,
   googleAuth,

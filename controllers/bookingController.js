@@ -1,3 +1,4 @@
+
 const { sendNotification } = require('../config/firebase');
 // Helper to send push notification to booking user
 async function notifyBookingUser(booking, title, body) {
@@ -1054,12 +1055,19 @@ const markBookingComplete = asyncHandler(async (req, res) => {
 // @route   POST /api/booking/:id/claim
 // @access  Private (Client)
 const createClaim = asyncHandler(async (req, res) => {
-  const { reason } = req.body;
-  
+  const { reason, claimType } = req.body;
+
   if (!reason || !reason.en) {
     return res.status(400).json({
       success: false,
       message: 'Claim reason is required'
+    });
+  }
+
+  if (!claimType) {
+    return res.status(400).json({
+      success: false,
+      message: 'Claim type is required'
     });
   }
 
@@ -1079,6 +1087,7 @@ const createClaim = asyncHandler(async (req, res) => {
   booking.status = 'claim';
   booking.claimDetails = {
     reason: reason,
+    claimType: claimType,
     claimedBy: 'client',
     claimedAt: new Date(),
     status: 'pending'
@@ -1095,6 +1104,57 @@ const createClaim = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Cancel a booking (Client action, only within 30 min)
+// @route   POST /api/booking/:id/cancel
+// @access  Private (Client)
+const cancelBooking = asyncHandler(async (req, res) => {
+  const booking = await BookingRequest.findOne({
+    _id: req.params.id,
+    userId: req.user.id,
+    status: { $in: ['pending', 'accepted', 'paid'] }
+  });
+
+  if (!booking) {
+    return res.status(404).json({
+      success: false,
+      message: 'Booking not found or not eligible for cancellation.'
+    });
+  }
+
+  // Check if within 30 minutes of creation
+  const now = new Date();
+  const createdAt = new Date(booking.createdAt);
+  const diffMinutes = (now - createdAt) / (1000 * 60);
+  if (diffMinutes > 30) {
+    return res.status(400).json({
+      success: false,
+      message: 'Cancellation period expired. You can only cancel within 30 minutes of booking.'
+    });
+  }
+
+  booking.status = 'cancelled';
+  booking.statusHistory.push({
+    status: 'cancelled',
+    updatedBy: {
+      userId: req.user.id,
+      userType: 'client',
+      name: req.user.firstName + ' ' + req.user.lastName
+    },
+    notes: {
+      en: 'Booking cancelled by client',
+      nl: 'Boeking geannuleerd door klant'
+    }
+  });
+  await booking.save();
+
+  // TODO: Send notification to vendor/admin if needed
+
+  res.json({
+    success: true,
+    message: 'Booking cancelled successfully.',
+    data: { booking }
+  });
+});
 // @desc    Get booking details
 // @route   GET /api/booking/:id
 // @access  Private (User/Vendor)
@@ -1174,5 +1234,6 @@ module.exports = {
   markBookingPickedUp,
   markBookingComplete,
   createClaim,
-  getBookingDetails
+  getBookingDetails,
+  cancelBooking
 };

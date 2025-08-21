@@ -23,12 +23,12 @@ router.get('/', requireAuth, requireClient, getCart);
 // @route   DELETE /api/cart/:listingId
 // @desc    Remove item from cart
 // @access  Private (User)
-router.delete('/:listingId', requireAuth, requireClient, removeFromCart);
+router.delete('/remove/:listingId', requireAuth, requireClient, removeFromCart);
 
-// @route   PUT /api/cart/:listingId
+// @route   PUT /api/cart/update/:listingId
 // @desc    Update item details in cart
 // @access  Private (User)
-router.put('/:listingId', requireAuth, requireClient, updateCartItem);
+router.put('/update/:listingId', requireAuth, requireClient, updateCartItem);
 
 // @route   POST /api/cart/submit
 // @desc    Submit all cart items as booking requests
