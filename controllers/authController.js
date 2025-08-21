@@ -209,9 +209,6 @@ const performLogin = async (req, res, userType) => {
 
 
 // --- Separate Login APIs ---
-// Client Login
-const clientLogin = performClientLogin;
-
 // Client Login (supports Google OAuth + FCM token)
 const clientLogin = async (req, res) => {
   // If Google OAuth login (no password, has uid/fcmToken)
