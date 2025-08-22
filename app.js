@@ -38,9 +38,6 @@ mongoose.connect(process.env.MONGODB_URI)
 const app = express();
 
 
-// Notification test route
-const notifyRoutes = require('./routes/notify');
-app.use('/api/notify', notifyRoutes);
 
 // ...existing code...
 
@@ -136,6 +133,10 @@ app.use('/api/support', supportRoutes);
 app.get('/', (req, res) => {
   res.send(req.t('welcome'));
 });
+
+// Notification test route
+const notifyRoutes = require('./routes/notify');
+app.use('/api/notify', notifyRoutes);
 
 
 /// for test
