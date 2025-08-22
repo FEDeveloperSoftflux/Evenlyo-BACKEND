@@ -1,40 +1,25 @@
 const SupportTicket = require('../models/SupportTicket');
 const User = require('../models/User');
 
-// Get available issue categories
-const getIssueCategories = (req, res) => {
-  try {
-    const categories = [
-      'Account Issues',
-      'Booking Problems', 
-      'Payment Issues',
-      'Technical Support',
-      'Service Quality',
-      'Refund Request',
-      'General Inquiry',
-      'Other'
-    ];
-
-    res.status(200).json({
-      success: true,
-      data: categories
-    });
-  } catch (error) {
-    console.error('Error fetching issue categories:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch issue categories'
-    });
-  }
-};
 
 // Create a new support ticket
 const createSupportTicket = async (req, res) => {
   try {
-    const { issueRelatedTo, details } = req.body;
+    // Accept payload in { data: { issueRelatedto, details } } format
+    const { data } = req.body;
+    if (!data || typeof data !== 'object') {
+      return res.status(400).json({
+        success: false,
+        message: 'Payload must be in the format { data: { issueRelatedto, details } }'
+      });
+    }
+    let { issueRelatedto, details } = data;
+    // Trim values
+    issueRelatedto = issueRelatedto ? issueRelatedto.trim() : '';
+    details = details ? details.trim() : '';
 
     // Validate required fields
-    if (!issueRelatedTo || !details) {
+    if (!issueRelatedto || !details) {
       return res.status(400).json({
         success: false,
         message: 'Issue category and details are required'
@@ -42,12 +27,14 @@ const createSupportTicket = async (req, res) => {
     }
 
     // Validate details length
-    if (details.trim().length < 10) {
+    if (details.length < 10) {
       return res.status(400).json({
         success: false,
         message: 'Details must be at least 10 characters long'
       });
     }
+
+  // ...existing code...
 
     // Get user info from session
     const userId = req.user.id;
@@ -66,8 +53,8 @@ const createSupportTicket = async (req, res) => {
     const supportTicket = new SupportTicket({
       userEmail,
       userId,
-      issueRelatedTo,
-      details: details.trim()
+      issueRelatedto,
+      details
     });
 
     await supportTicket.save();
@@ -77,7 +64,7 @@ const createSupportTicket = async (req, res) => {
       message: 'Support ticket created successfully',
       data: {
         ticketId: supportTicket.ticketId,
-        issueRelatedTo: supportTicket.issueRelatedTo,
+        issueRelatedto: supportTicket.issueRelatedto,
         details: supportTicket.details,
         status: supportTicket.status,
         createdAt: supportTicket.createdAt
@@ -92,10 +79,7 @@ const createSupportTicket = async (req, res) => {
     });
   }
 };
-
-;
-
+  
 module.exports = {
-  getIssueCategories,
   createSupportTicket,
 };

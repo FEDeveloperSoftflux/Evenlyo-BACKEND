@@ -19,10 +19,8 @@ const getModelByUserType = (userType) => {
   }
 };
 
-// ================= CLIENT AUTH APIs =================
 // --- Client Login ---
-const performClientLogin = async (req, res) => {
-  // ...existing code for performLogin with userType 'client'...
+const clientLogin = async (req, res) => {
   return performLogin(req, res, 'client');
 };
 
@@ -31,34 +29,12 @@ const registerClient = async (req, res) => {
   return verifyOtpAndRegister(req, res, 'client');
 };
 
-// --- Get Current Client User ---
-// (Reuses getCurrentUser, but you can add client-specific logic here if needed)
-
-// ================= VENDOR AUTH APIs =================
-// --- Vendor Login ---
-const performVendorLogin = async (req, res) => {
-  // ...existing code for performLogin with userType 'vendor'...
-  return performLogin(req, res, 'vendor');
-};
-
-// --- Vendor Registration (Not yet implemented) ---
-// (You can add vendor registration logic here in the future)
-
-// --- Get Current Vendor User ---
-// (Reuses getCurrentUser, but you can add vendor-specific logic here if needed)
-
-// ================= ADMIN AUTH APIs =================
 // --- Admin Login ---
 const performAdminLogin = async (req, res) => {
   // ...existing code for performLogin with userType 'admin'...
   return performLogin(req, res, 'admin');
 };
 
-// --- Get Current Admin User ---
-// (Reuses getCurrentUser, but you can add admin-specific logic here if needed)
-
-// ================= SHARED/GENERAL AUTH APIs =================
-// --- Shared Login Logic ---
 const performLogin = async (req, res, userType) => {
   // ...existing code for performLogin...
   try {
@@ -201,17 +177,9 @@ const performLogin = async (req, res, userType) => {
   }
 };
 
-
-// --- Separate Login APIs ---
-// Client Login
-const clientLogin = performClientLogin;
-
-// Vendor Login
-const vendorLogin = performVendorLogin;
-
 // Admin Login
 const adminLogin = performAdminLogin;
-
+  
 
 
 // --- Logout---
@@ -579,11 +547,7 @@ const resetPassword = async (req, res) => {
   }
 };
 
-
-// --- Client Registration ---
-// (Already defined above in CLIENT AUTH APIs)
-
-// --- General Registration (backward compatibility) ---
+// --- General Registration ---
 const verifyOtpAndRegisterGeneral = async (req, res) => {
   try {
     const { userType } = req.body;
@@ -739,6 +703,7 @@ const googleAuth = async (req, res) => {
   }
 };
 
+
 // --- Vendor Registration ---
 const registerVendor = async (req, res) => {
   try {
@@ -797,7 +762,7 @@ const registerVendor = async (req, res) => {
       return res.status(409).json({ success: false, message: 'Email already registered' });
     }
 
-    // Verify OTP
+    // OTP verification (same as client registration)
     const valid = await verifyOTP(email, otp);
     if (!valid) {
       return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
@@ -854,6 +819,11 @@ const registerVendor = async (req, res) => {
     console.error('Vendor registration error:', err);
     res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
+};
+
+// --- Vendor Login ---
+const vendorLogin = async (req, res) => {
+  return performLogin(req, res, 'vendor');
 };
 
 // --- Exports ---

@@ -126,6 +126,10 @@ app.use('/api/settings', settingsRoutes);
 const supportRoutes = require('./routes/support');
 app.use('/api/support', supportRoutes);
 
+// Notification routes
+const notificationRoutes = require('./routes/notifications');
+app.use('/api/notifications', notificationRoutes);
+
 // Root endpoint with translation
 app.get('/', (req, res) => {
   res.send(req.t('welcome'));

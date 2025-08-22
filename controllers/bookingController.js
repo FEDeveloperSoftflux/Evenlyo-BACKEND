@@ -1,5 +1,6 @@
 
 const asyncHandler = require('express-async-handler');
+const notificationController = require('./notificationController');
 const BookingRequest = require('../models/Booking');
 const Listing = require('../models/Listing');
 const User = require('../models/User');
@@ -358,8 +359,16 @@ const acceptBooking = asyncHandler(async (req, res) => {
   }
 
   console.log(`Accepting booking ${id} for vendor ${vendor._id}`);
+
   booking.status = 'accepted';
   await booking.save();
+
+  // Create notification for user
+  await notificationController.createNotification({
+    user: booking.userId,
+    booking: booking._id,
+    message: `Your booking has been accepted.`
+  });
 
   await booking.populate([
     { path: 'userId', select: 'firstName lastName email contactNumber' },
@@ -404,9 +413,17 @@ const rejectBooking = asyncHandler(async (req, res) => {
     });
   }
 
+
   booking.status = 'rejected';
   booking.rejectionReason = rejectionReason || 'No reason provided';
   await booking.save();
+
+  // Create notification for user
+  await notificationController.createNotification({
+    user: booking.userId,
+    booking: booking._id,
+    message: `Your booking has been rejected.`
+  });
 
   await booking.populate([
     { path: 'userId', select: 'firstName lastName email contactNumber' },
