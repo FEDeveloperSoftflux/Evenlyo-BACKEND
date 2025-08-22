@@ -17,19 +17,9 @@ const supportTicketSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  issueRelatedTo: {
+  issueRelatedto: {
     type: String,
-    required: true,
-    enum: [
-      'Account Issues',
-      'Booking Problems', 
-      'Payment Issues',
-      'Technical Support',
-      'Service Quality',
-      'Refund Request',
-      'General Inquiry',
-      'Other'
-    ]
+    required: true
   },
   details: {
     type: String,
