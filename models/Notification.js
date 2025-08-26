@@ -8,7 +8,7 @@ const NotificationSchema = new mongoose.Schema({
   },
   booking: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Booking',
+    ref: 'BookingRequest',
     required: true
   },
   message: {

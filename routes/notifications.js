@@ -4,8 +4,18 @@ const notificationController = require('../controllers/notificationController');
 const { requireAuth } = require('../middleware/authMiddleware');
 
 // Get all notifications for the logged-in user
+const Vendor = require('../models/Vendor');
+
 router.get('/', requireAuth, async (req, res) => {
-  const notifications = await notificationController.getNotifications(req.user.id);
+  let userIdToQuery = req.user.id;
+  if (req.user.userType === 'vendor') {
+    // Find vendor profile for this user
+    const vendorProfile = await Vendor.findOne({ userId: req.user.id });
+    if (vendorProfile) {
+      userIdToQuery = vendorProfile._id;
+    }
+  }
+  const notifications = await notificationController.getNotifications(userIdToQuery);
   res.json({ success: true, data: notifications });
 });
 

@@ -1,11 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const {
-  getIssueCategories,
-  createSupportTicket,
-  getUserSupportTickets,
-  getSupportTicketById
-} = require('../controllers/supportController');
+const {createSupportTicket,} = require('../controllers/supportController');
 const { requireAuth } = require('../middleware/authMiddleware');
 
 // Protected routes (require authentication)

@@ -114,6 +114,7 @@ app.use('/api/plans', planRoutes);
 const vendorRoutes = require('./routes/vendors');
 app.use('/api/vendor', vendorRoutes);
 
+
 // Blog routes
 const blogRoutes = require('./routes/blogs');
 app.use('/api/blogs', blogRoutes);
@@ -148,6 +149,13 @@ app.get('/api/debug/session', (req, res) => {
     user: req.session?.user || null
   });
 });
+
+
+
+// Vendor dashboard analytics route
+const vendorDashboardRoutes = require('./routes/vendor/dashboard');
+app.use('/api/vendor/dashboard', vendorDashboardRoutes);
+
 
 // Error handling middleware
 app.use((err, req, res, next) => {
