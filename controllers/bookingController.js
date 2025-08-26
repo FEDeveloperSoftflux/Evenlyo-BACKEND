@@ -266,6 +266,19 @@ const createBookingRequest = asyncHandler(async (req, res) => {
 
   await bookingRequest.save();
 
+  // Notify vendor of new booking request
+  try {
+    const vendor = await Vendor.findById(bookingRequest.vendorId);
+    if (vendor && vendor.userId) {
+      await notificationController.createNotification({
+        user: vendor.userId, // vendor's user account receives notification
+        booking: bookingRequest._id,
+        message: `You have received a new booking request.`
+      });
+    }
+  } catch (e) {
+    console.error('Failed to create vendor notification for new booking:', e);
+  }
   // Populate the response
   await bookingRequest.populate([
     { path: 'userId', select: 'firstName lastName email contactNumber' },
@@ -363,6 +376,16 @@ const acceptBooking = asyncHandler(async (req, res) => {
   booking.status = 'accepted';
   await booking.save();
 
+  // Notify client (user) of acceptance
+  try {
+    await notificationController.createNotification({
+      user: booking.userId,
+      booking: booking._id,
+      message: `Your booking has been accepted.`
+    });
+  } catch (e) {
+    console.error('Failed to create client notification for accepted booking:', e);
+  }
   // Create notification for user
   await notificationController.createNotification({
     user: booking.userId,
@@ -418,6 +441,16 @@ const rejectBooking = asyncHandler(async (req, res) => {
   booking.rejectionReason = rejectionReason || 'No reason provided';
   await booking.save();
 
+  // Notify client (user) of rejection
+  try {
+    await notificationController.createNotification({
+      user: booking.userId,
+      booking: booking._id,
+      message: `Your booking has been rejected.`
+    });
+  } catch (e) {
+    console.error('Failed to create client notification for rejected booking:', e);
+  }
   // Create notification for user
   await notificationController.createNotification({
     user: booking.userId,
@@ -488,6 +521,21 @@ const markBookingAsPaid = asyncHandler(async (req, res) => {
     booking.transactionId = transactionId;
   }
 
+  await booking.save();
+
+  // Notify vendor of payment
+  try {
+    const vendor = await Vendor.findById(booking.vendorId);
+    if (vendor && vendor.userId) {
+      await notificationController.createNotification({
+        user: vendor.userId,
+        booking: booking._id,
+        message: `A client has paid for a booking.`
+      });
+    }
+  } catch (e) {
+    console.error('Failed to create vendor notification for paid booking:', e);
+  }
   await booking.save();
 
   await booking.populate([
@@ -919,6 +967,16 @@ const markBookingOnTheWay = asyncHandler(async (req, res) => {
 
   await booking.save();
 
+  // Notify client (user) that booking is on the way
+  try {
+    await notificationController.createNotification({
+      user: booking.userId,
+      booking: booking._id,
+      message: `Your booking is on the way.`
+    });
+  } catch (e) {
+    console.error('Failed to create client notification for on_the_way booking:', e);
+  }
   res.json({
     success: true,
     message: 'Booking marked as on the way',
@@ -947,6 +1005,19 @@ const markBookingReceived = asyncHandler(async (req, res) => {
   booking.deliveryDetails.deliveryTime = new Date();
   await booking.save();
 
+  // Notify vendor that booking is received
+  try {
+    const vendor = await Vendor.findById(booking.vendorId);
+    if (vendor && vendor.userId) {
+      await notificationController.createNotification({
+        user: vendor.userId,
+        booking: booking._id,
+        message: `A client has marked the booking as received.`
+      });
+    }
+  } catch (e) {
+    console.error('Failed to create vendor notification for received booking:', e);
+  }
   res.json({
     success: true,
     message: 'Booking marked as received',
@@ -972,7 +1043,7 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
   const booking = await BookingRequest.findOne({
     _id: req.params.id,
     vendorId: vendor._id,
-    status: 'received'
+    status: 'completed'
   });
 
   if (!booking) {
@@ -989,6 +1060,20 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
   }
 
   await booking.save();
+
+  // Notify vendor that booking is picked up
+  try {
+    const vendor = await Vendor.findById(booking.vendorId);
+    if (vendor && vendor.userId) {
+      await notificationController.createNotification({
+        user: vendor.userId,
+        booking: booking._id,
+        message: `A booking has been marked as picked up.`
+      });
+    }
+  } catch (e) {
+    console.error('Failed to create vendor notification for picked up booking:', e);
+  }
 
   res.json({
     success: true,
@@ -1023,6 +1108,19 @@ const markBookingComplete = asyncHandler(async (req, res) => {
 
   await booking.save();
 
+  // Notify vendor that booking is completed
+  try {
+    const vendor = await Vendor.findById(booking.vendorId);
+    if (vendor && vendor.userId) {
+      await notificationController.createNotification({
+        user: vendor.userId,
+        booking: booking._id,
+        message: `A booking has been marked as completed.`
+      });
+    }
+  } catch (e) {
+    console.error('Failed to create vendor notification for completed booking:', e);
+  }
   res.json({
     success: true,
     message: 'Booking marked as complete',
