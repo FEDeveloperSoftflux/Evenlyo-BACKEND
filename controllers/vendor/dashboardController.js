@@ -3,7 +3,7 @@ const Listing = require('../../models/Listing');
 const User = require('../../models/User');
 
 // Vendor Dashboard Analytics Controller
-exports.getDashboardAnalytics = async (req, res) => {
+const getDashboardAnalytics = async (req, res) => {
   try {
     const vendorId = req.vendor._id;
 
@@ -113,4 +113,8 @@ exports.getDashboardAnalytics = async (req, res) => {
     console.error('Dashboard analytics error:', err);
     res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
+};
+
+module.exports = {
+  getDashboardAnalytics
 };
