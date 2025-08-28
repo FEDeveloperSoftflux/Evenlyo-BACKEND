@@ -6,7 +6,7 @@ const NotificationSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  booking: {
+  bookingId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'BookingRequest',
     required: true

@@ -1,10 +1,10 @@
-
 const asyncHandler = require('express-async-handler');
 const notificationController = require('./notificationController');
 const BookingRequest = require('../models/Booking');
 const Listing = require('../models/Listing');
 const User = require('../models/User');
 const Vendor = require('../models/Vendor');
+const {checkAvailability} = require('../utils/bookingUtils')
 
 // Helper function to convert string to multilingual object
 const toMultilingualText = (text) => {
@@ -15,88 +15,6 @@ const toMultilingualText = (text) => {
     };
   }
   return text; // If already an object, return as-is
-};
-
-// Helper function to check listing availability for multi-day bookings
-const checkAvailability = async (listingId, startDate, endDate, excludeBookingId = null) => {
-  // Normalize dates to start of day for accurate comparison
-  const checkStart = new Date(startDate);
-  checkStart.setHours(0, 0, 0, 0);
-  
-  const checkEnd = new Date(endDate);
-  checkEnd.setHours(23, 59, 59, 999);
-  
-  // Build query to check for overlapping bookings
-  const query = {
-    listingId,
-    status: { $nin: ['rejected', 'cancelled'] },
-    $or: [
-      {
-        // Booking starts before our period ends and ends after our period starts
-        'details.startDate': { $lte: checkEnd },
-        'details.endDate': { $gte: checkStart }
-      }
-    ]
-  };
-
-  // Exclude current booking if specified (when checking during acceptance)
-  if (excludeBookingId) {
-    query._id = { $ne: excludeBookingId };
-  }
-  
-  // Check for overlapping bookings that are not rejected or cancelled
-  const overlappingBookings = await BookingRequest.find(query)
-    .select('details.startDate details.endDate status trackingId');
-
-  // If any overlapping bookings found, list them for debugging
-  if (overlappingBookings.length > 0) {
-    console.log('Conflicting bookings found for listing', listingId + ':');
-    overlappingBookings.forEach(booking => {
-      console.log(`- Booking ${booking.trackingId}: ${booking.details.startDate} to ${booking.details.endDate} (${booking.status})`);
-    });
-    console.log(`Checking availability for: ${checkStart} to ${checkEnd}${excludeBookingId ? ` (excluding ${excludeBookingId})` : ''}`);
-  }
-
-  return overlappingBookings.length === 0;
-};
-
-// Helper function to get detailed availability information
-const getAvailabilityDetails = async (listingId, startDate, endDate, excludeBookingId = null) => {
-  const isAvailable = await checkAvailability(listingId, startDate, endDate, excludeBookingId);
-  
-  if (!isAvailable) {
-    // Get conflicting bookings for detailed response
-    const query = {
-      listingId,
-      status: { $nin: ['rejected', 'cancelled'] },
-      $or: [
-        {
-          'details.startDate': { $lte: new Date(endDate) },
-          'details.endDate': { $gte: new Date(startDate) }
-        }
-      ]
-    };
-
-    if (excludeBookingId) {
-      query._id = { $ne: excludeBookingId };
-    }
-
-    const conflictingBookings = await BookingRequest.find(query)
-      .select('details.startDate details.endDate status trackingId')
-      .lean();
-
-    return {
-      isAvailable: false,
-      conflictingBookings: conflictingBookings.map(booking => ({
-        trackingId: booking.trackingId,
-        startDate: booking.details.startDate,
-        endDate: booking.details.endDate,
-        status: booking.status
-      }))
-    };
-  }
-
-  return { isAvailable: true, conflictingBookings: [] };
 };
 
 // @desc    Create a booking request
@@ -325,152 +243,7 @@ const getPendingBookings = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    Accept booking request
-// @route   POST /api/booking/:id/accept
-// @access  Private (Vendor)
-const acceptBooking = asyncHandler(async (req, res) => {
-  const { id } = req.params;
 
-  // Get vendor profile
-  const vendor = await Vendor.findOne({ userId: req.user.id });
-  if (!vendor) {
-    return res.status(404).json({
-      success: false,
-      message: 'Vendor profile not found'
-    });
-  }
-
-  const booking = await BookingRequest.findOne({
-    _id: id,
-    vendorId: vendor._id,
-    status: 'pending'
-  });
-
-  if (!booking) {
-    return res.status(404).json({
-      success: false,
-      message: 'Booking request not found or already processed'
-    });
-  }
-
-  // Double-check availability before accepting (exclude current booking from check)
-  const availabilityResult = await getAvailabilityDetails(
-    booking.listingId,
-    booking.details.startDate,
-    booking.details.endDate,
-    booking._id // Exclude the current booking from conflict check
-  );
-
-  if (!availabilityResult.isAvailable) {
-    console.log(`Booking acceptance failed for booking ${id}: conflicting bookings found for listing ${booking.listingId}`);
-    return res.status(409).json({
-      success: false,
-      message: 'Booking is no longer available due to conflicting bookings',
-      details: 'Another booking has been accepted for overlapping dates. Please check the booking calendar and try a different time slot.',
-      conflictingBookings: availabilityResult.conflictingBookings
-    });
-  }
-
-  console.log(`Accepting booking ${id} for vendor ${vendor._id}`);
-
-  booking.status = 'accepted';
-  await booking.save();
-
-  // Notify client (user) of acceptance
-  try {
-    await notificationController.createNotification({
-      user: booking.userId,
-      booking: booking._id,
-      message: `Your booking has been accepted.`
-    });
-  } catch (e) {
-    console.error('Failed to create client notification for accepted booking:', e);
-  }
-  // Create notification for user
-  await notificationController.createNotification({
-    user: booking.userId,
-    booking: booking._id,
-    message: `Your booking has been accepted.`
-  });
-
-  await booking.populate([
-    { path: 'userId', select: 'firstName lastName email contactNumber' },
-    { path: 'listingId', select: 'title featuredImage pricing' }
-  ]);
-
-  res.json({
-    success: true,
-    message: 'Booking request accepted successfully',
-    data: {
-      booking
-    }
-  });
-});
-
-// @desc    Reject booking request
-// @route   POST /api/booking/:id/reject
-// @access  Private (Vendor)
-const rejectBooking = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { rejectionReason } = req.body;
-
-  // Get vendor profile
-  const vendor = await Vendor.findOne({ userId: req.user.id });
-  if (!vendor) {
-    return res.status(404).json({
-      success: false,
-      message: 'Vendor profile not found'
-    });
-  }
-
-  const booking = await BookingRequest.findOne({
-    _id: id,
-    vendorId: vendor._id,
-    status: 'pending'
-  });
-
-  if (!booking) {
-    return res.status(404).json({
-      success: false,
-      message: 'Booking request not found or already processed'
-    });
-  }
-
-
-  booking.status = 'rejected';
-  booking.rejectionReason = rejectionReason || 'No reason provided';
-  await booking.save();
-
-  // Notify client (user) of rejection
-  try {
-    await notificationController.createNotification({
-      user: booking.userId,
-      booking: booking._id,
-      message: `Your booking has been rejected.`
-    });
-  } catch (e) {
-    console.error('Failed to create client notification for rejected booking:', e);
-  }
-  // Create notification for user
-  await notificationController.createNotification({
-    user: booking.userId,
-    booking: booking._id,
-    message: `Your booking has been rejected.`
-  });
-
-  await booking.populate([
-    { path: 'userId', select: 'firstName lastName email contactNumber' },
-    { path: 'listingId', select: 'title featuredImage pricing' }
-  ]);
-
-  res.json({
-    success: true,
-    message: 'Booking request rejected',
-    data: {
-      booking
-    }
-  });
-});
 
 // @desc    Get accepted bookings for user (before payment)
 // @route   GET /api/booking/accepted
@@ -814,175 +587,7 @@ const getVendorBookingHistory = asyncHandler(async (req, res) => {
   });
 });
 
-// Helper function to get action buttons for vendors based on status
-const getVendorActionButtons = (status) => {
-  const buttons = [];
-  
-  switch (status) {
-    case 'pending':
-      buttons.push(
-        {
-          action: 'accept',
-          label: 'Accept',
-          color: 'green',
-          type: 'success'
-        },
-        {
-          action: 'reject',
-          label: 'Reject',
-          color: 'red',
-          type: 'danger'
-        }
-      );
-      break;
-      
-    case 'accepted':
-      buttons.push({
-        action: 'view_details',
-        label: 'View Details',
-        color: 'blue',
-        type: 'info'
-      });
-      break;
-      
-    case 'paid':
-      buttons.push(
-        {
-          action: 'mark_on_the_way',
-          label: 'Mark On The Way',
-          color: 'brown',
-          type: 'warning'
-        },
-        {
-          action: 'view_details',
-          label: 'View Details',
-          color: 'blue',
-          type: 'info'
-        }
-      );
-      break;
-      
-    case 'on_the_way':
-      buttons.push({
-        action: 'view_delivery_status',
-        label: 'View Delivery Status',
-        color: 'brown',
-        type: 'info'
-      });
-      break;
-      
-    case 'received':
-      buttons.push({
-        action: 'mark_picked_up',
-        label: 'Mark Picked Up',
-        color: 'darkblue',
-        type: 'primary'
-      });
-      break;
-      
-    case 'picked_up':
-      buttons.push({
-        action: 'view_status',
-        label: 'View Status',
-        color: 'blue',
-        type: 'info'
-      });
-      break;
-      
-    case 'completed':
-      buttons.push(
-        {
-          action: 'view_invoice',
-          label: 'View Invoice',
-          color: 'blue',
-          type: 'info'
-        },
-        {
-          action: 'view_review',
-          label: 'View Review',
-          color: 'purple',
-          type: 'secondary'
-        }
-      );
-      break;
-      
-    case 'claim':
-      buttons.push({
-        action: 'view_claim',
-        label: 'View Claim Details',
-        color: 'orange',
-        type: 'warning'
-      });
-      break;
-      
-    case 'rejected':
-      buttons.push({
-        action: 'view_details',
-        label: 'View Details',
-        color: 'gray',
-        type: 'secondary'
-      });
-      break;
-      
-    default:
-      break;
-  }
-  
-  return buttons;
-};
 
-// @desc    Mark booking as on the way (Vendor action)
-// @route   POST /api/booking/:id/mark-on-the-way
-// @access  Private (Vendor)
-const markBookingOnTheWay = asyncHandler(async (req, res) => {
-  const { driverInfo } = req.body;
-  
-  // Get vendor profile
-  const vendor = await Vendor.findOne({ userId: req.user.id });
-  if (!vendor) {
-    return res.status(404).json({
-      success: false,
-      message: 'Vendor profile not found'
-    });
-  }
-
-  const booking = await BookingRequest.findOne({
-    _id: req.params.id,
-    vendorId: vendor._id,
-    status: 'paid'
-  });
-
-  if (!booking) {
-    return res.status(404).json({
-      success: false,
-      message: 'Booking not found or not eligible for this action'
-    });
-  }
-
-  booking.status = 'on_the_way';
-  if (driverInfo) {
-    booking.deliveryDetails.driverInfo = driverInfo;
-  }
-  booking.deliveryDetails.pickupTime = new Date();
-
-  await booking.save();
-
-  // Notify client (user) that booking is on the way
-  try {
-    await notificationController.createNotification({
-      user: booking.userId,
-      booking: booking._id,
-      message: `Your booking is on the way.`
-    });
-  } catch (e) {
-    console.error('Failed to create client notification for on_the_way booking:', e);
-  }
-  res.json({
-    success: true,
-    message: 'Booking marked as on the way',
-    data: { booking }
-  });
-});
 
 // @desc    Mark booking as received (Client action)
 // @route   POST /api/booking/:id/mark-received
@@ -1025,62 +630,7 @@ const markBookingReceived = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    Mark booking as picked up (Vendor action)
-// @route   POST /api/booking/:id/mark-picked-up
-// @access  Private (Vendor)
-const markBookingPickedUp = asyncHandler(async (req, res) => {
-  const { verificationNotes } = req.body;
-  
-  // Get vendor profile
-  const vendor = await Vendor.findOne({ userId: req.user.id });
-  if (!vendor) {
-    return res.status(404).json({
-      success: false,
-      message: 'Vendor profile not found'
-    });
-  }
 
-  const booking = await BookingRequest.findOne({
-    _id: req.params.id,
-    vendorId: vendor._id,
-    status: 'completed'
-  });
-
-  if (!booking) {
-    return res.status(404).json({
-      success: false,
-      message: 'Booking not found or not eligible for this action'
-    });
-  }
-
-  booking.status = 'picked_up';
-  booking.deliveryDetails.returnTime = new Date();
-  if (verificationNotes) {
-    booking.feedback.vendorFeedback = toMultilingualText(verificationNotes);
-  }
-
-  await booking.save();
-
-  // Notify vendor that booking is picked up
-  try {
-    const vendor = await Vendor.findById(booking.vendorId);
-    if (vendor && vendor.userId) {
-      await notificationController.createNotification({
-        user: vendor.userId,
-        booking: booking._id,
-        message: `A booking has been marked as picked up.`
-      });
-    }
-  } catch (e) {
-    console.error('Failed to create vendor notification for picked up booking:', e);
-  }
-
-  res.json({
-    success: true,
-    message: 'Booking marked as picked up',
-    data: { booking }
-  });
-});
 
 // @desc    Mark booking as complete (Client action)
 // @route   POST /api/booking/:id/mark-complete
@@ -1300,15 +850,11 @@ const getBookingDetails = asyncHandler(async (req, res) => {
 module.exports = {
   createBookingRequest,
   getPendingBookings,
-  acceptBooking,
-  rejectBooking,
   getAcceptedBookings,
   markBookingAsPaid,
   getBookingHistory,
   getVendorBookingHistory,
-  markBookingOnTheWay,
   markBookingReceived,
-  markBookingPickedUp,
   markBookingComplete,
   createClaim,
   getBookingDetails,

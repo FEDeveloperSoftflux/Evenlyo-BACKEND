@@ -1,0 +1,92 @@
+{
+  "info": {
+    "name": "Vendor Profile Management",
+    "_postman_id": "e1b2c3d4-5678-1234-9abc-def012345678",
+    "description": "Test Vendor Profile GET and UPDATE APIs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get Vendor Profile",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/vendor/profile",
+          "host": ["{{baseUrl}}"],
+          "path": ["vendor", "profile"]
+        }
+      }
+    },
+    {
+      "name": "Update Vendor Profile (Business)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"businessName\": \"New Business Name\",\n  \"businessEmail\": \"business@email.com\",\n  \"businessPhone\": \"1234567890\",\n  \"businessAddress\": \"123 Main St\",\n  \"businessWebsite\": \"https://example.com\",\n  \"businessLocation\": \"City, Country\",\n  \"businessLogo\": \"logo.png\",\n  \"bannerImage\": \"banner.png\",\n  \"businessDescription\": \"Updated business description\",\n  \"teamType\": \"team\",\n  \"teamSize\": \"6-10\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/vendor/profile",
+          "host": ["{{baseUrl}}"],
+          "path": ["vendor", "profile"]
+        }
+      }
+    },
+    {
+      "name": "Update Vendor Profile (Personal)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john.doe@email.com\",\n  \"contactNumber\": \"9876543210\",\n  \"address\": { \"city\": \"City\", \"postalCode\": \"12345\", \"fullAddress\": \"456 Main St\" },\n  \"profileImage\": \"profile.png\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/vendor/profile",
+          "host": ["{{baseUrl}}"],
+          "path": ["vendor", "profile"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    }
+  ]
+}
