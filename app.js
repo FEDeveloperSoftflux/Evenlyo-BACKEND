@@ -114,7 +114,6 @@ app.use('/api/plans', planRoutes);
 const vendorRoutes = require('./routes/vendors');
 app.use('/api/vendor', vendorRoutes);
 
-
 // Blog routes
 const blogRoutes = require('./routes/blogs');
 app.use('/api/blogs', blogRoutes);
@@ -156,6 +155,30 @@ app.get('/api/debug/session', (req, res) => {
 const vendorDashboardRoutes = require('./routes/vendor/dashboard');
 app.use('/api/vendor/dashboard', vendorDashboardRoutes);
 
+
+// Vendor listings overview route (after app is initialized)
+const vendorListingsRoutes = require('./routes/vendor/listings');
+app.use('/api/vendor/listings', vendorListingsRoutes);
+
+// Vendor items overview route
+const vendorItemsRoutes = require('./routes/vendor/items');
+app.use('/api/vendor/items', vendorItemsRoutes);
+
+// Vendor bookings routes
+const vendorBookingRoutes = require('./routes/vendor/booking');
+app.use('/api/vendor/bookings', vendorBookingRoutes);
+
+// Vendor tracking routes
+const vendorTrackingRoutes = require('./routes/vendor/tracking');
+app.use('/api/vendor/tracking', vendorTrackingRoutes);
+
+// Vendor billing routes
+const vendorBillingRoutes = require('./routes/vendor/billing');
+app.use('/api/vendor/billing', vendorBillingRoutes);
+
+// Vendor profile routes
+const vedorProfileRoutes = require('./routes/vendor/profile');
+app.use('/api/vendor/profile', vedorProfileRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

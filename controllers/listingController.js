@@ -1,3 +1,10 @@
+
+const Listing = require('../models/Listing');
+const Category = require('../models/Category');
+const SubCategory = require('../models/SubCategory');
+const Vendor = require('../models/Vendor');
+const BookingRequest = require('../models/Booking');
+
 // @desc    Get calendar data (booked and available days/times) for a listing
 // @route   GET /api/listing/:id/calendar
 // @access  Public
@@ -60,11 +67,6 @@ const getListingCalendar = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error while fetching calendar' });
   }
 };
-const Listing = require('../models/Listing');
-const Category = require('../models/Category');
-const SubCategory = require('../models/SubCategory');
-const Vendor = require('../models/Vendor');
-const BookingRequest = require('../models/Booking');
 
 // @desc    Get available listings with filters
 // @route   GET /api/listings
@@ -335,32 +337,6 @@ const getPopularListings = async (req, res) => {
 };
 
 
-// Utility: Update 'popular' field for all listings based on criteria
-// Criteria: completed bookings > 10 and average rating > 4.5
-const updatePopularListings = async (req, res) => {
-  try {
-    const listings = await Listing.find();
-    let updatedCount = 0;
-    for (const listing of listings) {
-      const isPopular = (listing.bookings && listing.bookings.completed > 10) && (listing.ratings && listing.ratings.average >= 4.5);
-      if (listing.popular !== isPopular) {
-        listing.popular = isPopular;
-        await listing.save();
-        updatedCount++;
-      }
-    }
-    if (res) {
-      res.json({ success: true, message: `Updated ${updatedCount} listings' popular status.` });
-    }
-    return updatedCount;
-  } catch (error) {
-    if (res) {
-      res.status(500).json({ success: false, message: 'Error updating popular status', error: error.message });
-    }
-    throw error;
-  }
-};
-
 // Optionally, you can expose this as an admin route or call it on a schedule.
 
 // @desc    Search listings with advanced filters
@@ -594,57 +570,7 @@ const getListingsByServiceType = async (req, res) => {
   }
 };
 
-// @desc    Create a new listing
-// @route   POST /api/listings
-// @access  Private (Vendor only)
-const createListing = async (req, res) => {
-  try {
-    const listingData = req.body;
-    
-    // Automatically set security fee based on service type
-    if (listingData.serviceType === 'human') {
-      if (listingData.pricing) {
-        listingData.pricing.securityFee = 0;
-      }
-    } else if (listingData.serviceType === 'non_human') {
-      if (listingData.pricing && (!listingData.pricing.securityFee || listingData.pricing.securityFee === 0)) {
-        listingData.pricing.securityFee = 50; // Default security fee for equipment
-      }
-    }
 
-    const listing = new Listing(listingData);
-    await listing.save();
-
-    // Populate the response
-    const populatedListing = await Listing.findById(listing._id)
-      .populate('vendor', '_id businessName businessLocation businessDescription businessEmail businessPhone businessWebsite gallery userId')
-      .populate('category', 'name icon description')
-      .populate('subCategory', 'name icon description');
-
-    res.status(201).json({
-      success: true,
-      message: 'Listing created successfully',
-      data: populatedListing
-    });
-  } catch (error) {
-    console.error('Error creating listing:', error);
-    
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({
-        success: false,
-        message: 'Validation error',
-        errors
-      });
-    }
-    
-    res.status(500).json({
-      success: false,
-      message: 'Error creating listing',
-      error: error.message
-    });
-  }
-};
 
 // @desc    Update an existing listing
 // @route   PUT /api/listings/:id
@@ -1007,10 +933,8 @@ module.exports = {
   searchListings,
   getListingsByVendor,
   getListingsByServiceType,
-  createListing,
   updateListing,
   checkListingAvailability,
   getListingCalendar,
   filterListings
-  ,updatePopularListings
-}; 
+};

@@ -168,6 +168,88 @@ const formatPrice = (price, currency = 'EUR') => {
   }).format(price);
 };
 
+// Helper function to get detailed availability information
+const getAvailabilityDetails = async (listingId, startDate, endDate, excludeBookingId = null) => {
+  const isAvailable = await checkAvailability(listingId, startDate, endDate, excludeBookingId);
+  
+  if (!isAvailable) {
+    // Get conflicting bookings for detailed response
+    const query = {
+      listingId,
+      status: { $nin: ['rejected', 'cancelled'] },
+      $or: [
+        {
+          'details.startDate': { $lte: new Date(endDate) },
+          'details.endDate': { $gte: new Date(startDate) }
+        }
+      ]
+    };
+
+    if (excludeBookingId) {
+      query._id = { $ne: excludeBookingId };
+    }
+
+    const conflictingBookings = await BookingRequest.find(query)
+      .select('details.startDate details.endDate status trackingId')
+      .lean();
+
+    return {
+      isAvailable: false,
+      conflictingBookings: conflictingBookings.map(booking => ({
+        trackingId: booking.trackingId,
+        startDate: booking.details.startDate,
+        endDate: booking.details.endDate,
+        status: booking.status
+      }))
+    };
+  }
+
+  return { isAvailable: true, conflictingBookings: [] };
+};
+
+// Helper function to check listing availability for multi-day bookings
+const checkAvailability = async (listingId, startDate, endDate, excludeBookingId = null) => {
+  // Normalize dates to start of day for accurate comparison
+  const checkStart = new Date(startDate);
+  checkStart.setHours(0, 0, 0, 0);
+  
+  const checkEnd = new Date(endDate);
+  checkEnd.setHours(23, 59, 59, 999);
+  
+  // Build query to check for overlapping bookings
+  const query = {
+    listingId,
+    status: { $nin: ['rejected', 'cancelled'] },
+    $or: [
+      {
+        // Booking starts before our period ends and ends after our period starts
+        'details.startDate': { $lte: checkEnd },
+        'details.endDate': { $gte: checkStart }
+      }
+    ]
+  };
+
+  // Exclude current booking if specified (when checking during acceptance)
+  if (excludeBookingId) {
+    query._id = { $ne: excludeBookingId };
+  }
+  
+  // Check for overlapping bookings that are not rejected or cancelled
+  const overlappingBookings = await BookingRequest.find(query)
+    .select('details.startDate details.endDate status trackingId');
+
+  // If any overlapping bookings found, list them for debugging
+  if (overlappingBookings.length > 0) {
+    console.log('Conflicting bookings found for listing', listingId + ':');
+    overlappingBookings.forEach(booking => {
+      console.log(`- Booking ${booking.trackingId}: ${booking.details.startDate} to ${booking.details.endDate} (${booking.status})`);
+    });
+    console.log(`Checking availability for: ${checkStart} to ${checkEnd}${excludeBookingId ? ` (excluding ${excludeBookingId})` : ''}`);
+  }
+
+  return overlappingBookings.length === 0;
+};
+
 module.exports = {
   checkListingAvailability,
   getConflictingBookings,
@@ -175,5 +257,7 @@ module.exports = {
   calculateBookingPrice,
   validateBookingDetails,
   generateTrackingId,
-  formatPrice
+  formatPrice,
+  getAvailabilityDetails,
+  checkAvailability
 };

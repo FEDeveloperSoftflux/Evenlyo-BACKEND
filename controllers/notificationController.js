@@ -1,9 +1,9 @@
 const Notification = require('../models/Notification');
 
 // Create a notification
-exports.createNotification = async ({ user, booking, message }) => {
+exports.createNotification = async ({ user, bookingId, message }) => {
   try {
-    const notification = new Notification({ user, booking, message });
+    const notification = new Notification({ user, bookingId, message });
     await notification.save();
     return notification;
   } catch (err) {

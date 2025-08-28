@@ -3,19 +3,15 @@ const router = express.Router();
 const {
   createBookingRequest,
   getPendingBookings,
-  acceptBooking,
-  rejectBooking,
   getAcceptedBookings,
   markBookingAsPaid,
   getBookingHistory,
   getVendorBookingHistory,
-  markBookingOnTheWay,
   markBookingReceived,
-  markBookingPickedUp,
   markBookingComplete,
   createClaim,
-  getBookingDetails
-  ,cancelBooking
+  getBookingDetails,
+  cancelBooking
 } = require('../controllers/bookingController');
 
 // Import authentication middleware
@@ -71,30 +67,10 @@ router.post('/:id/cancel', requireAuth, requireClient, cancelBooking);
 // @access  Private (Vendor)
 router.get('/pending', requireAuth, requireVendor, getPendingBookings);
 
-// @route   POST /api/booking/:id/accept
-// @desc    Accept a pending booking request
-// @access  Private (Vendor)
-router.post('/:id/accept', requireAuth, requireVendor, acceptBooking);
-
-// @route   POST /api/booking/:id/reject
-// @desc    Reject a pending booking request
-// @access  Private (Vendor)
-router.post('/:id/reject', requireAuth, requireVendor, rejectBooking);
-
 // @route   GET /api/booking/vendor-history
 // @desc    Get vendor's booking history
 // @access  Private (Vendor)
 router.get('/vendor-history', requireAuth, requireVendor, getVendorBookingHistory);
-
-// @route   POST /api/booking/:id/mark-on-the-way
-// @desc    Mark booking as on the way
-// @access  Private (Vendor)
-router.post('/:id/mark-on-the-way', requireAuth, requireVendor, markBookingOnTheWay);
-
-// @route   POST /api/booking/:id/mark-picked-up
-// @desc    Mark booking as picked up
-// @access  Private (Vendor)
-router.post('/:id/mark-picked-up', requireAuth, requireVendor, markBookingPickedUp);
 
 
 // ========================= SHARED ROUTES ========================= //

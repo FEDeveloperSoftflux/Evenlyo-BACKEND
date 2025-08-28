@@ -1,0 +1,156 @@
+const Listing = require('../../models/Listing');
+const Booking = require('../../models/Booking');
+
+
+const toggleListingStatus = async (req, res) => {
+	try {
+		const vendorId = req.vendor._id;
+		const listingId = req.params.id;
+
+		// Find the listing and ensure it belongs to the vendor
+		const listing = await Listing.findOne({ _id: listingId, vendor: vendorId });
+		if (!listing) {
+			return res.status(404).json({ success: false, message: 'Listing not found or not authorized' });
+		}
+
+		// Toggle the status (active/inactive)
+		listing.status = listing.status === 'active' ? 'inactive' : 'active';
+		listing.isActive = listing.status === 'active';
+		await listing.save();
+
+		res.json({
+			success: true,
+			message: `Listing status updated to ${listing.status}`,
+			status: listing.status,
+			isActive: listing.isActive
+		});
+	} catch (err) {
+		console.error('Toggle listing status error:', err);
+		res.status(500).json({ success: false, message: 'Server error', error: err.message });
+	}
+};
+
+// GET /api/vendor/listings/overview
+const getVendorListingsOverview = async (req, res) => {
+	try {
+		const vendorId = req.vendor._id;
+
+		// Get all listings for this vendor
+		const listings = await Listing.find({ vendor: vendorId })
+			.populate('category', 'name')
+			.populate('subCategory', 'name');
+
+		// Stats: unique main categories and subcategories
+		const mainCategorySet = new Set();
+		const subCategorySet = new Set();
+		listings.forEach(listing => {
+			if (listing.category) mainCategorySet.add(listing.category._id.toString());
+			if (listing.subCategory) subCategorySet.add(listing.subCategory._id.toString());
+		});
+
+		// Total number of listings
+		const totalListings = listings.length;
+
+		// Most booked listings (for bar chart)
+		const bookings = await Booking.aggregate([
+			{ $match: { vendorId: vendorId } },
+			{ $group: { _id: '$listingId', count: { $sum: 1 } } },
+			{ $sort: { count: -1 } }
+		]);
+
+		// Map booking counts to listingId
+		const bookingCountMap = {};
+		bookings.forEach(b => { bookingCountMap[b._id?.toString()] = b.count; });
+
+		// listingOverview: all listings with their booking count
+		const listingOverview = listings.map(listing => ({
+			listingId: listing._id,
+			title: listing.title?.en || listing.title,
+			bookedCount: bookingCountMap[listing._id.toString()] || 0
+		}));
+
+		// listingTable: all listings with required details
+		const listingTable = listings.map(listing => ({
+			listingId: listing._id,
+			image: listing.media?.featuredImage || '',
+			title: listing.title?.en || listing.title,
+			description: listing.description?.en || listing.description,
+			category: listing.category?.name?.en || '',
+			pricing: listing.pricing,
+			date: listing.createdAt,
+			status: listing.availability?.isAvailable !== false // default true
+		}));
+
+		res.json({
+			success: true,
+			stats: {
+				totalMainCategories: mainCategorySet.size,
+				totalSubCategories: subCategorySet.size,
+				totalListings
+			},
+			listingOverview,
+			listingTable
+		});
+	} catch (err) {
+		console.error('Vendor listing overview error:', err);
+		res.status(500).json({ success: false, message: 'Server error', error: err.message });
+	}
+};
+
+// @desc    Create a new listing
+// @route   POST /api/listings
+// @access  Private (Vendor only)
+const createListing = async (req, res) => {
+  try {
+	const listingData = req.body;
+	
+	// Automatically set security fee based on service type
+	if (listingData.serviceType === 'human') {
+	  if (listingData.pricing) {
+		listingData.pricing.securityFee = 0;
+	  }
+	} else if (listingData.serviceType === 'non_human') {
+	  if (listingData.pricing && (!listingData.pricing.securityFee || listingData.pricing.securityFee === 0)) {
+		listingData.pricing.securityFee = 50; // Default security fee for equipment
+	  }
+	}
+
+	const listing = new Listing(listingData);
+	await listing.save();
+
+	// Populate the response
+	const populatedListing = await Listing.findById(listing._id)
+	  .populate('vendor', '_id businessName businessLocation businessDescription businessEmail businessPhone businessWebsite gallery userId')
+	  .populate('category', 'name icon description')
+	  .populate('subCategory', 'name icon description');
+
+	res.status(201).json({
+	  success: true,
+	  message: 'Listing created successfully',
+	  data: populatedListing
+	});
+  } catch (error) {
+	console.error('Error creating listing:', error);
+	
+	if (error.name === 'ValidationError') {
+	  const errors = Object.values(error.errors).map(err => err.message);
+	  return res.status(400).json({
+		success: false,
+		message: 'Validation error',
+		errors
+	  });
+	}
+	
+	res.status(500).json({
+	  success: false,
+	  message: 'Error creating listing',
+	  error: error.message
+	});
+  }
+};
+
+module.exports = {
+	toggleListingStatus,
+	getVendorListingsOverview,
+	createListing
+};
