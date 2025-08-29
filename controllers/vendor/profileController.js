@@ -5,8 +5,8 @@ const User = require('../../models/User');
 // Get vendor profile (fields depend on account type)
 const getProfile = async (req, res) => {
   try {
-    // Find the vendor document for the logged-in user
-    const vendor = await Vendor.findOne({ userId: req.user.id });
+    // Find the vendor document for the logged-in user and populate userId
+    const vendor = await Vendor.findOne({ userId: req.user.id }).populate('userId');
     if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
 
     // Assume account type is determined by businessName: if present, business; else, personal
@@ -47,7 +47,8 @@ const getProfile = async (req, res) => {
 // Update vendor profile (fields depend on account type)
 const updateProfile = async (req, res) => {
   try {
-    const vendor = await Vendor.findOne({ userId: req.user.id });
+    // Populate userId so user.save works for personal accounts
+    const vendor = await Vendor.findOne({ userId: req.user.id }).populate('userId');
     if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
 
     // Assume account type is determined by businessName: if present, business; else, personal
