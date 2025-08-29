@@ -56,67 +56,18 @@ const listingSchema = new mongoose.Schema({
   pricing: {
     type: {
       type: String,
-      enum: ['fixed', 'hourly', 'daily', 'per_event', 'package', 'quote'],
       required: true
     },
-    perHour: {
+    amount: {
       type: Number,
-      min: 0
-    },
-    perDay: {
-      type: Number,
-      min: 0
-    },
-    perEvent: {
-      type: Number,
-      min: 0
-    },
-    extraTimeCost: {
-      perHour: {
-        type: Number,
-        min: 0
-      },
-      description: String // e.g., "Additional hours beyond package"
-    },
-    currency: {
-      type: String,
-      default: 'EUR',
-      enum: ['EUR', 'USD', 'GBP']
-    },
-    taxesIncluded: {
-      type: Boolean,
-      default: true
+      min: 0,
+      required: true
     },
     securityFee: {
       type: Number,
       min: 0,
       description: String // e.g., "Refundable security deposit"
-    },
-    multiDayDiscount: {
-      enabled: {
-        type: Boolean,
-        default: false
-      },
-      percent: {
-        type: Number,
-        min: 0,
-        max: 50, // Maximum 50% discount
-        default: 0
-      },
-      minDays: {
-        type: Number,
-        min: 2,
-        default: 3 // Minimum 3 days to get discount
-      },
-      description: String // e.g., "15% off bookings of 3+ days"
-    },
-    packages: [{
-      name: String,
-      description: String,
-      price: Number,
-      duration: String, // e.g., "2 hours", "1 day"
-      features: [String]
-    }]
+    }
   },
   contact: {
     phone: {
@@ -358,22 +309,18 @@ const listingSchema = new mongoose.Schema({
 
 // Virtual for getting formatted price
 listingSchema.virtual('formattedPrice').get(function() {
-  if (this.pricing.type === 'quote') {
-    return 'Quote on request';
-  } else if (this.pricing.type === 'package') {
-    return 'Package pricing available';
-  } else {
-    const prices = [];
-    if (this.pricing.perHour) {
-      prices.push(`${this.pricing.currency} ${this.pricing.perHour}/hour`);
-    }
-    if (this.pricing.perDay) {
-      prices.push(`${this.pricing.currency} ${this.pricing.perDay}/day`);
-    }
-    if (this.pricing.perEvent) {
-      prices.push(`${this.pricing.currency} ${this.pricing.perEvent}/event`);
-    }
-    return prices.length > 0 ? prices.join(' | ') : 'Price on request';
+  if (!this.pricing || !this.pricing.type) return 'Price on request';
+  switch (this.pricing.type) {
+    case 'PerHour':
+      return `${this.pricing.currency} ${this.pricing.amount}/hour`;
+    case 'PerDay':
+      return `${this.pricing.currency} ${this.pricing.amount}/day`;
+    case 'PerEvent':
+      return `${this.pricing.currency} ${this.pricing.amount}/event`;
+    case 'Fixed':
+      return `${this.pricing.currency} ${this.pricing.amount} (fixed)`;
+    default:
+      return 'Price on request';
   }
 });
 
