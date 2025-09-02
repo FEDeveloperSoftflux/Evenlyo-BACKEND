@@ -25,16 +25,17 @@ const getVendorBookingAnalytics = async (req, res) => {
 		]);
 
 		const bookingsList = bookings.map(b => ({
-			date: b.details?.startDate,
-			status: b.status,
-			title: b.listingId?.title?.en || b.listingId?.title || '',
-			time: b.details?.startTime || '',
-			customer: b.userId ? `${b.userId.firstName} ${b.userId.lastName}` : '',
-			description: b.details?.specialRequests?.en || b.details?.specialRequests || '',
-			service: b.listingId?._id,
-			location: b.details?.eventLocation || '',
-			trackingId: b.trackingId
-		}));
+					id: b._id,
+					date: b.details?.startDate,
+					status: b.status,
+					title: b.listingId?.title?.en || b.listingId?.title || '',
+					time: b.details?.startTime || '',
+					customer: b.userId ? `${b.userId.firstName} ${b.userId.lastName}` : '',
+					description: b.details?.specialRequests?.en || b.details?.specialRequests || '',
+					service: b.listingId?._id,
+					location: b.details?.eventLocation || '',
+					trackingId: b.trackingId
+				}));
 
 		res.json({
 			success: true,
