@@ -1,5 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const Booking = require('../../models/Booking');
+const BookingRequest = require('../../models/Booking');
 const User = require('../../models/User');
 const Listing = require('../../models/Listing');
 const Vendor = require('../../models/Vendor');
@@ -35,6 +36,7 @@ const getVendorBookings = async (req, res) => {
 			location: b.details?.eventLocation || b.userId?.address?.city,
 			status: b.status,
 			_id: b._id,
+			statusHistory: b.statusHistory || [],
 		}));
 		res.json({ bookings: result });
 	} catch (err) {
@@ -46,53 +48,53 @@ const getVendorBookings = async (req, res) => {
 // @route   POST /api/booking/:id/mark-on-the-way
 // @access  Private (Vendor)
 const markBookingOnTheWay = asyncHandler(async (req, res) => {
-  const { driverInfo } = req.body;
-  
-  // Get vendor profile
-  const vendor = await Vendor.findOne({ userId: req.user.id });
-  if (!vendor) {
-	return res.status(404).json({
-	  success: false,
-	  message: 'Vendor profile not found'
+	// const { driverInfo } = req.body; // driverInfo is not required for now
+
+	// Get vendor profile
+	const vendor = await Vendor.findOne({ userId: req.user.id });
+	if (!vendor) {
+		return res.status(404).json({
+			success: false,
+			message: 'Vendor profile not found'
+		});
+	}
+
+	const booking = await BookingRequest.findOne({
+		_id: req.params.id,
+		vendorId: vendor._id,
+		status: 'paid'
 	});
-  }
 
-  const booking = await BookingRequest.findOne({
-	_id: req.params.id,
-	vendorId: vendor._id,
-	status: 'paid'
-  });
+	if (!booking) {
+		return res.status(404).json({
+			success: false,
+			message: 'Booking not found or not eligible for this action'
+		});
+	}
 
-  if (!booking) {
-	return res.status(404).json({
-	  success: false,
-	  message: 'Booking not found or not eligible for this action'
+	booking.status = 'on_the_way';
+	// if (driverInfo) {
+	//   booking.deliveryDetails.driverInfo = driverInfo;
+	// }
+	booking.deliveryDetails.pickupTime = new Date();
+
+	await booking.save();
+
+	// Notify client (user) that booking is on the way
+	try {
+		await notificationController.createNotification({
+			user: booking.userId,
+			booking: booking._id,
+			message: `Your booking is on the way.`
+		});
+	} catch (e) {
+		console.error('Failed to create client notification for on_the_way booking:', e);
+	}
+	res.json({
+		success: true,
+		message: 'Booking marked as on the way',
+		data: { booking }
 	});
-  }
-
-  booking.status = 'on_the_way';
-  if (driverInfo) {
-	booking.deliveryDetails.driverInfo = driverInfo;
-  }
-  booking.deliveryDetails.pickupTime = new Date();
-
-  await booking.save();
-
-  // Notify client (user) that booking is on the way
-  try {
-	await notificationController.createNotification({
-	  user: booking.userId,
-	  booking: booking._id,
-	  message: `Your booking is on the way.`
-	});
-  } catch (e) {
-	console.error('Failed to create client notification for on_the_way booking:', e);
-  }
-  res.json({
-	success: true,
-	message: 'Booking marked as on the way',
-	data: { booking }
-  });
 });
 
 // @desc    Mark booking as picked up (Vendor action)
