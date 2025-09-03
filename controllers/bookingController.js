@@ -329,7 +329,7 @@ const markBookingAsPaid = asyncHandler(async (req, res) => {
 // @route   GET /api/booking/history
 // @access  Private (User)
 const getBookingHistory = asyncHandler(async (req, res) => {
-  const { status, page = 1, limit = 10 } = req.query;
+  const { status, page = 1, limit = 30 } = req.query;
   
   const filter = { userId: req.user.id };
   if (status) {

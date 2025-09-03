@@ -63,10 +63,15 @@ const listingSchema = new mongoose.Schema({
       min: 0,
       required: true
     },
+    extratimeCost: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
     securityFee: {
       type: Number,
       min: 0,
-      description: String // e.g., "Refundable security deposit"
+      default: 0
     }
   },
   contact: {
@@ -180,7 +185,6 @@ const listingSchema = new mongoose.Schema({
   media: {
     featuredImage: {
       type: String,
-      required: true
     },
     gallery: [String], // Array of image URLs
     videos: [String]   // Array of video URLs

@@ -71,7 +71,12 @@ const userSchema = new mongoose.Schema({
     }
   },
 
-  lastLogin: Date
+  lastLogin: Date,
+  role: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Role',
+    required: false
+  }
 }, { timestamps: true });
 
 // Virtual for fullName

@@ -36,10 +36,8 @@ mongoose.connect(process.env.MONGODB_URI)
 
 const app = express();
 
-// ...existing code...
-
-
-const allowedOrigins = [
+const allowedOrigins = 
+[
   'http://localhost:3000',
   'http://localhost:5173',
   'http://localhost:3001',
@@ -111,10 +109,6 @@ app.use('/api/cart', cartRoutes);
 const planRoutes = require('./routes/plans');
 app.use('/api/plans', planRoutes);
 
-// Vendor routes
-const vendorRoutes = require('./routes/vendors');
-app.use('/api/vendor', vendorRoutes);
-
 // Blog routes
 const blogRoutes = require('./routes/blogs');
 app.use('/api/blogs', blogRoutes);
@@ -133,13 +127,13 @@ app.use('/api/notifications', notificationRoutes);
 
 // Root endpoint with translation
 app.get('/', (req, res) => {
-  res.send(req.t('welcome'));
+  res.send(req.t('ok'));
 });
 
 
 /// for test
 
-// Debug endpoint to check session (remove in production)
+// Debug endpoint to check session 
 app.get('/api/debug/session', (req, res) => {
   res.json({
     sessionExists: !!req.session,
@@ -150,12 +144,11 @@ app.get('/api/debug/session', (req, res) => {
   });
 });
 
-
+// VENDOR SIDE
 
 // Vendor dashboard analytics route
 const vendorDashboardRoutes = require('./routes/vendor/dashboard');
 app.use('/api/vendor/dashboard', vendorDashboardRoutes);
-
 
 // Vendor listings overview route (after app is initialized)
 const vendorListingsRoutes = require('./routes/vendor/listings');
@@ -180,6 +173,13 @@ app.use('/api/vendor/billing', vendorBillingRoutes);
 // Vendor profile routes
 const vedorProfileRoutes = require('./routes/vendor/profile');
 app.use('/api/vendor/profile', vedorProfileRoutes);
+
+const designationRoutes = require('./routes/vendor/role');
+app.use('/api/vendor/roles', designationRoutes);
+
+// Vendor earnings analytics route
+const vendorEarningsRoutes = require('./routes/vendor/earnings');
+app.use('/api/vendor/earnings', vendorEarningsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

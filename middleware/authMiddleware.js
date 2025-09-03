@@ -45,6 +45,10 @@ const requireAuth = async (req, res, next) => {
       userType: user.userType,
       ...req.session.user // Include any additional session data
     };
+    // Ensure vendorId is set for vendor users
+    if (req.user.userType === 'vendor' && req.session.user.vendorId) {
+      req.user.vendorId = req.session.user.vendorId;
+    }
 
     next();
   } catch (error) {

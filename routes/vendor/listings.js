@@ -9,7 +9,7 @@ router.get('/overview', requireAuth, requireVendor, requireApprovedVendor, getVe
 router.patch('/:id/toggle-status', requireAuth, requireVendor, requireApprovedVendor, toggleListingStatus);
 
 // Protected routes (authentication required)
-router.post('/', requireAuth, requireVendor, requireApprovedVendor, createListing);
+router.post('/create', requireAuth, requireVendor, requireApprovedVendor, createListing);
 
 module.exports = router;
 

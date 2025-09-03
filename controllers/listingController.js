@@ -579,7 +579,6 @@ const updateListing = async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
-    
     // Find the existing listing
     const existingListing = await Listing.findById(id);
     if (!existingListing) {
@@ -589,24 +588,21 @@ const updateListing = async (req, res) => {
       });
     }
 
-    // Automatically adjust security fee based on service type if it's being updated
-    if (updateData.serviceType) {
-      if (updateData.serviceType === 'human') {
-        if (updateData.pricing) {
-          updateData.pricing.securityFee = 0;
-        } else {
-          updateData.pricing = { ...existingListing.pricing.toObject(), securityFee: 0 };
-        }
-      } else if (updateData.serviceType === 'non_human') {
-        if (updateData.pricing && (!updateData.pricing.securityFee || updateData.pricing.securityFee === 0)) {
-          updateData.pricing.securityFee = 50; // Default security fee for equipment
-        } else if (!updateData.pricing) {
-          updateData.pricing = { ...existingListing.pricing.toObject() };
-          if (!updateData.pricing.securityFee || updateData.pricing.securityFee === 0) {
-            updateData.pricing.securityFee = 50;
-          }
-        }
+    // --- Ensure new pricing structure ---
+    if (updateData.pricing) {
+      const { type, amount, extratimeCost, securityFee } = updateData.pricing;
+      if (!type || amount === undefined) {
+        return res.status(400).json({
+          success: false,
+          message: 'Pricing type and amount are required.'
+        });
       }
+      updateData.pricing = {
+        type,
+        amount,
+        extratimeCost: extratimeCost !== undefined ? extratimeCost : 0,
+        securityFee: securityFee !== undefined ? securityFee : 0
+      };
     }
 
     const updatedListing = await Listing.findByIdAndUpdate(
@@ -625,7 +621,6 @@ const updateListing = async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating listing:', error);
-    
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({
@@ -634,14 +629,12 @@ const updateListing = async (req, res) => {
         errors
       });
     }
-    
     if (error.name === 'CastError') {
       return res.status(400).json({
         success: false,
         message: 'Invalid listing ID'
       });
     }
-    
     res.status(500).json({
       success: false,
       message: 'Error updating listing',

@@ -53,3 +53,4 @@ temp/
 
 # Firebase service account key
 serviceAccountKey.json
+.vercel

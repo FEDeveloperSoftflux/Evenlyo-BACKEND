@@ -143,6 +143,7 @@ const performLogin = async (req, res, userType) => {
     } else if (userType === 'vendor') {
       req.session.user.businessName = userData.businessName;
       req.session.user.approvalStatus = userData.approvalStatus;
+      req.session.user.vendorId = userData._id; // Store vendorId for downstream use
     }
 
     // Return success response
