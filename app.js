@@ -9,6 +9,39 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
+// Redis setup for sessions
+const { RedisStore } = require('connect-redis');
+const { createClient } = require('redis');
+
+// Create Redis client with fallback
+let redisClient;
+
+if (process.env.NODE_ENV === 'production' && process.env.UPSTASH_REDIS_REST_URL) {
+  // Use Upstash Redis for production
+  redisClient = createClient({
+    url: process.env.REDIS_URL,
+    socket: {
+      connectTimeout: 60000,
+      lazyConnect: true,
+    },
+  });
+} else {
+  // Use local Redis for development
+  redisClient = createClient({
+    url: process.env.REDIS_URL || 'redis://localhost:6379',
+    socket: {
+      connectTimeout: 60000,
+      lazyConnect: true,
+    },
+  });
+}
+
+// Handle Redis connection with graceful fallback
+redisClient.connect().catch((err) => {
+  console.error('Redis connection error:', err);
+  console.log('⚠️  Redis not available - sessions will use memory store');
+  // App will continue without Redis (fallback to memory store)
+});
 
 // i18next configuration for localization
 i18next
@@ -67,8 +100,8 @@ app.use(i18nextMiddleware.handle(i18next));
 // Serve static files for uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Session configuration
-app.use(session({
+// Session configuration with Redis store (with fallback)
+let sessionConfig = {
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
   resave: false,
   saveUninitialized: false,
@@ -79,7 +112,21 @@ app.use(session({
     sameSite: 'lax'
   },
   name: 'evenlyo.sid' // Custom session name
-}));
+};
+
+// Only use Redis store if Redis is connected
+if (redisClient && redisClient.isOpen) {
+  sessionConfig.store = new RedisStore({ 
+    client: redisClient,
+    ttl: 24 * 60 * 60, // 24 hours in seconds
+    prefix: 'evenlyo:sess:' // Custom prefix for session keys
+  });
+  console.log('✅ Using Redis for session storage');
+} else {
+  console.log('⚠️  Using memory store for sessions (Redis not available)');
+}
+
+app.use(session(sessionConfig));
 
 // Auth routes
 const authRoutes = require('./routes/auth');

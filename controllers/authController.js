@@ -491,10 +491,13 @@ const verifyOtpForForgotPassword = async (req, res) => {
 
 const resetPassword = async (req, res) => {
   try {
-    const { password } = req.body;
+    const { newPassword } = req.body;
     
     // Get email from session (set after OTP verification)
     const email = req.session.verifiedEmailForReset;
+
+    console.log(email);
+    console.log(newPassword);
     
     if (!email) {
       return res.status(400).json({
@@ -503,7 +506,7 @@ const resetPassword = async (req, res) => {
       });
     }
     
-    if (!password) {
+    if (!newPassword) {
       return res.status(400).json({
         success: false,
         message: 'Password is required'
@@ -527,7 +530,7 @@ const resetPassword = async (req, res) => {
     }
 
     // Hash new password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedPassword;
     await user.save();
 
@@ -717,7 +720,8 @@ const registerVendor = async (req, res) => {
       city,
       postalCode,
       fullAddress,
-      passportDetails,
+      passportNumber,
+      kvkNumber,
       mainCategories,
       subCategories,
       password,
@@ -728,6 +732,7 @@ const registerVendor = async (req, res) => {
       businessType,
       businessNumber,
       businessWebsite,
+      teamType,
       teamSize
     } = req.body;
 
@@ -746,13 +751,13 @@ const registerVendor = async (req, res) => {
 
     // Personal account validations
     if (accountType === 'personal') {
-      if (!firstName || !lastName || !city || !postalCode || !fullAddress || !passportDetails || !mainCategories || !subCategories) {
+      if (!firstName || !lastName || !city || !postalCode || !fullAddress || !passportNumber || !mainCategories || !subCategories) {
         return res.status(400).json({ success: false, message: 'Missing required personal account fields' });
       }
     }
     // Business account validations
     if (accountType === 'business') {
-      if (!businessName || !businessType || !businessNumber || !teamSize) {
+      if (!businessName || !businessType || !businessNumber || !teamSize || !teamType || !kvkNumber) {
         return res.status(400).json({ success: false, message: 'Missing required business account fields' });
       }
     }
@@ -773,9 +778,8 @@ const registerVendor = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
-    const user = new User({
+    const userData = {
       firstName: accountType === 'personal' ? firstName : businessName,
-      lastName: accountType === 'personal' ? lastName : '',
       email,
       contactNumber,
       address: {
@@ -785,8 +789,11 @@ const registerVendor = async (req, res) => {
       },
       password: hashedPassword,
       userType: 'vendor',
-      isActive: true
-    });
+      isActive: true,
+      ...(accountType === 'personal' && { lastName, passportNumber }),
+      ...(accountType === 'business' && { kvkNumber })
+    };
+    const user = new User(userData);
     await user.save();
 
     // Create vendor profile
@@ -796,17 +803,14 @@ const registerVendor = async (req, res) => {
       subCategories: subCategories || [],
       isApproved: false,
       approvalStatus: 'pending',
-      // Personal fields
-      ...(accountType === 'personal' && {
-        passportDetails,
-      }),
       // Business fields
       ...(accountType === 'business' && {
         businessName,
         businessType,
         businessPhone: businessNumber,
         businessWebsite,
-        teamSize,
+        teamType,
+        teamSize
       })
     };
     const vendor = new Vendor(vendorData);

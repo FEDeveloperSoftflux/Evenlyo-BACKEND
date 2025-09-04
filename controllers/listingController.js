@@ -570,8 +570,6 @@ const getListingsByServiceType = async (req, res) => {
   }
 };
 
-
-
 // @desc    Update an existing listing
 // @route   PUT /api/listings/:id
 // @access  Private (Vendor only)

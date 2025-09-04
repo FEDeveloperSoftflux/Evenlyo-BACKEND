@@ -25,7 +25,8 @@ const getProfile = async (req, res) => {
         bannerImage: vendor.bannerImage,
         businessDescription: vendor.businessDescription,
         teamType: vendor.teamType,
-        teamSize: vendor.teamSize
+        teamSize: vendor.teamSize,
+        kvkNumber: vendor.userId.kvkNumber || null
       };
     } else {
       profile = {
@@ -35,7 +36,8 @@ const getProfile = async (req, res) => {
         email: vendor.userId.email,
         contactNumber: vendor.userId.contactNumber,
         address: vendor.userId.address,
-        profileImage: vendor.userId.profileImage
+        profileImage: vendor.userId.profileImage,
+        passportNumber: vendor.userId.passportNumber || null
       };
     }
     return res.json(profile);
@@ -63,6 +65,11 @@ const updateProfile = async (req, res) => {
       fields.forEach(field => {
         if (req.body[field] !== undefined) vendor[field] = req.body[field];
       });
+      // Update KVK number in User model if provided
+      if (req.body.kvkNumber !== undefined) {
+        vendor.userId.kvkNumber = req.body.kvkNumber;
+        await vendor.userId.save();
+      }
       // Handle gallery update if provided
       if (req.body.gallery !== undefined) {
         if (Array.isArray(req.body.gallery)) {
@@ -91,6 +98,10 @@ const updateProfile = async (req, res) => {
       fields.forEach(field => {
         if (req.body[field] !== undefined) user[field] = req.body[field];
       });
+      // Update passport number if provided
+      if (req.body.passportNumber !== undefined) {
+        user.passportNumber = req.body.passportNumber;
+      }
       await user.save();
       return res.json({ message: 'Personal profile updated successfully' });
     }

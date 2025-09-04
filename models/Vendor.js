@@ -24,12 +24,9 @@ const vendorSchema = new mongoose.Schema({
   },
   teamType: {
     type: String,
-    enum: ['single', 'team'],
-    default: 'single'
   },
   teamSize: {
     type: String,
-    enum: ['1-5', '6-10', '11-20', '21+'] 
   },
   businessLocation: String,
   businessLogo: String,

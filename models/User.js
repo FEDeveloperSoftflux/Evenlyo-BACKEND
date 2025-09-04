@@ -1,15 +1,46 @@
 const mongoose = require('mongoose');
 
-// User Schema (Base schema for all user types)
+// User Schema 
 const userSchema = new mongoose.Schema({
   firstName: {
     type: String,
-    required: true,
+    required: function() {
+      // Required for clients and personal vendors, not for business vendors
+      if (this.userType === 'client') return true;
+      if (this.userType === 'vendor' && this.accountType === 'personal') return true;
+      return false;
+    },
+    trim: true
+  },
+  passportNumber: {
+    type: String,
+    required: function() {
+      return this.userType === 'vendor' && this.accountType === 'personal';
+    },
+    trim: true
+  },
+  kvkNumber: {
+    type: String,
+    required: function() {
+      return this.userType === 'vendor' && this.accountType === 'business';
+    },
     trim: true
   },
   lastName: {
     type: String,
-    required: true,
+    required: function() {
+      // Required for clients and personal vendors, not for business vendors
+      if (this.userType === 'client') return true;
+      if (this.userType === 'vendor' && (!this.provider || this.provider === 'email')) {
+        // Check if this is a business vendor (firstName === businessName)
+        // If lastName is not set and firstName is set, assume business if lastName is missing
+        // But better: require lastName for personal vendors only
+        if (this.accountType && this.accountType === 'personal') return true;
+        // If accountType is not present, fallback: if lastName is set, allow, else not required
+        return false;
+      }
+      return false;
+    },
     trim: true
   },
   email: {
@@ -77,7 +108,8 @@ const userSchema = new mongoose.Schema({
     ref: 'Role',
     required: false
   }
-}, { timestamps: true });
+}, 
+{ timestamps: true });
 
 // Virtual for fullName
 userSchema.virtual('fullName').get(function() {
@@ -93,12 +125,14 @@ userSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   
   // Ensure social login users don't have passwords
-  if (this.provider === 'google' && this.password) {
+  if (this.provider === 'google' && this.password) 
+  {
     this.password = null;
   }
   
   // Ensure email users have passwords (unless it's being set to null intentionally during Google migration)
-  if (this.provider === 'email' && !this.password && this.isNew) {
+  if (this.provider === 'email' && !this.password && this.isNew) 
+  {
     return next(new Error('Password is required for email authentication'));
   }
   
