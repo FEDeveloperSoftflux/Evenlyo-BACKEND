@@ -126,9 +126,7 @@ app.use('/api/support', supportRoutes);
 const notificationRoutes = require('./routes/notifications');
 app.use('/api/notifications', notificationRoutes);
 
-// Stock management routes
-const stockRoutes = require('./routes/stock');
-app.use('/api/stock', stockRoutes);
+
 
 const vendorRoutes = require('./routes/vendors');
 app.use('/api/vendor', vendorRoutes);
@@ -188,6 +186,14 @@ app.use('/api/vendor/roles', designationRoutes);
 // Vendor earnings analytics route
 const vendorEarningsRoutes = require('./routes/vendor/earnings');
 app.use('/api/vendor/earnings', vendorEarningsRoutes);
+
+// Stock management routes
+const stockRoutes = require('./routes/vendor/stock');
+app.use('/api/vendor/stock', stockRoutes);
+
+// Stripe payments route
+const paymentsRoutes = require('./routes/payments');
+app.use('/api/payments', paymentsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

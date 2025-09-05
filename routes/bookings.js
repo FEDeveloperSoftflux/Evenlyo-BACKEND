@@ -15,6 +15,8 @@ const {
   cancelBooking
 } = require('../controllers/bookingController');
 
+const { createBookingPaymentIntent } = require('../controllers/bookingController');
+
 // Import authentication middleware
 const { requireAuth, requireClient, requireVendor } = require('../middleware/authMiddleware');
 
@@ -82,6 +84,8 @@ router.get('/vendor-history', requireAuth, requireVendor, getVendorBookingHistor
 // @desc    Get detailed booking information
 // @access  Private (User/Vendor)
 router.get('/:id', requireAuth, getBookingDetails);
+
+router.post('/:id/create-payment-intent', requireAuth, requireClient, createBookingPaymentIntent);
 
 
 module.exports = router;

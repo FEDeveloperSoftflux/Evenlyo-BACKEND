@@ -1,5 +1,5 @@
-const Listing = require('../models/Listing');
-const StockLog = require('../models/StockLog');
+const Listing = require('../../models/Listing');
+const StockLog = require('../../models/StockLog');
 
 // Helper to get listing name
 function getListingName(listing) {

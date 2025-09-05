@@ -1,10 +1,59 @@
+
+
 const asyncHandler = require('express-async-handler');
 const notificationController = require('./notificationController');
 const BookingRequest = require('../models/Booking');
 const Listing = require('../models/Listing');
 const User = require('../models/User');
 const Vendor = require('../models/Vendor');
-const {checkAvailability} = require('../utils/bookingUtils')
+const {checkAvailability} = require('../utils/bookingUtils');
+const stripe = require('../config/stripe');
+
+// @desc    Create Stripe PaymentIntent for a booking
+// @route   POST /api/booking/:id/create-payment-intent
+// @access  Private (User)
+const createBookingPaymentIntent = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  // Find the booking by ID and user
+  const booking = await BookingRequest.findOne({
+    _id: id,
+    userId: req.user.id
+  });
+  if (!booking) {
+    return res.status(404).json({
+      success: false,
+      message: 'Booking not found'
+    });
+  }
+  // Get amount from booking (assume pricing.totalPrice exists)
+  const amount = Math.round((booking.pricing?.totalPrice || 0) * 100); // cents
+  if (!amount || amount < 1) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid booking amount'
+    });
+  }
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency: 'usd',
+      metadata: {
+        bookingId: booking._id.toString(),
+        userId: booking.userId.toString()
+      }
+    });
+    res.status(200).json({
+      success: true,
+      clientSecret: paymentIntent.client_secret
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 
 // @desc    Leave a review and rating for a booking
 // @route   POST /api/booking/:id/review
@@ -902,5 +951,6 @@ module.exports = {
   createClaim,
   getBookingDetails,
   cancelBooking,
-  reviewBooking
+  reviewBooking,
+  createBookingPaymentIntent,
 };
