@@ -101,57 +101,113 @@ const markBookingOnTheWay = asyncHandler(async (req, res) => {
 // @route   POST /api/booking/:id/mark-picked-up
 // @access  Private (Vendor)
 const markBookingPickedUp = asyncHandler(async (req, res) => {
-  const { verificationNotes } = req.body;
-  
-  // Get vendor profile
-  const vendor = await Vendor.findOne({ userId: req.user.id });
-  if (!vendor) {
-	return res.status(404).json({
-	  success: false,
-	  message: 'Vendor profile not found'
-	});
-  }
+	const { condition, amount } = req.body;
+	// condition: 'good', 'fair', 'claim'
+	// amount: number (required for fair/claim)
 
-  const booking = await BookingRequest.findOne({
-	_id: req.params.id,
-	vendorId: vendor._id,
-	status: 'completed'
-  });
-
-  if (!booking) {
-	return res.status(404).json({
-	  success: false,
-	  message: 'Booking not found or not eligible for this action'
-	});
-  }
-
-  booking.status = 'picked_up';
-  booking.deliveryDetails.returnTime = new Date();
-  if (verificationNotes) {
-	booking.feedback.vendorFeedback = toMultilingualText(verificationNotes);
-  }
-
-  await booking.save();
-
-  // Notify vendor that booking is picked up
-  try {
-	const vendor = await Vendor.findById(booking.vendorId);
-	if (vendor && vendor.userId) {
-	  await notificationController.createNotification({
-		user: vendor.userId,
-		booking: booking._id,
-		message: `A booking has been marked as picked up.`
-	  });
+	// Get vendor profile
+	const vendor = await Vendor.findOne({ userId: req.user.id });
+	if (!vendor) {
+		return res.status(404).json({
+			success: false,
+			message: 'Vendor profile not found'
+		});
 	}
-  } catch (e) {
-	console.error('Failed to create vendor notification for picked up booking:', e);
-  }
 
-  res.json({
-	success: true,
-	message: 'Booking marked as picked up',
-	data: { booking }
-  });
+	const booking = await BookingRequest.findOne({
+		_id: req.params.id,
+		vendorId: vendor._id,
+		status: 'completed'
+	});
+
+	if (!booking) {
+		return res.status(404).json({
+			success: false,
+			message: 'Booking not found or not eligible for this action'
+		});
+	}
+
+		booking.status = 'picked_up';
+		booking.deliveryDetails.returnTime = new Date();
+
+		// Store condition in the new field
+		booking.condition = condition;
+
+		if (condition === 'good') {
+			// No further action needed
+		} else if (condition === 'fair') {
+			if (!amount || isNaN(amount) || amount <= 0) {
+				return res.status(400).json({
+					success: false,
+					message: 'Amount to deduct from security fee is required for fair condition.'
+				});
+			}
+			// Store deduction in claimDetails for admin review
+			booking.claimDetails = {
+				reason: {
+					en: 'Fair condition - deduction from security fee',
+					nl: 'Redelijke staat - aftrek van borg'
+				},
+				claimedBy: 'vendor',
+				claimedAt: new Date(),
+				status: 'pending',
+				amount: amount
+			};
+		} else if (condition === 'claim') {
+			if (!amount || isNaN(amount) || amount <= 0) {
+				return res.status(400).json({
+					success: false,
+					message: 'Claim amount is required for claim condition.'
+				});
+			}
+			booking.claimDetails = {
+				reason: {
+					en: 'Claim requested by vendor',
+					nl: 'Claim aangevraagd door leverancier'
+				},
+				claimedBy: 'vendor',
+				claimedAt: new Date(),
+				status: 'pending',
+				amount: amount
+			};
+			// Send request/notification to admin for claim approval
+			try {
+				await notificationController.createNotification({
+					user: null, // or admin userId if available
+					booking: booking._id,
+					message: `Claim request submitted by vendor for booking. Amount: ${amount}`
+				});
+			} catch (e) {
+				console.error('Failed to notify admin for claim request:', e);
+			}
+		} else {
+			return res.status(400).json({
+				success: false,
+				message: 'Invalid condition. Must be one of: good, fair, claim.'
+			});
+		}
+
+	await booking.save();
+
+	// Notify vendor that booking is picked up
+	try {
+		const vendor = await Vendor.findById(booking.vendorId);
+		if (vendor && vendor.userId) {
+			await notificationController.createNotification({
+				user: vendor.userId,
+				booking: booking._id,
+				message: `A booking has been marked as picked up.`
+			});
+		}
+	} catch (e) {
+		console.error('Failed to create vendor notification for picked up booking:', e);
+	}
+
+	res.json({
+		success: true,
+		message: 'Booking marked as picked up',
+		data: { booking }
+	});
 });
 
 // @desc    Mark booking as completed 

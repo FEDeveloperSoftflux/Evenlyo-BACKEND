@@ -24,7 +24,7 @@ const getDashboardAnalytics = async (req, res) => {
           profileImage: booking.userId.profileImage,
           lastBooking: booking.createdAt
         });
-        if (recentClients.length >= 5) break;
+        if (recentClients.length >= 4) break;
       }
     }
 

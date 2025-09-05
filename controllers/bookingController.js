@@ -6,6 +6,59 @@ const User = require('../models/User');
 const Vendor = require('../models/Vendor');
 const {checkAvailability} = require('../utils/bookingUtils')
 
+// @desc    Leave a review and rating for a booking
+// @route   POST /api/booking/:id/review
+// @access  Private (Client)
+const reviewBooking = asyncHandler(async (req, res) => {
+  // Accept both {stars, message} and {rating, review} for flexibility
+  const rating = req.body.rating || req.body.stars;
+  const review = req.body.review || req.body.message;
+  if (!rating || rating < 1 || rating > 5) {
+    return res.status(400).json({
+      success: false,
+      message: 'Rating must be between 1 and 5.'
+    });
+  }
+
+  const booking = await BookingRequest.findOne({
+    _id: req.params.id,
+    userId: req.user.id,
+    status: 'completed'
+  });
+
+  if (!booking) {
+    return res.status(404).json({
+      success: false,
+      message: 'Booking not found or not eligible for review.'
+    });
+  }
+
+  // Save review in booking feedback
+  if (review) {
+    booking.feedback.clientFeedback = toMultilingualText(review);
+  }
+  booking.feedback.rating = rating;
+  await booking.save();
+
+  // Update listing's average rating and count
+  const listing = await Listing.findById(booking.listingId);
+  if (listing) {
+    const prevTotal = (listing.ratings.average || 0) * (listing.ratings.count || 0);
+    const newCount = (listing.ratings.count || 0) + 1;
+    const newAverage = (prevTotal + rating) / newCount;
+    listing.ratings.average = newAverage;
+    listing.ratings.count = newCount;
+    await listing.save();
+  }
+
+  res.json({
+    success: true,
+    message: 'Review submitted successfully.',
+    data: { booking }
+  });
+});
+
+
 // Helper function to convert string to multilingual object
 const toMultilingualText = (text) => {
   if (typeof text === 'string') {
@@ -587,10 +640,8 @@ const getVendorBookingHistory = asyncHandler(async (req, res) => {
   });
 });
 
-
-
 // @desc    Mark booking as received (Client action)
-// @route   POST /api/booking/:id/mark-received
+// @route   POST /api/bookzing/:id/mark-received
 // @access  Private (Client)
 const markBookingReceived = asyncHandler(async (req, res) => {
   const booking = await BookingRequest.findOne({
@@ -616,7 +667,7 @@ const markBookingReceived = asyncHandler(async (req, res) => {
     if (vendor && vendor.userId) {
       await notificationController.createNotification({
         user: vendor.userId,
-        booking: booking._id,
+        bookingId: booking._id,
         message: `A client has marked the booking as received.`
       });
     }
@@ -630,14 +681,10 @@ const markBookingReceived = asyncHandler(async (req, res) => {
   });
 });
 
-
-
 // @desc    Mark booking as complete (Client action)
 // @route   POST /api/booking/:id/mark-complete
 // @access  Private (Client)
 const markBookingComplete = asyncHandler(async (req, res) => {
-  const { review, rating } = req.body;
-  
   const booking = await BookingRequest.findOne({
     _id: req.params.id,
     userId: req.user.id,
@@ -652,10 +699,6 @@ const markBookingComplete = asyncHandler(async (req, res) => {
   }
 
   booking.status = 'completed';
-  if (review) {
-    booking.feedback.clientFeedback = toMultilingualText(review);
-  }
-
   await booking.save();
 
   // Notify vendor that booking is completed
@@ -664,7 +707,7 @@ const markBookingComplete = asyncHandler(async (req, res) => {
     if (vendor && vendor.userId) {
       await notificationController.createNotification({
         user: vendor.userId,
-        booking: booking._id,
+        bookingId: booking._id,
         message: `A booking has been marked as completed.`
       });
     }
@@ -858,5 +901,6 @@ module.exports = {
   markBookingComplete,
   createClaim,
   getBookingDetails,
-  cancelBooking
+  cancelBooking,
+  reviewBooking
 };

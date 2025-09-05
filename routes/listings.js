@@ -9,7 +9,6 @@ router.get('/search', listingController.searchListings);
 router.get('/featured', listingController.getFeaturedListings);
 router.get('/popular', listingController.getPopularListings);
 router.get('/vendor/:vendorId', listingController.getListingsByVendor);
-router.get('/service-type/:type', listingController.getListingsByServiceType);
 router.get('/:id', listingController.getListingById);
 
 
@@ -23,6 +22,6 @@ router.get('/:id/availability', listingController.checkListingAvailability);
 // @access  Public
 router.get('/calendar/:id', listingController.getListingCalendar);
 
-router.put('/:id', listingController.updateListing);
+
 
 module.exports = router; 

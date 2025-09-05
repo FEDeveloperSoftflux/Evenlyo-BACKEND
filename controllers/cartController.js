@@ -251,7 +251,7 @@ const updateCartItem = asyncHandler(async (req, res) => {
 // @route   POST /api/cart/submit
 // @access  Private (User)
 const submitCart = asyncHandler(async (req, res) => {
-  const { listingIds } = req.body;
+  const { startDate, endDate, listingIds } = req.body;
   const cart = await Cart.findOne({ userId: req.user.id })
     .populate('items.listingId', 'title pricing vendor isActive status');
 
@@ -294,90 +294,69 @@ const submitCart = asyncHandler(async (req, res) => {
         continue;
       }
 
-      // Validate required details
-      if (!tempDetails.eventDate || !tempDetails.eventTime || !tempDetails.eventLocation) {
+      // Use startDate and endDate from req.body, fallback to tempDetails if not provided
+      const bookingStartDate = startDate || tempDetails.startDate;
+      const bookingEndDate = endDate || tempDetails.endDate || bookingStartDate;
+
+      if (!bookingStartDate || !bookingEndDate || !tempDetails.eventLocation) {
         errors.push({
           listingId: listing._id,
           listingTitle: listing.title,
-          error: 'Missing required booking details (date, time, location)'
+          error: 'Missing required booking details (date, location)'
         });
         continue;
       }
 
-      // Check availability if dates are provided
-      if (tempDetails.eventDate) {
-        const startDate = new Date(tempDetails.eventDate);
-        const endDate = tempDetails.endDate ? new Date(tempDetails.endDate) : startDate;
-        
-        const isAvailable = await checkAvailability(listing._id, startDate, endDate);
-        if (!isAvailable) {
-          errors.push({
-            listingId: listing._id,
-            listingTitle: listing.title,
-            error: 'Selected dates are not available'
-          });
-          continue;
-        }
+      // Check availability
+      const start = new Date(bookingStartDate);
+      const end = new Date(bookingEndDate);
+      const isAvailable = await checkAvailability(listing._id, start, end);
+      if (!isAvailable) {
+        errors.push({
+          listingId: listing._id,
+          listingTitle: listing.title,
+          error: 'Selected dates are not available'
+        });
+        continue;
       }
 
       // Calculate duration
-      const startDate = new Date(tempDetails.eventDate);
-      const endDate = tempDetails.endDate ? new Date(tempDetails.endDate) : startDate;
-      const diffTime = Math.abs(endDate - startDate);
-      const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1); // Include both start and end dates
+      const diffTime = Math.abs(end - start);
+      const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
       const isMultiDay = diffDays > 1;
-      
-      // Calculate hours per day
-      const calculateHours = (startTime, endTime) => {
-        const start = new Date(`2000-01-01 ${startTime}`);
-        const end = new Date(`2000-01-01 ${endTime}`);
-        let diffHours = (end - start) / (1000 * 60 * 60);
-        if (diffHours < 0) diffHours += 24; // Handle overnight
-        return Math.max(diffHours, 0);
-      };
-      
-      const dailyHours = calculateHours(tempDetails.eventTime, tempDetails.endTime || '23:59');
+
+      // Calculate hours per day (use 24h for multi-day, or fallback to 1h)
+      const dailyHours = isMultiDay ? 24 : 1;
       const totalHours = dailyHours * diffDays;
 
-      // Enhanced pricing calculation for multi-day bookings
+      // Pricing calculation
       let bookingPrice = 0;
-      
-      if (listing.pricing.type === 'daily' && listing.pricing.perDay) {
-        bookingPrice = listing.pricing.perDay * diffDays;
-      } else if (listing.pricing.type === 'hourly' && listing.pricing.perHour) {
-        bookingPrice = listing.pricing.perHour * totalHours;
-      } else if (listing.pricing.type === 'per_event' && listing.pricing.perEvent) {
-        // For multi-day events, might need special handling
-        bookingPrice = listing.pricing.perEvent * (isMultiDay ? diffDays : 1);
+      if (listing.pricing.type === 'daily') {
+        bookingPrice = listing.pricing.amount * diffDays;
+      } else if (listing.pricing.type === 'hourly') {
+        bookingPrice = listing.pricing.amount * totalHours;
+      } else if (listing.pricing.type === 'per_event') {
+        bookingPrice = listing.pricing.amount * (isMultiDay ? diffDays : 1);
       }
-      
+
       // Apply multi-day discounts if configured
       if (isMultiDay && listing.pricing.multiDayDiscount) {
         const discountPercent = listing.pricing.multiDayDiscount.percent || 0;
         const minDays = listing.pricing.multiDayDiscount.minDays || 2;
-        
         if (diffDays >= minDays) {
           const discount = (bookingPrice * discountPercent) / 100;
           bookingPrice = bookingPrice - discount;
         }
       }
 
-      // Create booking request with multi-day support
+      // Create booking request
       const bookingRequest = new BookingRequest({
         userId: req.user.id,
         vendorId: listing.vendor,
         listingId: listing._id,
         details: {
-          startDate: tempDetails.eventDate,
-          endDate: tempDetails.endDate || tempDetails.eventDate,
-          startTime: tempDetails.eventTime,
-          endTime: tempDetails.endTime || '23:59',
-          duration: {
-            hours: dailyHours,
-            days: diffDays,
-            totalHours: totalHours,
-            isMultiDay: isMultiDay
-          },
+          startDate: bookingStartDate,
+          endDate: bookingEndDate,
           eventLocation: tempDetails.eventLocation,
           eventType: tempDetails.eventType,
           guestCount: tempDetails.guestCount,
@@ -396,8 +375,6 @@ const submitCart = asyncHandler(async (req, res) => {
       });
 
       await bookingRequest.save();
-      
-      // Populate the booking request
       await bookingRequest.populate([
         { path: 'vendorId', select: 'businessName businessEmail businessPhone' },
         { path: 'listingId', select: 'title featuredImage pricing' }
@@ -406,6 +383,7 @@ const submitCart = asyncHandler(async (req, res) => {
       bookingResults.push({
         bookingId: bookingRequest._id,
         listingTitle: listing.title,
+        totalPrice: bookingRequest.pricing.totalPrice,
         status: 'success'
       });
 

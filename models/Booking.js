@@ -3,6 +3,12 @@ const mongoose = require('mongoose');
 // BookingRequest Schema - Updated to match requirements
 const bookingRequestSchema = new mongoose.Schema({
   trackingId: {
+  condition: {
+    type: String,
+    enum: ['good', 'fair', 'claim'],
+    default: 'good',
+    required: true
+  },
     type: String,
     unique: true,
     required: true,

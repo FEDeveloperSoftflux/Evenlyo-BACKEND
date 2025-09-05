@@ -2,6 +2,12 @@ const mongoose = require('mongoose');
 
 // Listing Schema
 const listingSchema = new mongoose.Schema({
+  quantity: {
+    type: Number,
+    default: 1,
+    min: 0,
+    description: 'Current stock quantity for this listing.'
+  },
   title: {
     en: {
       type: String,

@@ -11,6 +11,7 @@ const {
   markBookingComplete,
   createClaim,
   getBookingDetails,
+  reviewBooking,
   cancelBooking
 } = require('../controllers/bookingController');
 
@@ -58,6 +59,8 @@ router.post('/:id/claim', requireAuth, requireClient, createClaim);
 // @desc    Cancel a booking (only within 30 min)
 // @access  Private (Client)
 router.post('/:id/cancel', requireAuth, requireClient, cancelBooking);
+
+router.post('/:id/review', requireAuth, requireClient, reviewBooking);
 
 
 // ========================= VENDOR ROUTES ========================= //

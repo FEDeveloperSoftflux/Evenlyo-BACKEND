@@ -20,7 +20,7 @@ router.post('/add', requireAuth, requireClient, addToCart);
 // @access  Private (User)
 router.get('/', requireAuth, requireClient, getCart);
 
-// @route   DELETE /api/cart/:listingId
+// @route   DELETE /api/cart/remove/:listingId
 // @desc    Remove item from cart
 // @access  Private (User)
 router.delete('/remove/:listingId', requireAuth, requireClient, removeFromCart);

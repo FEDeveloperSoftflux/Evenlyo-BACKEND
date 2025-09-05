@@ -351,12 +351,12 @@ const searchListings = async (req, res) => {
       categoryId,
       subCategoryId,
       city,
-      minPrice,
-      maxPrice,
       pricingType,
       sortBy = 'relevance',
       sortOrder = 'desc'
     } = req.query;
+
+    console.log('Search query:', q);
 
     if (!q || q.trim().length === 0) {
       return res.status(400).json({
@@ -367,7 +367,6 @@ const searchListings = async (req, res) => {
 
     const query = {
       status: 'active',
-      isActive: true,
       'availability.isAvailable': true,
       $text: { $search: q }
     };
@@ -378,12 +377,6 @@ const searchListings = async (req, res) => {
     if (city) query['location.city'] = { $regex: city, $options: 'i' };
     if (pricingType) query['pricing.type'] = pricingType;
 
-    // Price range filter
-    if (minPrice || maxPrice) {
-      query['pricing.amount'] = {};
-      if (minPrice) query['pricing.amount'].$gte = parseFloat(minPrice);
-      if (maxPrice) query['pricing.amount'].$lte = parseFloat(maxPrice);
-    }
 
     const skip = (page - 1) * limit;
 
@@ -505,141 +498,9 @@ const getListingsByVendor = async (req, res) => {
   }
 };
 
-// @desc    Get listings by service type (human vs non-human)
-// @route   GET /api/listings/service-type/:type
-// @access  Public
-const getListingsByServiceType = async (req, res) => {
-  try {
-    const { type } = req.params;
-    const { page = 1, limit = 12, sortBy = 'sortOrder', sortOrder = 'desc' } = req.query;
 
-    if (!['human', 'non_human'].includes(type)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid service type. Must be "human" or "non_human"'
-      });
-    }
 
-    const query = {
-      'serviceDetails.serviceType': type,
-      status: 'active',
-      isActive: true,
-      'availability.isAvailable': true
-    };
 
-    const skip = (page - 1) * limit;
-    
-    const sortOptions = {};
-    if (sortBy === 'price') {
-      sortOptions['pricing.perHour'] = sortOrder === 'desc' ? -1 : 1;
-    } else if (sortBy === 'rating') {
-      sortOptions['ratings.average'] = sortOrder === 'desc' ? -1 : 1;
-    } else {
-      sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
-    }
-
-    const listings = await Listing.find(query)
-      .populate('vendor', '_id businessName businessLocation')
-      .populate('category', 'name icon')
-      .populate('subCategory', 'name icon')
-      .sort(sortOptions)
-      .skip(skip)
-      .limit(parseInt(limit))
-      .select('-seo -__v');
-
-    const total = await Listing.countDocuments(query);
-
-    res.json({
-      success: true,
-      data: listings,
-      serviceType: type,
-      pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / limit),
-        total,
-        limit: parseInt(limit)
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching listings by service type:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching listings by service type',
-      error: error.message
-    });
-  }
-};
-
-// @desc    Update an existing listing
-// @route   PUT /api/listings/:id
-// @access  Private (Vendor only)
-const updateListing = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updateData = req.body;
-    // Find the existing listing
-    const existingListing = await Listing.findById(id);
-    if (!existingListing) {
-      return res.status(404).json({
-        success: false,
-        message: 'Listing not found'
-      });
-    }
-
-    // --- Ensure new pricing structure ---
-    if (updateData.pricing) {
-      const { type, amount, extratimeCost, securityFee } = updateData.pricing;
-      if (!type || amount === undefined) {
-        return res.status(400).json({
-          success: false,
-          message: 'Pricing type and amount are required.'
-        });
-      }
-      updateData.pricing = {
-        type,
-        amount,
-        extratimeCost: extratimeCost !== undefined ? extratimeCost : 0,
-        securityFee: securityFee !== undefined ? securityFee : 0
-      };
-    }
-
-    const updatedListing = await Listing.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    )
-      .populate('vendor', '_id businessName businessLocation businessDescription businessEmail businessPhone businessWebsite gallery userId')
-      .populate('category', 'name icon description')
-      .populate('subCategory', 'name icon description');
-
-    res.json({
-      success: true,
-      message: 'Listing updated successfully',
-      data: updatedListing
-    });
-  } catch (error) {
-    console.error('Error updating listing:', error);
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({
-        success: false,
-        message: 'Validation error',
-        errors
-      });
-    }
-    if (error.name === 'CastError') {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid listing ID'
-      });
-    }
-    res.status(500).json({
-      success: false,
-      message: 'Error updating listing',
-      error: error.message
-    });
-  }
-};
 
 // @desc    Check listing availability for date range (enhanced for multi-day)
 // @route   GET /api/listing/:id/availability
@@ -923,8 +784,6 @@ module.exports = {
   getPopularListings,
   searchListings,
   getListingsByVendor,
-  getListingsByServiceType,
-  updateListing,
   checkListingAvailability,
   getListingCalendar,
   filterListings
