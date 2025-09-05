@@ -125,6 +125,9 @@ app.use('/api/support', supportRoutes);
 const notificationRoutes = require('./routes/notifications');
 app.use('/api/notifications', notificationRoutes);
 
+const vendorRoutes = require('./routes/vendors');
+app.use('/api/vendor', vendorRoutes);
+
 // Root endpoint with translation
 app.get('/', (req, res) => {
   res.send(req.t('ok'));

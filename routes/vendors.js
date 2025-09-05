@@ -1,12 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const vendorController = require('../controllers/vendorController');
-// getVendorFullDetails is now in vendorController
-// @desc    Get all details related to a vendor (business, user, listings, popular)
-// @route   GET /api/vendor/:vendorId/details
-// @access  Public
 const { getVendorFullDetails } = require('../controllers/vendorController');
-router.get('/details/:vendorId', getVendorFullDetails);
 const { 
   requireAuth, 
   requireVendor, 
@@ -58,5 +53,11 @@ router.get('/business-details', requireAuth, requireVendor, vendorController.get
 // @route   GET /api/vendor/dashboard
 // @access  Private (Approved Vendor)
 router.get('/dashboard', requireAuth, requireVendor, requireApprovedVendor, vendorController.getVendorDashboard);
+
+// getVendorFullDetails is now in vendorController
+// @desc    Get all details related to a vendor (business, user, listings, popular)
+// @route   GET /api/vendor/:vendorId/details
+// @access  Public
+router.get('/details/:vendorId', getVendorFullDetails);
 
 module.exports = router;
