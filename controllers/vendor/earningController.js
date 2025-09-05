@@ -42,14 +42,19 @@ const getVendorEarningsAnalytics = async (req, res) => {
     ]);
 
     // Monthly earnings breakdown
-    const monthlyEarnings = await Booking.aggregate([
+    const monthlyEarningsAgg = await Booking.aggregate([
       { $match: { vendorId: vendorId, status: 'completed' } },
       { $group: {
-        _id: { year: { $year: '$details.startDate' }, month: { $month: '$details.startDate' } },
-        total: { $sum: '$pricing.totalPrice' }
+        _id: { month: { $month: '$details.startDate' } },
+        totalEarnings: { $sum: '$pricing.totalPrice' }
       } },
-      { $sort: { '_id.year': 1, '_id.month': 1 } }
+      { $sort: { '_id.month': 1 } }
     ]);
+    // Format to desired payload: [{ month: 1, totalEarnings: 23 }, ...]
+    const monthlyEarnings = monthlyEarningsAgg.map(m => ({
+      month: m._id.month,
+      totalEarnings: m.totalEarnings
+    }));
 
     // Table: Tracking Id, Listing Name, Total Cost
     const bookings = await Booking.find({ vendorId, status: 'completed' })

@@ -71,7 +71,7 @@ const getDashboardAnalytics = async (req, res) => {
     // 4. Recent Bookings (last 5)
     const recentBookings = await Booking.find({ vendorId })
       .sort({ createdAt: -1 })
-      .limit(5)
+      .limit(3)
       .populate('userId', 'firstName lastName address')
       .select('trackingId details eventLocation status createdAt userId');
 
