@@ -14,7 +14,7 @@ router.post('/create', requireAuth, requireVendor, requireApprovedVendor, create
 // DELETE /api/vendor/listings/:id
 router.delete('/delete/:id', requireAuth, requireVendor, requireApprovedVendor, deleteListing);
 
-router.put('update/:id', requireAuth, requireVendor, requireApprovedVendor, updateListing);
+router.put('/update/:id', requireAuth, requireVendor, requireApprovedVendor, updateListing);
 
 module.exports = router;
 
