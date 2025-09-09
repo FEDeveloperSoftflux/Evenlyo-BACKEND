@@ -47,6 +47,9 @@ const allowedOrigins =
   'http://127.0.0.1:3001'
 ];
 
+// Trust first proxy for Heroku (needed for secure cookies)
+app.set('trust proxy', 1);
+
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps, curl, postman, swagger ui)
