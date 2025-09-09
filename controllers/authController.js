@@ -146,6 +146,9 @@ const performLogin = async (req, res, userType) => {
       req.session.user.vendorId = userData._id; // Store vendorId for downstream use
     }
 
+    // Debug: Log session user object
+     // console.log('Session user after login:', req.session.user);
+
     // Return success response
     res.json({
       success: true,
@@ -163,7 +166,8 @@ const performLogin = async (req, res, userType) => {
         }),
         ...(userType === 'vendor' && {
           businessName: userData.businessName,
-          approvalStatus: userData.approvalStatus
+          approvalStatus: userData.approvalStatus,
+          vendorId: userData._id
         })
       }
     });

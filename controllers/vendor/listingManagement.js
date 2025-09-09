@@ -232,9 +232,36 @@ const updateListing = async (req, res) => {
 	});
   }
 };
+// @desc    Delete a listing
+// @route   DELETE /api/vendor/listings/:id
+// @access  Private (Vendor only)
+const deleteListing = async (req, res) => {
+	try {
+		const vendorId = req.vendor._id;
+		const listingId = req.params.id;
+
+		// Find the listing and ensure it belongs to the vendor
+		const listing = await Listing.findOne({ _id: listingId, vendor: vendorId });
+		if (!listing) {
+			return res.status(404).json({ success: false, message: 'Listing not found or not authorized' });
+		}
+
+		await Listing.deleteOne({ _id: listingId });
+
+		res.json({
+			success: true,
+			message: 'Listing deleted successfully'
+		});
+	} catch (err) {
+		console.error('Delete listing error:', err);
+		res.status(500).json({ success: false, message: 'Server error', error: err.message });
+	}
+};
+
 module.exports = {
 	toggleListingStatus,
 	getVendorListingsOverview,
 	createListing,
-	updateListing
+	updateListing,
+	deleteListing
 };

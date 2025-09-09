@@ -121,12 +121,9 @@ app.use('/api/settings', settingsRoutes);
 const supportRoutes = require('./routes/support');
 app.use('/api/support', supportRoutes);
 
-
 // Notification routes
 const notificationRoutes = require('./routes/notifications');
 app.use('/api/notifications', notificationRoutes);
-
-
 
 const vendorRoutes = require('./routes/vendors');
 app.use('/api/vendor', vendorRoutes);
