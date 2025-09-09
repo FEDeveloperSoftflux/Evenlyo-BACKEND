@@ -255,6 +255,7 @@ const getCurrentUser = async (req, res) => {
       }
       responseUser.businessName = userData.businessName;
       responseUser.approvalStatus = userData.approvalStatus;
+      responseUser.vendorId = userData._id;
     } else if (userType === 'admin') {
       userData = await Admin.findOne({ userId: id }).populate('userId', '-password');
       if (!userData) {
