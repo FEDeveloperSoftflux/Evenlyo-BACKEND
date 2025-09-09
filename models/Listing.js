@@ -9,40 +9,19 @@ const listingSchema = new mongoose.Schema({
     description: 'Current stock quantity for this listing.'
   },
   title: {
-    en: {
-      type: String,
-      trim: true,
-      maxlength: 200
-    },
-    nl: {
-      type: String,
-      trim: true,
-      maxlength: 200
-    }
+    type: String,
+    trim: true,
+    maxlength: 200
   },
   subtitle: {
-    en: {
-      type: String,
-      trim: true,
-      maxlength: 150
-    },
-    nl: {
-      type: String,
-      trim: true,
-      maxlength: 150
-    }
+    type: String,
+    trim: true,
+    maxlength: 150
   },
   description: {
-    en: {
-      type: String,
-      trim: true,
-      maxlength: 2000
-    },
-    nl: {
-      type: String,
-      trim: true,
-      maxlength: 2000
-    }
+    type: String,
+    trim: true,
+    maxlength: 2000
   },
   vendor: {
     type: mongoose.Schema.Types.ObjectId,
@@ -102,17 +81,11 @@ const listingSchema = new mongoose.Schema({
       type: Number,
       min: 0
     },
-    description: {
-      en: {
+      description: {
         type: String,
         trim: true
       },
-      nl: {
-        type: String,
-        trim: true
-      }
-    },
-  specialties: [String],
+      specialties: [String],
     previousClients: [String],
     certifications: [String]
   },
@@ -154,16 +127,10 @@ const listingSchema = new mongoose.Schema({
   personalInfo: {
     displayName: String, // Professional name like "DJ Ray Beatz"
     realName: String,
-    bio: {
-      en: {
+      bio: {
         type: String,
         trim: true
       },
-      nl: {
-        type: String,
-        trim: true
-      }
-    },
     profileImage: String,
     coverImage: String
   },
@@ -222,14 +189,8 @@ const listingSchema = new mongoose.Schema({
     }
   }],
   requirements: [{
-    en: {
-      type: String,
-      trim: true
-    },
-    nl: {
-      type: String,
-      trim: true
-    }
+    type: String,
+    trim: true
   }],
   tags: [{
     type: String,

@@ -101,52 +101,64 @@ const getVendorListingsOverview = async (req, res) => {
 // @route   POST /api/listings
 // @access  Private (Vendor only)
 const createListing = async (req, res) => {
-  try {
-	const listingData = req.body;
-	
-	// Automatically set security fee based on service type
-	if (listingData.serviceType === 'human') {
-	  if (listingData.pricing) {
-		listingData.pricing.securityFee = 0;
-	  }
-	} else if (listingData.serviceType === 'non_human') {
-	  if (listingData.pricing && (!listingData.pricing.securityFee || listingData.pricing.securityFee === 0)) {
-		listingData.pricing.securityFee = 50; // Default security fee for equipment
-	  }
+	try {
+		const listingData = req.body;
+
+		// Ensure title, subtitle, and description are strings (not objects)
+		if (typeof listingData.title === 'object' && listingData.title !== null) {
+			listingData.title = listingData.title.en || listingData.title.nl || '';
+		}
+		if (typeof listingData.subtitle === 'object' && listingData.subtitle !== null) {
+			listingData.subtitle = listingData.subtitle.en || listingData.subtitle.nl || '';
+		}
+		if (typeof listingData.description === 'object' && listingData.description !== null) {
+			listingData.description = listingData.description.en || listingData.description.nl || '';
+		}
+
+		// Automatically set security fee based on service type
+		if (listingData.serviceType === 'human') {
+			if (listingData.pricing) {
+				listingData.pricing.securityFee = 0;
+			}
+		} else if (listingData.serviceType === 'non_human') {
+			if (listingData.pricing && (!listingData.pricing.securityFee || listingData.pricing.securityFee === 0)) {
+				listingData.pricing.securityFee = 50; // Default security fee for equipment
+			}
+		}
+
+		console.log("listingData", listingData);
+		const listing = new Listing(listingData);
+		await listing.save();
+
+		// Populate the response
+		const populatedListing = await Listing.findById(listing._id)
+			.populate('vendor', '_id businessName businessLocation businessDescription businessEmail businessPhone businessWebsite gallery userId')
+			.populate('category', 'name icon description')
+			.populate('subCategory', 'name icon description');
+
+		res.status(201).json({
+			success: true,
+			message: 'Listing created successfully',
+			data: populatedListing
+		});
+	} catch (error) {
+		console.error('Error creating listing:', error);
+
+		if (error.name === 'ValidationError') {
+			const errors = Object.values(error.errors).map(err => err.message);
+			return res.status(400).json({
+				success: false,
+				message: 'Validation error',
+				errors
+			});
+		}
+
+		res.status(500).json({
+			success: false,
+			message: 'Error creating listing',
+			error: error.message
+		});
 	}
-
-	const listing = new Listing(listingData);
-	await listing.save();
-
-	// Populate the response
-	const populatedListing = await Listing.findById(listing._id)
-	  .populate('vendor', '_id businessName businessLocation businessDescription businessEmail businessPhone businessWebsite gallery userId')
-	  .populate('category', 'name icon description')
-	  .populate('subCategory', 'name icon description');
-
-	res.status(201).json({
-	  success: true,
-	  message: 'Listing created successfully',
-	  data: populatedListing
-	});
-  } catch (error) {
-	console.error('Error creating listing:', error);
-	
-	if (error.name === 'ValidationError') {
-	  const errors = Object.values(error.errors).map(err => err.message);
-	  return res.status(400).json({
-		success: false,
-		message: 'Validation error',
-		errors
-	  });
-	}
-	
-	res.status(500).json({
-	  success: false,
-	  message: 'Error creating listing',
-	  error: error.message
-	});
-  }
 };
 
 

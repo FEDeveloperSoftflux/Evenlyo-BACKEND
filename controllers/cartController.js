@@ -245,8 +245,6 @@ const updateCartItem = asyncHandler(async (req, res) => {
   }
 });
 
-
-
 // @desc    Submit all cart items as booking requests
 // @route   POST /api/cart/submit
 // @access  Private (User)
