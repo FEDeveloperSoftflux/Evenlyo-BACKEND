@@ -57,16 +57,20 @@ const listingSchema = new mongoose.Schema({
       type: Number,
       min: 0,
       default: 0
+    },
+    pricePerKm: {
+      type: Number,
+      min: 0
     }
   },
   contact: {
     phone: {
       type: String,
-      required: true
+      required: false
     },
     email: {
       type: String,
-      required: true
+      required: false
     },
     website: String,
     socialMedia: {
@@ -90,21 +94,7 @@ const listingSchema = new mongoose.Schema({
     certifications: [String]
   },
   location: {
-    city: {
-      type: String,
-      required: true
-    },
-    region: String,
-    country: {
-      type: String,
-      default: 'Netherlands'
-    },
-    postalCode: String,
     fullAddress: String,
-    coordinates: {
-      latitude: Number,
-      longitude: Number
-    }
   },
   availability: {
     isAvailable: {
@@ -272,7 +262,8 @@ const listingSchema = new mongoose.Schema({
     default: false,
     description: 'Indicates if the listing is popular based on certain criteria (e.g., high bookings, high ratings, etc.)'
   }
-}, { 
+},
+{ 
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
