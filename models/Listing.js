@@ -113,7 +113,7 @@ const listingSchema = new mongoose.Schema({
     },
     availableDays: [{
       type: String,
-      enum: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+      enum: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
     }],
     availableTimeSlots: [{
       startTime: String, // "09:00"

@@ -245,9 +245,9 @@ const updateCartItem = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Submit all cart items as booking requests
-// @route   POST /api/cart/submit
-// @access  Private (User)
+/// @desc Submit all cart items as booking requests
+/// @route POST /api/cart/submit
+/// @access Private (User)
 const submitCart = asyncHandler(async (req, res) => {
   const { startDate, endDate, listingIds } = req.body;
   const cart = await Cart.findOne({ userId: req.user.id })
