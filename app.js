@@ -5,6 +5,7 @@ const Backend = require('i18next-fs-backend');
 const i18nextMiddleware = require('i18next-http-middleware');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
+const MongoStore = require('connect-mongo');
 const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
@@ -75,6 +76,11 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
   resave: false,
   saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGODB_URI,
+    collectionName: 'sessions',
+    ttl: 24 * 60 * 60 // 1 day
+  }),
   cookie: {
     secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
     httpOnly: true,
