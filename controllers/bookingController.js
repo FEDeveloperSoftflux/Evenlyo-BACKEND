@@ -7,6 +7,7 @@ const Listing = require('../models/Listing');
 const User = require('../models/User');
 const Vendor = require('../models/Vendor');
 const {checkAvailability} = require('../utils/bookingUtils');
+const {calculateFullBookingPrice} = require('../utils/bookingUtils');
 const stripe = require('../config/stripe');
 
 // @desc    Create Stripe PaymentIntent for a booking
@@ -38,8 +39,8 @@ const createBookingPaymentIntent = asyncHandler(async (req, res) => {
       amount,
       currency: 'usd',
       metadata: {
-        bookingId: booking._id.toString(),
-        userId: booking.userId.toString()
+  bookingId: booking._id ? booking._id.toString() : '',
+  userId: booking.userId ? (booking.userId._id ? booking.userId._id.toString() : booking.userId.toString()) : ''
       }
     });
     res.status(200).json({
@@ -134,7 +135,9 @@ const createBookingRequest = asyncHandler(async (req, res) => {
       eventLocation,
       eventType,
       guestCount,
-      specialRequests,
+  numberOfEvents,
+  distanceKm,
+        specialRequests,
       contactPreference
     }
   } = req.body;
@@ -143,8 +146,8 @@ const createBookingRequest = asyncHandler(async (req, res) => {
   const startDateObj = new Date(startDate);
   const endDateObj = new Date(endDate);
   const diffTime = Math.abs(endDateObj - startDateObj);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Include both start and end dates
-  const isMultiDay = diffDays > 1;
+  let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Include both start and end dates
+  let isMultiDay = diffDays > 1;
 
   // Validate required fields
   if (!listingId || !vendorId || !startDate || !endDate || !eventLocation) {
@@ -174,8 +177,18 @@ const createBookingRequest = asyncHandler(async (req, res) => {
     });
   }
 
-  // Verify vendor matches
-  if (listing.vendor._id.toString() !== vendorId) {
+  // If listing charges per km, require distanceKm in request details
+  if (typeof listing.pricing.pricePerKm === 'number' && listing.pricing.pricePerKm > 0) {
+    if (typeof distanceKm === 'undefined' || isNaN(Number(distanceKm)) || Number(distanceKm) <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'distanceKm is required and must be a positive number for this listing.'
+      });
+    }
+  }
+
+  // Verify vendor matches (guard for missing vendor)
+  if (!listing.vendor || !listing.vendor._id || listing.vendor._id.toString() !== vendorId) {
     return res.status(400).json({
       success: false,
       message: 'Vendor mismatch'
@@ -191,46 +204,47 @@ const createBookingRequest = asyncHandler(async (req, res) => {
     });
   }
 
-  // Calculate hours per day (only for single-day)
+  // Calculate hours per day and total hours depending on presence of times and multi-day
   let dailyHours = 0;
   let totalHours = 0;
-  if (!isMultiDay) {
-    const calculateHours = (startTime, endTime) => {
-      const startTimeObj = new Date(`2000-01-01 ${startTime}`);
-      const endTimeObj = new Date(`2000-01-01 ${endTime}`);
-      let diffHours = (endTimeObj - startTimeObj) / (1000 * 60 * 60);
-      if (diffHours < 0) diffHours += 24; // Handle overnight
-      return Math.max(diffHours, 0);
-    };
+  const calculateHours = (startTime, endTime) => {
+    const startTimeObj = new Date(`2000-01-01 ${startTime}`);
+    const endTimeObj = new Date(`2000-01-01 ${endTime}`);
+    let diffHours = (endTimeObj - startTimeObj) / (1000 * 60 * 60);
+    if (diffHours < 0) diffHours += 24; // Handle overnight
+    return Math.max(diffHours, 0);
+  };
+
+  if (startTime && endTime) {
+    // We have times; compute daily hours and total hours across days
     dailyHours = calculateHours(startTime, endTime);
-    totalHours = dailyHours;
+    totalHours = isMultiDay ? dailyHours * diffDays : dailyHours;
   } else {
-    dailyHours = 0;
-    totalHours = 0;
+    // No times provided. For per-hour pricing assume full days = 24 hours per day
+    dailyHours = isMultiDay ? 24 : 0; // if single-day and no times, leave dailyHours 0 but totalHours as 24
+    totalHours = diffDays * 24;
   }
 
-  // Enhanced pricing calculation for multi-day bookings
-  let bookingPrice = 0;
-  
-  if (listing.pricing.type === 'daily' && listing.pricing.perDay) {
-    bookingPrice = listing.pricing.perDay * diffDays;
-  } else if (listing.pricing.type === 'hourly' && listing.pricing.perHour) {
-    bookingPrice = listing.pricing.perHour * totalHours;
-  } else if (listing.pricing.type === 'per_event' && listing.pricing.perEvent) {
-    // For multi-day events, might need special handling
-    bookingPrice = listing.pricing.perEvent * (isMultiDay ? diffDays : 1);
+  // Calculate pricing using utility
+  const pricingResult = calculateFullBookingPrice(listing, { startDate, endDate, startTime, endTime, numberOfEvents, distanceKm });
+
+  if (pricingResult && pricingResult.error) {
+    return res.status(pricingResult.status || 400).json({ success: false, message: pricingResult.error });
   }
-  
-  // Apply multi-day discounts if configured
-  if (isMultiDay && listing.pricing.multiDayDiscount) {
-    const discountPercent = listing.pricing.multiDayDiscount.percent || 0;
-    const minDays = listing.pricing.multiDayDiscount.minDays || 2;
-    
-    if (diffDays >= minDays) {
-      const discount = (bookingPrice * discountPercent) / 100;
-      bookingPrice = bookingPrice - discount;
-    }
-  }
+
+  const bookingPrice = pricingResult.bookingPrice;
+  const extratimeCost = pricingResult.extratimeCost;
+  const securityFee = pricingResult.securityFee;
+  const kmCharge = pricingResult.kmCharge;
+  const subtotal = pricingResult.subtotal;
+  const systemFeePercent = pricingResult.systemFeePercent;
+  const systemFee = pricingResult.systemFee;
+  const totalPrice = pricingResult.totalPrice;
+  dailyHours = pricingResult.dailyHours;
+  totalHours = pricingResult.totalHours;
+  diffDays = pricingResult.diffDays;
+  isMultiDay = pricingResult.isMultiDay;
+  const eventsCount = Number(numberOfEvents) > 0 ? Number(numberOfEvents) : 1;
 
   // Transform eventType and specialRequests to multilingual format if they are strings
   let processedEventType = eventType;
@@ -260,6 +274,7 @@ const createBookingRequest = asyncHandler(async (req, res) => {
     details: {
       startDate,
       endDate,
+  numberOfEvents: eventsCount,
       ...(isMultiDay ? {} : { startTime, endTime }),
       duration: {
         hours: dailyHours,
@@ -274,12 +289,22 @@ const createBookingRequest = asyncHandler(async (req, res) => {
       contactPreference: contactPreference || 'email'
     },
     pricing: {
-      bookingPrice,
-      securityPrice: listing.pricing.securityFee || 0,
-      totalPrice: bookingPrice + (listing.pricing.securityFee || 0),
+      type: listing.pricing.type,
+      amount: listing.pricing.amount,
+      extratimeCost: listing.pricing.extratimeCost || 0,
+      securityFee: securityFee,
+  subtotal: subtotal,
+  systemFee: systemFee,
+  systemFeePercent: systemFeePercent,
+  pricePerKm: listing.pricing.pricePerKm || 0,
+  distanceKm: Number(distanceKm) || 0,
+  kmCharge: kmCharge,
+      bookingPrice: bookingPrice,
+      extratimeCostApplied: extratimeCost,
+      totalPrice: totalPrice,
+      // Optionally add dailyRate for multi-day
       ...(isMultiDay && {
-        dailyRate: Math.round(bookingPrice / diffDays),
-        multiDayDiscount: listing.pricing.multiDayDiscount || null
+        dailyRate: Math.round(bookingPrice / diffDays)
       })
     }
   });
@@ -344,8 +369,6 @@ const getPendingBookings = asyncHandler(async (req, res) => {
     }
   });
 });
-
-
 
 // @desc    Get accepted bookings for user (before payment)
 // @route   GET /api/booking/accepted
@@ -892,8 +915,11 @@ const getBookingDetails = asyncHandler(async (req, res) => {
 
   // Check if user has access to this booking
   const vendor = await Vendor.findOne({ userId: req.user.id });
-  const hasAccess = booking.userId._id.toString() === req.user.id || 
-                   (vendor && booking.vendorId._id.toString() === vendor._id.toString());
+  const bookingUserIdStr = booking.userId && booking.userId._id ? booking.userId._id.toString() : (booking.userId ? booking.userId.toString() : null);
+  const bookingVendorIdStr = booking.vendorId && booking.vendorId._id ? booking.vendorId._id.toString() : (booking.vendorId ? booking.vendorId.toString() : null);
+  const vendorIdStr = vendor && vendor._id ? vendor._id.toString() : null;
+
+  const hasAccess = (bookingUserIdStr && bookingUserIdStr === req.user.id) || (vendorIdStr && bookingVendorIdStr && bookingVendorIdStr === vendorIdStr);
 
   if (!hasAccess) {
     return res.status(403).json({
@@ -903,7 +929,7 @@ const getBookingDetails = asyncHandler(async (req, res) => {
   }
 
   // Determine user type and get appropriate action buttons
-  const isVendor = vendor && booking.vendorId._id.toString() === vendor._id.toString();
+  const isVendor = vendor && booking.vendorId && booking.vendorId._id && vendor._id && booking.vendorId._id.toString() === vendor._id.toString();
   const actionButtons = isVendor ? getVendorActionButtons(booking.status) : getClientActionButtons(booking.status);
 
   const bookingData = {

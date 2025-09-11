@@ -168,6 +168,100 @@ const formatPrice = (price, currency = 'EUR') => {
   }).format(price);
 };
 
+/**
+ * Calculate full booking pricing details (booking price, fees, km charge, totals)
+ * @param {Object} listing - Listing document
+ * @param {Object} opts - { startDate, endDate, startTime, endTime, numberOfEvents, distanceKm }
+ * @returns {Object} - pricing breakdown or { error, status }
+ */
+const calculateFullBookingPrice = (listing, opts = {}) => {
+  try {
+    const { startDate, endDate, startTime, endTime, numberOfEvents, distanceKm } = opts;
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // include both days
+    const isMultiDay = diffDays > 1;
+
+    // calculate hours
+    const calculateHours = (s, e) => {
+      const sObj = new Date(`2000-01-01 ${s}`);
+      const eObj = new Date(`2000-01-01 ${e}`);
+      let diffHours = (eObj - sObj) / (1000 * 60 * 60);
+      if (diffHours < 0) diffHours += 24;
+      return Math.max(diffHours, 0);
+    };
+
+    let dailyHours = 0;
+    let totalHours = 0;
+    if (startTime && endTime) {
+      dailyHours = calculateHours(startTime, endTime);
+      totalHours = isMultiDay ? dailyHours * diffDays : dailyHours;
+    } else {
+      dailyHours = isMultiDay ? 24 : 0;
+      totalHours = diffDays * 24;
+    }
+
+    const extratimeCost = listing.pricing.extratimeCost || 0;
+    const securityFee = listing.pricing.securityFee || 0;
+
+    // validate pricing amount
+    if (!listing.pricing.type || typeof listing.pricing.amount !== 'number') {
+      return { error: 'Listing pricing information is invalid.', status: 400 };
+    }
+
+    const pricingType = (listing.pricing.type || '').toString().toLowerCase();
+    const eventsCount = Number(numberOfEvents) > 0 ? Number(numberOfEvents) : 1;
+
+    let bookingPrice = 0;
+    if (pricingType === 'per hour' || pricingType === 'hourly') {
+      bookingPrice = listing.pricing.amount * totalHours;
+    } else if (pricingType === 'day' || pricingType === 'daily' || pricingType === 'per day') {
+      bookingPrice = listing.pricing.amount * diffDays;
+    } else if (pricingType === 'per event' || pricingType === 'event') {
+      bookingPrice = listing.pricing.amount * eventsCount;
+    } else if (pricingType === 'fixed' || pricingType === 'fixed price' || pricingType === 'one-time' || pricingType === 'flat') {
+      bookingPrice = listing.pricing.amount;
+    } else {
+      return { error: 'Unsupported pricing type.', status: 400 };
+    }
+
+    // km charge
+    let kmCharge = 0;
+    if (typeof listing.pricing.pricePerKm === 'number' && Number(distanceKm) > 0) {
+      kmCharge = Math.round(listing.pricing.pricePerKm * Number(distanceKm) * 100) / 100;
+    }
+
+    // subtotal, system fee and total
+    const subtotal = bookingPrice + extratimeCost + securityFee + kmCharge;
+    const systemFeePercent = 0.02;
+    const systemFee = Math.round(subtotal * systemFeePercent * 100) / 100;
+    const totalPrice = Math.round((subtotal + systemFee) * 100) / 100;
+
+    const result = {
+      bookingPrice,
+      extratimeCost,
+      securityFee,
+      kmCharge,
+      subtotal,
+      systemFee,
+      systemFeePercent,
+      totalPrice,
+      dailyHours,
+      totalHours,
+      diffDays,
+      isMultiDay,
+      dailyRate: isMultiDay ? Math.round(bookingPrice / diffDays) : null
+    };
+
+    return result;
+  } catch (e) {
+    console.error('Error calculating booking price:', e);
+    return { error: 'Failed to calculate booking price', status: 500 };
+  }
+};
+
 // Helper function to get detailed availability information
 const getAvailabilityDetails = async (listingId, startDate, endDate, excludeBookingId = null) => {
   const isAvailable = await checkAvailability(listingId, startDate, endDate, excludeBookingId);
@@ -255,6 +349,7 @@ module.exports = {
   getConflictingBookings,
   calculateDuration,
   calculateBookingPrice,
+  calculateFullBookingPrice,
   validateBookingDetails,
   generateTrackingId,
   formatPrice,
