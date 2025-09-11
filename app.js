@@ -83,10 +83,12 @@ app.use(session({
     ttl: 24 * 60 * 60 // 1 day
   }),
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'lax'
+  secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+  httpOnly: true,
+  maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  // When running cross-site (frontend on different origin like evenl yo.web.app -> heroku app)
+  // browsers require SameSite=None and Secure to allow cookies; keep Lax for local dev.
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
   },
   name: 'evenlyo.sid' // Custom session name
 }));

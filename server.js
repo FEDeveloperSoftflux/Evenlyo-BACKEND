@@ -7,10 +7,13 @@ const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 
 // Initialize Socket.io
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'https://evenlyo.web.app';
+
 const io = new Server(server, {
   cors: {
-    origin: '*', // Adjust as needed for security
-    methods: ['GET', 'POST']
+    origin: FRONTEND_ORIGIN,
+    methods: ['GET', 'POST'],
+    credentials: true,
   }
 });
 
