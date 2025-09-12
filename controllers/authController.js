@@ -290,16 +290,24 @@ const getCurrentUser = async (req, res) => {
       responseUser.approvalStatus = userData.approvalStatus;
       responseUser.vendorId = userData._id;
     } else if (userType === 'admin') {
-      userData = await Admin.findOne({ userId: id }).populate('userId', '-password');
-      if (!userData) {
-        return res.status(404).json({
-          success: false,
-          message: 'Admin profile not found'
-        });
+      // Handle super admin case (not stored in database)
+      if (id === 'superadmin') {
+        responseUser.role = 'super_admin';
+        responseUser.permissions = ['*'];
+        responseUser.department = 'Administration';
+      } else {
+        // Regular admin lookup from database
+        userData = await Admin.findOne({ userId: id }).populate('userId', '-password');
+        if (!userData) {
+          return res.status(404).json({
+            success: false,
+            message: 'Admin profile not found'
+          });
+        }
+        responseUser.role = userData.role;
+        responseUser.permissions = userData.permissions;
+        responseUser.department = userData.department;
       }
-      responseUser.role = userData.role;
-      responseUser.permissions = userData.permissions;
-      responseUser.department = userData.department;
     }
 
     res.json({
