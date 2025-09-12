@@ -317,7 +317,7 @@ const createBookingRequest = asyncHandler(async (req, res) => {
     if (vendor && vendor.userId) {
       await notificationController.createNotification({
         user: vendor.userId, // vendor's user account receives notification
-        booking: bookingRequest._id,
+        bookingId: bookingRequest._id,
         message: `You have received a new booking request.`
       });
     }
@@ -427,7 +427,7 @@ const markBookingAsPaid = asyncHandler(async (req, res) => {
     if (vendor && vendor.userId) {
       await notificationController.createNotification({
         user: vendor.userId,
-        booking: booking._id,
+        bookingId : booking._id,
         message: `A client has paid for a booking.`
       });
     }
