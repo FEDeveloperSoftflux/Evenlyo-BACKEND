@@ -1,4 +1,4 @@
-const Plan = require('../models/Plan');
+const Plan = require('../../models/Plan');
 
 // Get all plans (both active and inactive)
 const getAllPlans = async (req, res) => {

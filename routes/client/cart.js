@@ -7,8 +7,8 @@ const {
   updateCartItem,
   submitCart,
   clearCart
-} = require('../controllers/cartController');
-const { requireAuth, requireClient } = require('../middleware/authMiddleware');
+} = require('../../controllers/client/cartController');
+const { requireAuth, requireClient } = require('../../middleware/authMiddleware');
 
 // @route   POST /api/cart/add
 // @desc    Add item to user cart

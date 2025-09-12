@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const listingController = require('../controllers/listingController');
+const listingController = require('../../controllers/client/listingController');
 
 // Public routes (no authentication required)
 router.get('/', listingController.getAvailableListings);

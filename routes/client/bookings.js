@@ -13,12 +13,12 @@ const {
   getBookingDetails,
   reviewBooking,
   cancelBooking
-} = require('../controllers/bookingController');
+} = require('../../controllers/client/bookingController');
 
-const { createBookingPaymentIntent } = require('../controllers/bookingController');
+const { createBookingPaymentIntent } = require('../../controllers/client/bookingController');
 
 // Import authentication middleware
-const { requireAuth, requireClient, requireVendor } = require('../middleware/authMiddleware');
+const { requireAuth, requireClient, requireVendor } = require('../../middleware/authMiddleware');
 
 // ========================= CLIENT ROUTES ========================= //
 

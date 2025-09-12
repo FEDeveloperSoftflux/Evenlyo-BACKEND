@@ -1,5 +1,5 @@
-const SubCategory = require('../models/SubCategory');
-const Category = require('../models/Category');
+const SubCategory = require('../../models/SubCategory');
+const Category = require('../../models/Category');
 const mongoose = require('mongoose');
 
 // @desc    Get all subcategories

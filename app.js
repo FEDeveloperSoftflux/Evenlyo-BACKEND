@@ -112,31 +112,31 @@ const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
 
 // Category routes
-const categoryRoutes = require('./routes/categories');
+const categoryRoutes = require('./routes/client/categories');
 app.use('/api/categories', categoryRoutes);
 
 // Listing routes
-const listingRoutes = require('./routes/listings');
+const listingRoutes = require('./routes/client/listings');
 app.use('/api/listings', listingRoutes);
 
 // Subcategory routes
-const subCategoryRoutes = require('./routes/subcategories');
+const subCategoryRoutes = require('./routes/client/subcategories');
 app.use('/api/subcategories', subCategoryRoutes);
 
 // Booking routes
-const bookingRoutes = require('./routes/bookings');
+const bookingRoutes = require('./routes/client/bookings');
 app.use('/api/booking', bookingRoutes);
 
 // Cart routes
-const cartRoutes = require('./routes/cart');
+const cartRoutes = require('./routes/client/cart');
 app.use('/api/cart', cartRoutes);
 
 // Plan routes
-const planRoutes = require('./routes/plans');
+const planRoutes = require('./routes/client/plans');
 app.use('/api/plans', planRoutes);
 
 // Blog routes
-const blogRoutes = require('./routes/blogs');
+const blogRoutes = require('./routes/client/blogs');
 app.use('/api/blogs', blogRoutes);
 
 // Settings routes
@@ -144,14 +144,14 @@ const settingsRoutes = require('./routes/settings');
 app.use('/api/settings', settingsRoutes);
 
 // Support routes
-const supportRoutes = require('./routes/support');
+const supportRoutes = require('./routes/client/support');
 app.use('/api/support', supportRoutes);
 
 // Notification routes
 const notificationRoutes = require('./routes/notifications');
 app.use('/api/notifications', notificationRoutes);
 
-const vendorRoutes = require('./routes/vendors');
+const vendorRoutes = require('./routes/client/vendors');
 app.use('/api/vendor', vendorRoutes);
 
 // Root endpoint with translation
@@ -217,6 +217,18 @@ app.use('/api/vendor/stock', stockRoutes);
 // Stripe payments route
 const paymentsRoutes = require('./routes/payments');
 app.use('/api/payments', paymentsRoutes);
+
+
+
+// ADMIN SIDE
+
+// Admin dashboard routes
+const adminDashboardRoutes = require('./routes/admin/dashboard');
+app.use('/api/admin/dashboard', adminDashboardRoutes);
+
+// Admin user management routes
+const adminUserManagementRoutes = require('./routes/admin/userManagement');
+app.use('/api/admin/users', adminUserManagementRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

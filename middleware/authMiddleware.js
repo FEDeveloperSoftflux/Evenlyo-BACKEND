@@ -25,6 +25,21 @@ const requireAuth = async (req, res, next) => {
       });
     }
 
+    // Skip database verification for super admin (env-based login)
+    if (req.session.user.id === 'superadmin') {
+      req.user = {
+        id: 'superadmin',
+        email: req.session.user.email,
+        firstName: req.session.user.firstName,
+        lastName: req.session.user.lastName,
+        userType: 'admin',
+        role: 'super_admin',
+        permissions: ['*'],
+        department: 'Administration'
+      };
+      return next();
+    }
+
     // Verify user still exists in database
     const user = await User.findById(req.session.user.id);
     if (!user || !user.isActive) {
@@ -190,7 +205,21 @@ const requireActiveAdmin = async (req, res, next) => {
       });
     }
 
-    // Check admin status
+    // Skip database check for super admin (env-based login)
+    if (req.user.id === 'superadmin') {
+      // Super admin is always considered active with full permissions
+      req.admin = {
+        _id: 'superadmin',
+        userId: 'superadmin',
+        role: 'super_admin',
+        permissions: ['*'],
+        isActive: true,
+        department: 'Administration'
+      };
+      return next();
+    }
+
+    // Check admin status for database-based admins
     const admin = await Admin.findOne({ userId: req.user.id });
     if (!admin) {
       return res.status(404).json({

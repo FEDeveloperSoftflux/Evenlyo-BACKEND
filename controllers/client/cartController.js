@@ -1,8 +1,8 @@
 const asyncHandler = require('express-async-handler');
-const Cart = require('../models/Cart');
-const Listing = require('../models/Listing');
-const BookingRequest = require('../models/Booking');
-const Vendor = require('../models/Vendor');
+const Cart = require('../../models/Cart');
+const Listing = require('../../models/Listing');
+const BookingRequest = require('../../models/Booking');
+const Vendor = require('../../models/Vendor');
 
 // Helper function to create listing snapshot
 const createListingSnapshot = (listing) => {

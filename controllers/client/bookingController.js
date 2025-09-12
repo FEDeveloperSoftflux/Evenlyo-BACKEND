@@ -1,14 +1,13 @@
 
 
 const asyncHandler = require('express-async-handler');
-const notificationController = require('./notificationController');
-const BookingRequest = require('../models/Booking');
-const Listing = require('../models/Listing');
-const User = require('../models/User');
-const Vendor = require('../models/Vendor');
-const {checkAvailability} = require('../utils/bookingUtils');
-const {calculateFullBookingPrice} = require('../utils/bookingUtils');
-const stripe = require('../config/stripe');
+const notificationController = require('../notificationController');
+const BookingRequest = require('../../models/Booking');
+const Listing = require('../../models/Listing');
+const User = require('../../models/User');
+const Vendor = require('../../models/Vendor');
+const {checkAvailability,calculateFullBookingPrice} = require('../../utils/bookingUtils');
+const stripe = require('../../config/stripe');
 
 // @desc    Create Stripe PaymentIntent for a booking
 // @route   POST /api/booking/:id/create-payment-intent

@@ -1,7 +1,7 @@
 const asyncHandler = require('express-async-handler');
-const Blog = require('../models/Blog');
-const User = require('../models/User');
-const { sendPromotionalEmail } = require('../utils/mailer');
+const Blog = require('../../models/Blog');
+const User = require('../../models/User');
+const { sendPromotionalEmail } = require('../../utils/mailer');
 
 // @desc    Get all blogs
 // @route   GET /api/blogs

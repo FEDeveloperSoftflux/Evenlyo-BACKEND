@@ -1,5 +1,5 @@
-const SupportTicket = require('../models/SupportTicket');
-const User = require('../models/User');
+const SupportTicket = require('../../models/SupportTicket');
+const User = require('../../models/User');
 
 
 // Create a new support ticket

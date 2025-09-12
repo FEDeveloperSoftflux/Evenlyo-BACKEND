@@ -1,9 +1,9 @@
 
-const Listing = require('../models/Listing');
-const Category = require('../models/Category');
-const SubCategory = require('../models/SubCategory');
-const Vendor = require('../models/Vendor');
-const BookingRequest = require('../models/Booking');
+const Listing = require('../../models/Listing');
+const Category = require('../../models/Category');
+const SubCategory = require('../../models/SubCategory');
+const Vendor = require('../../models/Vendor');
+const BookingRequest = require('../../models/Booking');
 
 // @desc    Get calendar data (booked and available days/times) for a listing
 // @route   GET /api/listing/:id/calendar

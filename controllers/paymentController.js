@@ -4,7 +4,7 @@ const Listing = require('../models/Listing');
 const PaymentIntent = require('../models/PaymentIntent');
 
 // Create a payment intent for a product (store internal mapping)
-exports.createPaymentIntent = asyncHandler(async (req, res) => {
+const createPaymentIntent = asyncHandler(async (req, res) => {
   // Accept booking flow: { bookingId, items } OR listing flow: { listingId or productId }
   const { bookingId, items, listingId, productId, quantity = 1, metadata = {}, currency } = req.body;
 
@@ -97,7 +97,7 @@ exports.createPaymentIntent = asyncHandler(async (req, res) => {
 });
 
 // Get payment intent by internal id (returns client_secret and status)
-exports.getPaymentIntent = asyncHandler(async (req, res) => {
+ const getPaymentIntent = asyncHandler(async (req, res) => {
   const { internalId } = req.body;
   if (!internalId) return res.status(400).json({ error: 'internalId is required' });
 
@@ -117,7 +117,7 @@ exports.getPaymentIntent = asyncHandler(async (req, res) => {
 });
 
 // GET handler by URL param
-exports.getPaymentIntentByInternalId = asyncHandler(async (req, res) => {
+const getPaymentIntentByInternalId = asyncHandler(async (req, res) => {
   const { internalId } = req.params;
   if (!internalId) return res.status(400).json({ error: 'internalId is required' });
 
@@ -137,7 +137,7 @@ exports.getPaymentIntentByInternalId = asyncHandler(async (req, res) => {
 });
 
 // GET /api/payments/status/:internalId
-exports.getPaymentIntentStatus = asyncHandler(async (req, res) => {
+const getPaymentIntentStatus = asyncHandler(async (req, res) => {
   const { internalId } = req.params;
   if (!internalId) return res.status(400).json({ error: 'internalId is required' });
 
@@ -148,7 +148,7 @@ exports.getPaymentIntentStatus = asyncHandler(async (req, res) => {
 });
 
 // POST /api/payments/refresh/:internalId - force fetch from Stripe and update DB
-exports.refreshPaymentIntentFromStripe = asyncHandler(async (req, res) => {
+const refreshPaymentIntentFromStripe = asyncHandler(async (req, res) => {
   const { internalId } = req.params;
   if (!internalId) return res.status(400).json({ error: 'internalId is required' });
 
@@ -168,7 +168,7 @@ exports.refreshPaymentIntentFromStripe = asyncHandler(async (req, res) => {
 });
 
 // POST /api/payments/refresh-by-stripe/:stripeId - force fetch from Stripe by Stripe PaymentIntent id and update DB
-exports.refreshPaymentIntentByStripe = asyncHandler(async (req, res) => {
+const refreshPaymentIntentByStripe = asyncHandler(async (req, res) => {
   const { stripeId } = req.params;
   if (!stripeId) return res.status(400).json({ error: 'stripeId is required' });
 
@@ -187,7 +187,7 @@ exports.refreshPaymentIntentByStripe = asyncHandler(async (req, res) => {
 });
 
 // Exported for webhook controller to update status
-exports.updateStatus = asyncHandler(async (stripeIntentId, status) => {
+const updateStatus = asyncHandler(async (stripeIntentId, status) => {
   try {
     console.log(`updateStatus called for stripeIntentId=${stripeIntentId} status=${status}`);
     const pi = await PaymentIntent.findOne({ stripeIntentId });
@@ -227,3 +227,13 @@ exports.updateStatus = asyncHandler(async (stripeIntentId, status) => {
     throw err;
   }
 });
+
+module.exports = {
+  createPaymentIntent,
+  getPaymentIntent,
+  getPaymentIntentByInternalId,
+  getPaymentIntentStatus,
+  refreshPaymentIntentFromStripe,
+  refreshPaymentIntentByStripe,
+  updateStatus,
+};

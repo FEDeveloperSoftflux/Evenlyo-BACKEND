@@ -114,9 +114,9 @@ const getVendorFullDetails = async (req, res) => {
     res.status(500).json({ success: false, message: 'Error fetching vendor details', error: error.message });
   }
 };
-const Vendor = require('../models/Vendor');
-const User = require('../models/User');
-const Listing = require('../models/Listing');
+const Vendor = require('../../models/Vendor');
+const User = require('../../models/User');
+const Listing = require('../../models/Listing');
 const mongoose = require('mongoose');
 const asyncHandler = require('express-async-handler');
 

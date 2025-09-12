@@ -4,10 +4,10 @@ const {
   getAllPlans,
   activateDiscount,
   togglePlanStatus
-} = require('../controllers/planController');
+} = require('../../controllers/client/planController');
 
 // Import auth middleware for protected routes
-const { requireAuth } = require('../middleware/authMiddleware');
+const { requireAuth } = require('../../middleware/authMiddleware');
 
 // Public route
 // GET /api/plans - Get all plans

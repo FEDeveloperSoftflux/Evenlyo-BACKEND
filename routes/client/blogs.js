@@ -8,8 +8,8 @@ const {
   deleteBlog,
   addCommentWithPromotion,
   getBlogCategories
-} = require('../controllers/blogController');
-const { requireAuth, requireAdmin } = require('../middleware/authMiddleware');
+} = require('../../controllers/client/blogController');
+const { requireAuth, requireAdmin } = require('../../middleware/authMiddleware');
 
 // Public routes
 router.get('/categories', getBlogCategories);

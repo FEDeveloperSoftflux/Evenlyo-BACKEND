@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const vendorController = require('../controllers/vendorController');
-const { getVendorFullDetails } = require('../controllers/vendorController');
+const vendorController = require('../../controllers/client/vendorController');
+const { getVendorFullDetails } = require('../../controllers/client/vendorController');
 const { 
   requireAuth, 
   requireVendor, 
   requireApprovedVendor 
-} = require('../middleware/authMiddleware');
+} = require('../../middleware/authMiddleware');
 
 // --- Public Routes ---
 

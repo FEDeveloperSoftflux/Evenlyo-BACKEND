@@ -36,7 +36,6 @@ const performAdminLogin = async (req, res) => {
 };
 
 const performLogin = async (req, res, userType) => {
-  // ...existing code for performLogin...
   try {
     const { email, password } = req.body;
 
@@ -45,6 +44,40 @@ const performLogin = async (req, res, userType) => {
       return res.status(400).json({
         success: false,
         message: 'Email and password are required'
+      });
+    }
+    if (
+      userType === 'admin' &&
+      process.env.SUPER_ADMIN_EMAIL &&
+      email === process.env.SUPER_ADMIN_EMAIL
+    ) 
+    {
+
+      // Will add hashing logic here later :-) IMPPPPPPPPP
+      const superPassword = process.env.SUPER_ADMIN_PASSWORD || '';
+      if (password !== superPassword) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
+        });
+      }
+
+      // Create a session for super admin
+      req.session.user = {
+        id: 'superadmin',
+        email,
+        userType: 'admin',
+        firstName: 'Super',
+        lastName: 'Admin',
+        role: 'super_admin',
+        permissions: ['*'],
+        department: 'Administration'
+      };
+
+      return res.json({
+        success: true,
+        message: 'Login successful',
+        user: req.session.user
       });
     }
 
