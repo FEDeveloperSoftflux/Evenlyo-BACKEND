@@ -4,7 +4,9 @@ const {
   getAllBookingsTracking,
   getBookingByTrackingId,
   getTrackingStats,
-  updateBookingStatus
+  updateBookingStatus,
+  getBookingStatusHistory,
+  getBookingStatusHistoryById
 } = require('../../controllers/admin/trackingController');
 const { requireAuth, requireAdmin, requireActiveAdmin } = require('../../middleware/authMiddleware');
 
@@ -26,7 +28,23 @@ router.get('/stats',
   getTrackingStats
 );
 
-// Get specific booking details by tracking ID
+// Get status history for a specific booking by tracking ID
+router.get('/:trackingId/status-history',
+  requireAuth,
+  requireAdmin,
+  requireActiveAdmin,
+  getBookingStatusHistory
+);
+
+// Update booking status (admin action) by tracking ID
+router.patch('/:trackingId/status',
+  requireAuth,
+  requireAdmin,
+  requireActiveAdmin,
+  updateBookingStatus
+);
+
+// Get specific booking details by tracking ID (this should be last to avoid conflicts)
 router.get('/:trackingId',
   requireAuth,
   requireAdmin,
@@ -34,12 +52,14 @@ router.get('/:trackingId',
   getBookingByTrackingId
 );
 
-// Update booking status (admin action)
-router.patch('/:trackingId/status',
+// --- Routes using Booking ID ---
+
+// Get status history for a specific booking by booking ID
+router.get('/booking/:bookingId/status-history',
   requireAuth,
   requireAdmin,
   requireActiveAdmin,
-  updateBookingStatus
+  getBookingStatusHistoryById
 );
 
 module.exports = router;

@@ -414,9 +414,128 @@ const updateBookingStatus = async (req, res) => {
   }
 };
 
+// Get status history for a specific booking
+const getBookingStatusHistory = async (req, res) => {
+  try {
+    const { trackingId } = req.params;
+
+    const booking = await Booking.findOne({ trackingId })
+      .select('trackingId statusHistory status createdAt updatedAt')
+      .populate({
+        path: 'statusHistory.updatedBy.userId',
+        select: 'firstName lastName profileImage'
+      })
+      .lean();
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found with this tracking ID'
+      });
+    }
+
+    // Format status history with user details
+    const formattedHistory = booking.statusHistory.map(history => ({
+      status: history.status,
+      timestamp: history.timestamp,
+      updatedBy: {
+        userId: history.updatedBy?.userId?._id || history.updatedBy?.userId,
+        userType: history.updatedBy?.userType,
+        name: history.updatedBy?.name || 
+              (history.updatedBy?.userId ? 
+                `${history.updatedBy.userId.firstName || ''} ${history.updatedBy.userId.lastName || ''}`.trim() : 
+                'Unknown User'),
+        profileImage: history.updatedBy?.userId?.profileImage || null
+      },
+      notes: history.notes || null
+    }));
+
+    res.status(200).json({
+      success: true,
+      message: 'Booking status history retrieved successfully',
+      data: {
+        trackingId: booking.trackingId,
+        currentStatus: booking.status,
+        createdAt: booking.createdAt,
+        updatedAt: booking.updatedAt,
+        statusHistory: formattedHistory
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in getBookingStatusHistory:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve booking status history',
+      error: error.message
+    });
+  }
+};
+
+// Get status history for a specific booking by booking ID
+const getBookingStatusHistoryById = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    const booking = await Booking.findById(bookingId)
+      .select('trackingId statusHistory status createdAt updatedAt')
+      .populate({
+        path: 'statusHistory.updatedBy.userId',
+        select: 'firstName lastName profileImage'
+      })
+      .lean();
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found with this booking ID'
+      });
+    }
+
+    // Format status history with user details
+    const formattedHistory = booking.statusHistory.map(history => ({
+      status: history.status,
+      timestamp: history.timestamp,
+      updatedBy: {
+        userId: history.updatedBy?.userId?._id || history.updatedBy?.userId,
+        userType: history.updatedBy?.userType,
+        name: history.updatedBy?.name || 
+              (history.updatedBy?.userId ? 
+                `${history.updatedBy.userId.firstName || ''} ${history.updatedBy.userId.lastName || ''}`.trim() : 
+                'Unknown User'),
+        profileImage: history.updatedBy?.userId?.profileImage || null
+      },
+      notes: history.notes || null
+    }));
+
+    res.status(200).json({
+      success: true,
+      message: 'Booking status history retrieved successfully',
+      data: {
+        bookingId: booking._id,
+        trackingId: booking.trackingId,
+        currentStatus: booking.status,
+        createdAt: booking.createdAt,
+        updatedAt: booking.updatedAt,
+        statusHistory: formattedHistory
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in getBookingStatusHistoryById:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve booking status history',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getAllBookingsTracking,
   getBookingByTrackingId,
   getTrackingStats,
-  updateBookingStatus
+  updateBookingStatus,
+  getBookingStatusHistory,
+  getBookingStatusHistoryById
 };
