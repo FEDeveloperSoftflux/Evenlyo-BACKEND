@@ -46,7 +46,8 @@ const allowedOrigins =
   'http://127.0.0.1:5000',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:3001',
-  'https://evenlyo.web.app'
+  'https://evenlyo.web.app',
+  'https://staging-evenlyo-vendor.web.app',
 ];
 
 // Trust first proxy for Heroku (needed for secure cookies)
@@ -65,7 +66,20 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
 }))
-app.use(express.json());
+// Capture raw body for Stripe webhook verification on the webhook route.
+// express.json would normally consume the stream and make raw body unavailable.
+app.use(express.json({
+  verify: (req, res, buf) => {
+    try {
+      if (req.originalUrl && req.originalUrl.startsWith('/api/payments/webhook')) {
+        // store raw buffer for stripe webhook signature verification
+        req.rawBody = buf;
+      }
+    } catch (err) {
+      // nothing special; continue without rawBody
+    }
+  }
+}));
 app.use(cookieParser());
 app.use(i18nextMiddleware.handle(i18next));
 
