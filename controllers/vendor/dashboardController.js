@@ -63,7 +63,7 @@ const getDashboardAnalytics = async (req, res) => {
     });
     // Average monthly revenue (across all months)
     const monthlyRevenue =
-      monthlyRevenueByMonth.reduce((sum, val) => sum + val, 0) / 12;
+      Number((monthlyRevenueByMonth.reduce((sum, val) => sum + val, 0) / 12).toFixed(3));
 
   // 3. Total Number of Items Listed (only 'active' listings, using Listing model)
   const totalItemsListed = await Listing.countDocuments({ vendor: vendorId, status: 'active', isActive: true });
