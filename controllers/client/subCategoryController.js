@@ -114,14 +114,11 @@ const getSubCategoriesByCategory = async (req, res) => {
       });
     }
 
-    // Build query object
+    // Build query object for only active subcategories
     const query = {
-      mainCategory: new mongoose.Types.ObjectId(categoryId)
+      mainCategory: new mongoose.Types.ObjectId(categoryId),
+      isActive: true
     };
-
-    if (isActive !== undefined) {
-      query.isActive = isActive === 'true';
-    }
 
     // Fetch subcategories
     const subCategories = await SubCategory.find(query)

@@ -238,6 +238,13 @@ app.use('/api/admin/bookings', adminBookingAnalyticsRoutes);
 const adminTrackingRoutes = require('./routes/admin/tracking');
 app.use('/api/admin/tracking', adminTrackingRoutes);
 
+// Admin Listing Management routes
+const adminListingManagementRoutes = require('./routes/admin/listingsManagement');
+app.use('/api/admin/listing', adminListingManagementRoutes);
+
+const adminPlanRoutes = require('./routes/admin/plans');
+app.use('/api/admin/plans', adminPlanRoutes);
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message });

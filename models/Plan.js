@@ -23,8 +23,8 @@ const planSchema = new mongoose.Schema({
   Period: {
     type: String,
     required: true,
-    enum: ['monthly'],
-    default: 'monthly'
+    enum: ['month'],
+    default: 'month'
   },
   features: [{
     en: {
