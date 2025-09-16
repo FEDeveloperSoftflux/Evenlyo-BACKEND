@@ -78,7 +78,7 @@ const getVendorListingsOverview = async (req, res) => {
 			category: listing.category?.name?.en || '',
 			pricing: listing.pricing,
 			date: listing.createdAt,
-			status: listing.availability?.isAvailable !== false // default true
+			status: listing.status,
 		}));
 
 		res.json({
