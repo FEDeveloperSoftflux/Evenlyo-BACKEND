@@ -213,13 +213,13 @@ const calculateFullBookingPrice = (listing, opts = {}) => {
 
     const pricingType = (listing.pricing.type || '').toString().toLowerCase();
     const eventsCount = Number(numberOfEvents) > 0 ? Number(numberOfEvents) : 1;
-
+console.log('Pricing Type:', pricingType);
     let bookingPrice = 0;
-    if (pricingType === 'per hour' || pricingType === 'hourly') {
+    if (pricingType === 'PerHour' || pricingType === 'hourly' || pricingType === 'perhour') {
       bookingPrice = listing.pricing.amount * totalHours;
-    } else if (pricingType === 'day' || pricingType === 'daily' || pricingType === 'per day') {
+    } else if (pricingType === 'PerDay' || pricingType === 'daily' || pricingType === 'perday') {
       bookingPrice = listing.pricing.amount * diffDays;
-    } else if (pricingType === 'per event' || pricingType === 'event') {
+    } else if (pricingType === 'PerEvent' || pricingType === 'event' || pricingType === 'perevent') {
       bookingPrice = listing.pricing.amount * eventsCount;
     } else if (pricingType === 'fixed' || pricingType === 'fixed price' || pricingType === 'one-time' || pricingType === 'flat') {
       bookingPrice = listing.pricing.amount;
