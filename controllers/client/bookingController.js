@@ -1,11 +1,10 @@
-
-
 const asyncHandler = require('express-async-handler');
 const notificationController = require('../notificationController');
 const BookingRequest = require('../../models/Booking');
 const Listing = require('../../models/Listing');
 const User = require('../../models/User');
 const Vendor = require('../../models/Vendor');
+const Settings = require('../../models/Settings');
 const {checkAvailability,calculateFullBookingPrice} = require('../../utils/bookingUtils');
 const stripe = require('../../config/stripe');
 
@@ -224,8 +223,15 @@ const createBookingRequest = asyncHandler(async (req, res) => {
     totalHours = diffDays * 24;
   }
 
+  // Fetch platform fee from Settings
+  let platformFee = 0;
+  const settings = await Settings.findOne();
+  if (settings && typeof settings.platformFee === 'number') {
+    platformFee = settings.platformFee;
+  }
+
   // Calculate pricing using utility
-  const pricingResult = calculateFullBookingPrice(listing, { startDate, endDate, startTime, endTime, numberOfEvents, distanceKm });
+  const pricingResult = calculateFullBookingPrice(listing, { startDate, endDate, startTime, endTime, numberOfEvents, distanceKm, platformFee });
 
   if (pricingResult && pricingResult.error) {
     return res.status(pricingResult.status || 400).json({ success: false, message: pricingResult.error });
@@ -301,6 +307,7 @@ const createBookingRequest = asyncHandler(async (req, res) => {
       bookingPrice: bookingPrice,
       extratimeCostApplied: extratimeCost,
       totalPrice: totalPrice,
+      platformFee: platformFee,
       // Optionally add dailyRate for multi-day
       ...(isMultiDay && {
         dailyRate: Math.round(bookingPrice / diffDays)

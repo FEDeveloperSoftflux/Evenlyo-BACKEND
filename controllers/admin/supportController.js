@@ -1,0 +1,73 @@
+const SupportTicket = require('../../models/SupportTicket');
+const { sendOTPEmail, sendPromotionalEmail } = require('../../utils/mailer');
+// Send email to support ticket user
+exports.sendEmailToTicketUser = async (req, res) => {
+    try {
+        const { ticketId } = req.params;
+        const { message } = req.body;
+        const ticket = await SupportTicket.findOne({ ticketId });
+        if (!ticket) {
+            return res.status(404).json({ success: false, message: 'Ticket not found' });
+        }
+        const toEmail = ticket.userEmail;
+        if (!toEmail) {
+            return res.status(400).json({ success: false, message: 'User email not found for this ticket' });
+        }
+        // Use nodemailer directly for custom message
+        const nodemailer = require('nodemailer');
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS
+            }
+        });
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: toEmail,
+            subject:'Support Ticket Response from Evenlyo',
+            html: `<div style="font-family: Arial, sans-serif; padding: 20px;">${message}</div>`
+        };
+        await transporter.sendMail(mailOptions);
+        res.status(200).json({ success: true, message: 'Email sent successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};
+
+// Get all support tickets for admin
+exports.getAllSupportTickets = async (req, res) => {
+    try {
+        const tickets = await SupportTicket.find({})
+            .select('ticketId createdAt issueRelatedTo issueRelatedto details status userEmail');
+
+        const formattedTickets = tickets.map(ticket => ({
+            ticketId: ticket.ticketId,
+            time: ticket.createdAt,
+            issueRelatedTo: ticket.issueRelatedTo || ticket.issueRelatedto || '',
+            details: ticket.details,
+            status: ticket.status,
+            email: ticket.userEmail
+        }));
+
+        res.status(200).json({ success: true, tickets: formattedTickets });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};
+
+// Toggle status of a support ticket
+exports.toggleTicketStatus = async (req, res) => {
+    try {
+        const { ticketId } = req.params;
+        const ticket = await SupportTicket.findOne({ ticketId });
+        if (!ticket) {
+            return res.status(404).json({ success: false, message: 'Ticket not found' });
+        }
+        ticket.status = ticket.status === 'open' ? 'closed' : 'open';
+        await ticket.save();
+        res.status(200).json({ success: true, message: `Ticket status updated to ${ticket.status}`, status: ticket.status });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};

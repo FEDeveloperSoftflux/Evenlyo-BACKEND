@@ -245,6 +245,26 @@ app.use('/api/admin/listing', adminListingManagementRoutes);
 const adminPlanRoutes = require('./routes/admin/plans');
 app.use('/api/admin/plans', adminPlanRoutes);
 
+// Admin Designation and Employee Role Management
+const adminDesignationRoutes = require('./routes/admin/adminDesignations');
+app.use('/api/admin/designations', adminDesignationRoutes);
+
+const adminEmployeeRoutes = require('./routes/admin/adminEmployees');
+app.use('/api/admin/employees', adminEmployeeRoutes);
+
+// Admin support ticket routes
+const adminSupportRoutes = require('./routes/admin/support');
+app.use('/api/admin/support', adminSupportRoutes);
+
+const adminSettingsRoutes = require('./routes/admin/settings');
+app.use('/api/admin/settings', adminSettingsRoutes);
+
+const adminBlogRoutes = require('./routes/admin/blog');
+app.use('/api/admin/blogs', adminBlogRoutes);
+
+
+
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message });
