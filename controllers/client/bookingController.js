@@ -133,10 +133,8 @@ const createBookingRequest = asyncHandler(async (req, res) => {
       eventLocation,
       eventType,
       guestCount,
-  numberOfEvents,
-  distanceKm,
-        specialRequests,
-      contactPreference
+      distanceKm,
+      specialRequests
     }
   } = req.body;
 
@@ -176,13 +174,11 @@ const createBookingRequest = asyncHandler(async (req, res) => {
   }
 
   // If listing charges per km, require distanceKm in request details
-  if (typeof listing.pricing.pricePerKm === 'number' && listing.pricing.pricePerKm > 0) {
-    if (typeof distanceKm === 'undefined' || isNaN(Number(distanceKm)) || Number(distanceKm) <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'distanceKm is required and must be a positive number for this listing.'
-      });
-    }
+  if (typeof distanceKm === 'undefined' || isNaN(Number(distanceKm)) || Number(distanceKm) <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'distanceKm is required and must be a positive number for this listing.'
+    });
   }
 
   // Verify vendor matches (guard for missing vendor)
@@ -224,32 +220,33 @@ const createBookingRequest = asyncHandler(async (req, res) => {
   }
 
   // Fetch platform fee from Settings
-  let platformFee = 0;
-  const settings = await Settings.findOne();
-  if (settings && typeof settings.platformFee === 'number') {
-    platformFee = settings.platformFee;
-  }
+    const settings = await Settings.findOne();
+    let platformFeePercent = 0.015; // default 1.5%
+    if (settings && typeof settings.bookingItemPlatformFee === 'number') {
+      platformFeePercent = settings.bookingItemPlatformFee;
+    }
 
   // Calculate pricing using utility
-  const pricingResult = calculateFullBookingPrice(listing, { startDate, endDate, startTime, endTime, numberOfEvents, distanceKm, platformFee });
+  const pricingResult = calculateFullBookingPrice(listing, { startDate, endDate, startTime, endTime, distanceKm });
 
   if (pricingResult && pricingResult.error) {
     return res.status(pricingResult.status || 400).json({ success: false, message: pricingResult.error });
   }
 
   const bookingPrice = pricingResult.bookingPrice;
+  const platformFee = Math.round(bookingPrice * platformFeePercent) / 100;
   const extratimeCost = pricingResult.extratimeCost;
   const securityFee = pricingResult.securityFee;
   const kmCharge = pricingResult.kmCharge;
-  const subtotal = pricingResult.subtotal;
-  const systemFeePercent = pricingResult.systemFeePercent;
-  const systemFee = pricingResult.systemFee;
-  const totalPrice = pricingResult.totalPrice;
+  const subtotal = bookingPrice + extratimeCost + securityFee + kmCharge ;
+  const totalPrice = subtotal + platformFee;
   dailyHours = pricingResult.dailyHours;
   totalHours = pricingResult.totalHours;
   diffDays = pricingResult.diffDays;
   isMultiDay = pricingResult.isMultiDay;
-  const eventsCount = Number(numberOfEvents) > 0 ? Number(numberOfEvents) : 1;
+
+  // Calculate platform fee as percentage of booking price
+  
 
   // Transform eventType and specialRequests to multilingual format if they are strings
   let processedEventType = eventType;
@@ -279,7 +276,6 @@ const createBookingRequest = asyncHandler(async (req, res) => {
     details: {
       startDate,
       endDate,
-  numberOfEvents: eventsCount,
       ...(isMultiDay ? {} : { startTime, endTime }),
       duration: {
         hours: dailyHours,
@@ -291,19 +287,18 @@ const createBookingRequest = asyncHandler(async (req, res) => {
       eventType: processedEventType,
       guestCount,
       specialRequests: processedSpecialRequests,
-      contactPreference: contactPreference || 'email'
+
     },
     pricing: {
       type: listing.pricing.type,
       amount: listing.pricing.amount,
-      extratimeCost: listing.pricing.extratimeCost || 0,
-      securityFee: securityFee,
-  subtotal: subtotal,
-  systemFee: systemFee,
-  systemFeePercent: systemFeePercent,
-  pricePerKm: listing.pricing.pricePerKm || 0,
-  distanceKm: Number(distanceKm) || 0,
-  kmCharge: kmCharge,
+      extratimeCost: extratimeCost,
+      securityPrice: securityFee,
+      extraCharges: 0,
+      subtotal: subtotal,
+      pricePerKm: listing.pricing.pricePerKm || 0,
+      distanceKm: Number(distanceKm) || 0,
+      kmCharge: kmCharge,
       bookingPrice: bookingPrice,
       extratimeCostApplied: extratimeCost,
       totalPrice: totalPrice,
@@ -312,7 +307,8 @@ const createBookingRequest = asyncHandler(async (req, res) => {
       ...(isMultiDay && {
         dailyRate: Math.round(bookingPrice / diffDays)
       })
-    }
+    },
+    platformFee
   });
 
   await bookingRequest.save();

@@ -282,6 +282,15 @@ const bookingRequestSchema = new mongoose.Schema({
     }
   },
   invoiceUrl: String,
+  // Platform fees
+  platformFee: {
+    type: Number,
+    default: 0
+  },
+  itemPlatformFee: {
+    type: Number,
+    default: 0
+  },
 }, { timestamps: true });
 
 // Pre-save middleware

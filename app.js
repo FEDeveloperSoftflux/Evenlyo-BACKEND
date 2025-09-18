@@ -234,6 +234,10 @@ app.use('/api/admin/users', adminUserManagementRoutes);
 const adminBookingAnalyticsRoutes = require('./routes/admin/bookings');
 app.use('/api/admin/bookings', adminBookingAnalyticsRoutes);
 
+// Admin report management route
+const adminReportRoutes = require('./routes/admin/report');
+app.use('/api/admin/report', adminReportRoutes);
+
 // Admin tracking routes
 const adminTrackingRoutes = require('./routes/admin/tracking');
 app.use('/api/admin/tracking', adminTrackingRoutes);

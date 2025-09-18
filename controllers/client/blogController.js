@@ -7,6 +7,40 @@ const { sendPromotionalEmail } = require('../../utils/mailer');
 // @route   GET /api/blogs
 // @access  Public
 const getAllBlogs = asyncHandler(async (req, res) => {
+// @desc    Create new blog
+// @route   POST /api/blogs
+// @access  Admin
+const createBlog = asyncHandler(async (req, res) => {
+  try {
+    const { title, description, content, author, category, readTime, image, tags } = req.body;
+    if (!title || !description || !content || !author) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title, description, content, and author are required.'
+      });
+    }
+    // Sanitize HTML content
+    const sanitizedContent = sanitizeHtml(content, {
+      allowedTags: sanitizeHtml.defaults.allowedTags.concat(['h1', 'h2', 'u']),
+      allowedAttributes: false
+    });
+    const blog = new Blog({
+      title,
+      description,
+      content: sanitizedContent,
+      author,
+      category,
+      readTime,
+      image,
+      tags,
+      isPublished: true
+    });
+    await blog.save();
+    res.status(201).json({ success: true, data: blog });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error creating blog', error: error.message });
+  }
+});
   try {
     const {
       page = 1,
@@ -137,7 +171,6 @@ const getBlogById = asyncHandler(async (req, res) => {
     });
   }
 });
-
 
 
 // @desc    Add comment to blog

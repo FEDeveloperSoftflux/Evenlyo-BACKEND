@@ -2,6 +2,7 @@ const asyncHandler = require('express-async-handler');
 const Blog = require('../../models/Blog');
 const User = require('../../models/User');
 const { sendPromotionalEmail } = require('../../utils/mailer');
+const sanitizeHtml = require('sanitize-html');
 
 
 // @desc    Create new blog
@@ -34,17 +35,23 @@ const createBlog = asyncHandler(async (req, res) => {
       await Blog.updateMany({ isMain: true }, { isMain: false });
     }
 
-    const blog = await Blog.create({
-      title,
-      description,
-      content,
-      author,
-      category,
-      readTime,
-      image,
-      isMain,
-      tags
-    });
+      // Sanitize HTML content
+      const sanitizeHtml = require('sanitize-html');
+      const sanitizedContent = sanitizeHtml(content, {
+        allowedTags: sanitizeHtml.defaults.allowedTags.concat(['h1', 'h2', 'u']),
+        allowedAttributes: false
+      });
+      const blog = await Blog.create({
+        title,
+        description,
+        content: sanitizedContent,
+        author,
+        category,
+        readTime,
+        image,
+        isMain,
+        tags
+      });
 
     res.status(201).json({
       success: true,

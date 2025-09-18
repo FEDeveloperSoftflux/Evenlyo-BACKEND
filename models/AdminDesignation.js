@@ -7,7 +7,6 @@ const adminDesignationSchema = new mongoose.Schema({
     unique: true,
     trim: true
   },
-  description: String,
   permissions: [{
     module: {
       type: String,
@@ -36,10 +35,6 @@ const adminDesignationSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  isSystemRole: {
-    type: Boolean,
-    default: false // System roles cannot be deleted
-  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('AdminDesignation', adminDesignationSchema);

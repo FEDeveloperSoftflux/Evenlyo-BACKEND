@@ -233,6 +233,13 @@ console.log('Pricing Type:', pricingType);
       kmCharge = Math.round(listing.pricing.pricePerKm * Number(distanceKm) * 100) / 100;
     }
 
+    console.log('Booking Price Calculation:', {
+      bookingPrice,
+      extratimeCost,
+      securityFee,
+      kmCharge
+    });
+
     // subtotal, system fee and total
     const subtotal = bookingPrice + extratimeCost + securityFee + kmCharge;
     const systemFeePercent = 0.02;

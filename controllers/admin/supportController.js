@@ -4,7 +4,7 @@ const { sendOTPEmail, sendPromotionalEmail } = require('../../utils/mailer');
 exports.sendEmailToTicketUser = async (req, res) => {
     try {
         const { ticketId } = req.params;
-        const { message } = req.body;
+        const { subject, message } = req.body;
         const ticket = await SupportTicket.findOne({ ticketId });
         if (!ticket) {
             return res.status(404).json({ success: false, message: 'Ticket not found' });
@@ -25,7 +25,7 @@ exports.sendEmailToTicketUser = async (req, res) => {
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: toEmail,
-            subject:'Support Ticket Response from Evenlyo',
+            subject: subject || 'Support Ticket Response from Evenlyo',
             html: `<div style="font-family: Arial, sans-serif; padding: 20px;">${message}</div>`
         };
         await transporter.sendMail(mailOptions);
