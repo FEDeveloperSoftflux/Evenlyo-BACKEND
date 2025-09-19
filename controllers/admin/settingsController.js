@@ -2,7 +2,7 @@ const bcrypt = require('bcrypt');
 const Admin = require('../../models/Admin');
 const Settings = require('../../models/Settings');
 
-exports.resetPassword = async (req, res) => {
+const resetPassword = async (req, res) => {
     try {
         const adminId = req.user.id; // assuming authMiddleware sets req.user
         const { oldPassword, newPassword } = req.body;
@@ -32,7 +32,7 @@ exports.resetPassword = async (req, res) => {
     }
 };
 
-exports.getPlatformFees = async (req, res) => {
+const getPlatformFees = async (req, res) => {
     try {
         const settings = await Settings.findOne();
         if (!settings) {
@@ -47,7 +47,7 @@ exports.getPlatformFees = async (req, res) => {
     }
 };
 
-exports.setPlatformFees = async (req, res) => {
+const setPlatformFees = async (req, res) => {
     try {
         const { bookingItemPlatformFee, salesItemPlatformFee } = req.body;
         if (typeof bookingItemPlatformFee !== 'number' || bookingItemPlatformFee < 0 || typeof salesItemPlatformFee !== 'number' || salesItemPlatformFee < 0) {
@@ -65,4 +65,137 @@ exports.setPlatformFees = async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: 'Server error.', error: error.message });
     }
+};
+
+const getNotificationSettings = async (req, res) => {
+    try {
+        const settings = await Settings.findOne();
+        if (!settings) {
+            return res.status(404).json({ message: 'Settings not found.' });
+        }
+
+        // Ensure notification settings exist with defaults
+        const notificationSettings = settings.adminNotificationSettings || {
+            email: {
+                bookingCompletion: true,
+                newAccount: true
+            },
+            push: {
+                bookingCompletion: true,
+                newAccount: true
+            }
+        };
+
+        res.json({
+            message: 'Notification settings retrieved successfully.',
+            notifications: notificationSettings
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error.', error: error.message });
+    }
+};
+
+const toggleEmailNotifications = async (req, res) => {
+    try {
+        let { bookingCompletion, newAccount, orderCompletion, newRegistration } = req.body;
+        
+        // Handle both property name variations
+        let finalBookingCompletion = bookingCompletion !== undefined ? bookingCompletion : orderCompletion;
+        let finalNewAccount = newAccount !== undefined ? newAccount : newRegistration;
+        
+        // Convert string booleans to actual booleans
+        if (typeof finalBookingCompletion === 'string') {
+            finalBookingCompletion = finalBookingCompletion.toLowerCase() === 'true';
+        }
+        if (typeof finalNewAccount === 'string') {
+            finalNewAccount = finalNewAccount.toLowerCase() === 'true';
+        }
+        
+        if (typeof finalBookingCompletion !== 'boolean' || typeof finalNewAccount !== 'boolean') {
+            return res.status(400).json({ message: 'bookingCompletion/orderCompletion and newAccount/newRegistration must be boolean values.' });
+        }
+
+        let settings = await Settings.findOne();
+        if (!settings) {
+            settings = new Settings();
+        }
+
+        if (!settings.adminNotificationSettings) {
+            settings.adminNotificationSettings = { email: {}, push: {} };
+        }
+        if (!settings.adminNotificationSettings.email) {
+            settings.adminNotificationSettings.email = {};
+        }
+
+        settings.adminNotificationSettings.email.bookingCompletion = finalBookingCompletion;
+        settings.adminNotificationSettings.email.newAccount = finalNewAccount;
+
+        // Mark the nested object as modified for Mongoose to detect changes
+        settings.markModified('adminNotificationSettings');
+
+        await settings.save();
+        res.json({ 
+            message: 'Email notification settings updated successfully.',
+            email: settings.adminNotificationSettings.email
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error.', error: error.message });
+    }
+};
+
+const togglePushNotifications = async (req, res) => {
+    try {
+        let { bookingCompletion, newAccount, orderCompletion, newRegistration } = req.body;
+        
+        // Handle both property name variations
+        let finalBookingCompletion = bookingCompletion !== undefined ? bookingCompletion : orderCompletion;
+        let finalNewAccount = newAccount !== undefined ? newAccount : newRegistration;
+        
+        // Convert string booleans to actual booleans
+        if (typeof finalBookingCompletion === 'string') {
+            finalBookingCompletion = finalBookingCompletion.toLowerCase() === 'true';
+        }
+        if (typeof finalNewAccount === 'string') {
+            finalNewAccount = finalNewAccount.toLowerCase() === 'true';
+        }
+        
+        if (typeof finalBookingCompletion !== 'boolean' || typeof finalNewAccount !== 'boolean') {
+            return res.status(400).json({ message: 'bookingCompletion/orderCompletion and newAccount/newRegistration must be boolean values.' });
+        }
+
+        let settings = await Settings.findOne();
+        if (!settings) {
+            settings = new Settings();
+        }
+
+        if (!settings.adminNotificationSettings) {
+            settings.adminNotificationSettings = { email: {}, push: {} };
+        }
+        if (!settings.adminNotificationSettings.push) {
+            settings.adminNotificationSettings.push = {};
+        }
+
+        settings.adminNotificationSettings.push.bookingCompletion = finalBookingCompletion;
+        settings.adminNotificationSettings.push.newAccount = finalNewAccount;
+
+        // Mark the nested object as modified for Mongoose to detect changes
+        settings.markModified('adminNotificationSettings');
+
+        await settings.save();
+        res.json({ 
+            message: 'Push notification settings updated successfully.',
+            push: settings.adminNotificationSettings.push
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error.', error: error.message });
+    }
+};
+
+module.exports = {
+    resetPassword,
+    getPlatformFees,
+    setPlatformFees,
+    getNotificationSettings,
+    toggleEmailNotifications,
+    togglePushNotifications
 };

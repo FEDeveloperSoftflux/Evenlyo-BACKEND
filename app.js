@@ -71,6 +71,9 @@ app.use(cors({
 }))
 
 
+// General body parser for JSON payloads
+app.use(express.json());
+
 // Capture raw body for Stripe webhook verification on the webhook route.
 app.use(express.json({
   verify: (req, res, buf) => {
