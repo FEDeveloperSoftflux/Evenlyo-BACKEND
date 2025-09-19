@@ -4,7 +4,7 @@ const Plan = require('../../models/Plan');
 
 // GET /admin/report/stats-card
 exports.getStatsCard = async (req, res) => {
-        // Booking table view for completed bookings
+        // Booking table view for completed bookings with payment details
         const bookingTableAgg = await Booking.aggregate([
             {
                 $lookup: {
@@ -16,6 +16,17 @@ exports.getStatsCard = async (req, res) => {
             },
             { $unwind: '$listing' },
             {
+                $lookup: {
+                    from: 'paymentintents',
+                    localField: '_id',
+                    foreignField: 'booking',
+                    as: 'paymentIntent'
+                }
+            },
+            {
+                $unwind: { path: '$paymentIntent', preserveNullAndEmptyArrays: true }
+            },
+            {
                 $project: {
                     trackingId: 1,
                     date: '$createdAt',
@@ -23,7 +34,13 @@ exports.getStatsCard = async (req, res) => {
                     platformFee: {
                         $ifNull: ['$platformFee', '$pricing.platformFee']
                     },
-                    totalPrice: '$pricing.totalPrice'
+                    totalPrice: '$pricing.totalPrice',
+                    paymentDate: '$paymentIntent.createdAt',
+                    paymentPurpose: '$paymentIntent.paymentPurpose',
+                    paymentMethod: '$paymentIntent.paymentMethod',
+                    paymentAmount: '$paymentIntent.amount',
+                    paymentCurrency: '$paymentIntent.currency',
+                    paymentStatus: '$paymentIntent.status'
                 }
             }
         ]);
@@ -33,7 +50,13 @@ exports.getStatsCard = async (req, res) => {
             date: b.date,
             listingTitle: b.listingTitle,
             earning: b.platformFee,
-            totalPrice: b.totalPrice
+            totalPrice: b.totalPrice,
+                date: b.paymentDate,
+                purpose: b.paymentPurpose,
+                method: b.paymentMethod,
+                amount: b.paymentAmount,
+                currency: b.paymentCurrency,
+                status: b.paymentStatus
         }));
         // Category-wise earning calculation
         const categorywiseAgg = await Booking.aggregate([
