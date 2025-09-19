@@ -207,7 +207,7 @@ const updateStatus = asyncHandler(async (stripeIntentId, status, paymentMethod, 
   // ...existing code...
     pi.status = status;
     if (paymentMethod) pi.paymentMethod = paymentMethod;
-    if (amount) pi.amount = amount;
+     if (amount) pi.amount = amount / 100;
   await pi.save();
 
     // If this payment intent is linked to a booking, update booking status/paymentStatus

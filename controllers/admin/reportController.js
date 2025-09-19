@@ -24,7 +24,7 @@ exports.getStatsCard = async (req, res) => {
                 }
             },
             {
-                $unwind: { path: '$paymentIntent', preserveNullAndEmptyArrays: true }
+                $unwind: { path: '$paymentIntent', preserveNullAndEmptyArrays: false }
             },
             {
                 $project: {
@@ -49,18 +49,17 @@ exports.getStatsCard = async (req, res) => {
             trackingId: b.trackingId,
             date: b.date,
             listingTitle: b.listingTitle,
-            earning: b.platformFee,
             totalPrice: b.totalPrice,
-                date: b.paymentDate,
-                purpose: b.paymentPurpose,
-                method: b.paymentMethod,
-                amount: b.paymentAmount,
-                currency: b.paymentCurrency,
-                status: b.paymentStatus
+            date: b.paymentDate,
+            purpose: b.paymentPurpose,
+            method: b.paymentMethod,
+            amount: b.paymentAmount,
+            currency: b.paymentCurrency,
+            status: b.paymentStatus
         }));
         // Category-wise earning calculation
         const categorywiseAgg = await Booking.aggregate([
-            { $match: { status: 'pending' } },
+            { $match: { status: 'paid' } },
             {
                 $lookup: {
                     from: 'listings',
@@ -94,7 +93,7 @@ exports.getStatsCard = async (req, res) => {
     try {
         // Booking Earning: Sum of platformFee from completed bookings
         const bookingEarningAgg = await Booking.aggregate([
-            { $match: { status: { $in: ['pending', 'claim'] } } },
+            { $match: { status: { $in: ['paid'] } } },
             { $group: { _id: null, total: { $sum: '$platformFee' } } }
         ]);
         const bookingEarning = bookingEarningAgg[0]?.total || 0;
@@ -119,7 +118,7 @@ exports.getStatsCard = async (req, res) => {
         const monthlyRevenueAgg = await Booking.aggregate([
             {
                 $match: {
-                    status: 'pending',
+                    status: 'paid',
                     createdAt: {
                         $gte: new Date(`${currentYear}-01-01T00:00:00.000Z`),
                         $lt: new Date(`${currentYear + 1}-01-01T00:00:00.000Z`)

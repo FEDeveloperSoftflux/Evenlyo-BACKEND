@@ -14,7 +14,7 @@ const paymentIntentSchema = new mongoose.Schema({
   paymentMethod: { type: String },
   paymentPurpose: {
     type: String,
-    enum: ['booking', 'subscription', 'deposit', 'card', 'other'],
+    enum: ['booking', 'subscription', 'deposit', 'other'],
     default: 'booking'
   },
   currency: { type: String },
