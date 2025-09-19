@@ -10,6 +10,19 @@ const SettingsSchema = new mongoose.Schema({
         type: Number,
         required: true,
         default: 0
+    },
+    adminNotificationSettings: {
+        type: Object,
+        default: {
+            email: {
+                bookingCompletion: true,
+                newAccount: true
+            },
+            push: {
+                bookingCompletion: true,
+                newAccount: true
+            }
+        }
     }
 });
 

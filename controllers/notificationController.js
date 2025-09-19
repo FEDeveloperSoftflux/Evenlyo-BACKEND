@@ -6,7 +6,9 @@ exports.createNotification = async ({ user, bookingId, message }) => {
     const notification = new Notification({ user, bookingId, message });
     await notification.save();
     return notification;
-  } catch (err) {
+  } 
+  catch (err) 
+  {
     console.error('Error creating notification:', err);
     return null;
   }

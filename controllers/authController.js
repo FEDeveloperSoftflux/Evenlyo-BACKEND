@@ -30,7 +30,8 @@ const registerClient = async (req, res) => {
 };
 
 // --- Admin Login ---
-const performAdminLogin = async (req, res) => {
+const performAdminLogin = async (req, res) => 
+  {
   // ...existing code for performLogin with userType 'admin'...
   return performLogin(req, res, 'admin');
 };
@@ -46,40 +47,7 @@ const performLogin = async (req, res, userType) => {
         message: 'Email and password are required'
       });
     }
-    if (
-      userType === 'admin' &&
-      process.env.SUPER_ADMIN_EMAIL &&
-      email === process.env.SUPER_ADMIN_EMAIL
-    ) 
-    {
-
-      // Will add hashing logic here later :-) IMPPPPPPPPP
-      const superPassword = process.env.SUPER_ADMIN_PASSWORD || '';
-      if (password !== superPassword) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid credentials'
-        });
-      }
-
-      // Create a session for super admin
-      req.session.user = {
-        id: 'superadmin',
-        email,
-        userType: 'admin',
-        firstName: 'Super',
-        lastName: 'Admin',
-        role: 'super_admin',
-        permissions: ['*'],
-        department: 'Administration'
-      };
-
-      return res.json({
-        success: true,
-        message: 'Login successful',
-        user: req.session.user
-      });
-    }
+      // Removed super admin environment variable login logic
 
     // Get appropriate model
     const UserModel = getModelByUserType(userType);
@@ -294,7 +262,8 @@ const getCurrentUser = async (req, res) => {
       responseUser.businessName = userData.businessName;
       responseUser.approvalStatus = userData.approvalStatus;
       responseUser.vendorId = userData._id;
-    } else if (userType === 'admin') {
+    } 
+    else if (userType === 'admin') {
       // Handle super admin case (not stored in database)
       if (id === 'superadmin') {
         responseUser.role = 'super_admin';
@@ -423,6 +392,16 @@ const verifyOtpAndRegister = async (req, res, userType = 'client') => {
     });
 
     await user.save();
+
+    // Notify admin(s) of new client registration
+    try {
+      const adminNotificationController = require('./admin/adminNotificationController');
+      await adminNotificationController.createAdminNotification({
+        message: `A new client has registered: ${firstName} ${lastName}`
+      });
+    } catch (e) {
+      console.error('Failed to create admin notification for new client registration:', e);
+    }
 
     // Future: Create role-specific profile if vendor
     // if (userType === 'vendor') {
@@ -866,6 +845,19 @@ const registerVendor = async (req, res) => {
     };
     const vendor = new Vendor(vendorData);
     await vendor.save();
+
+    // Notify admin(s) of new vendor registration
+    try {
+      const adminNotificationController = require('./admin/adminNotificationController');
+      await adminNotificationController.createAdminNotification({
+        body: {
+          message: `A new vendor has registered: ${accountType === 'personal' ? firstName + ' ' + lastName : businessName}`,
+          userId: user._id
+        }
+      }, { status: () => ({ json: () => {} }) });
+    } catch (e) {
+      console.error('Failed to create admin notification for new vendor registration:', e);
+    }
 
     res.status(201).json({
       success: true,

@@ -7,10 +7,38 @@ const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const mongoose = require('mongoose');
-const connectDB = require('./config/db'); // Adjusted path to db.js
+const connectDB = require('./config/db'); 
 const cors = require('cors');
 require('dotenv').config();
 
+const allowedOrigins = 
+[
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:3001',
+  'http://localhost:5000',
+  'http://127.0.0.1:5000',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+  'https://evenlyo.web.app',
+  'https://staging-evenlyo-vendor.web.app',
+  'https://evenlyo-admin.web.app/'
+];
+
+connectDB();
+mongoose.connection.on('connected', () => 
+{
+  console.log('Mongoose connected');
+});
+mongoose.connection.on('disconnected', () => 
+{
+  console.log('Mongoose disconnected');
+});
+
+const app = express();
+
+// Trust first proxy for Heroku (needed for secure cookies)
+app.set('trust proxy', 1);
 
 // i18next configuration for localization
 i18next
@@ -27,37 +55,6 @@ i18next
       caches: ['cookie'],
     },
   });
-
-
-
-connectDB();
-
-mongoose.connection.on('connected', () => {
-  console.log('Mongoose connected');
-});
-mongoose.connection.on('disconnected', () => {
-  console.log('Mongoose disconnected');
-});
-
-
-const app = express();
-
-const allowedOrigins = 
-[
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://localhost:3001',
-  'http://localhost:5000',
-  'http://127.0.0.1:5000',
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:3001',
-  'https://evenlyo.web.app',
-  'https://staging-evenlyo-vendor.web.app',
-  'https://evenlyo-admin.web.app/'
-];
-
-// Trust first proxy for Heroku (needed for secure cookies)
-app.set('trust proxy', 1);
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -98,11 +95,16 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Session configuration with dynamic domain
 app.use((req, res, next) => {
   let domain;
-  if (req.hostname === 'evenlyo.web.app') {
+  if (req.hostname === 'evenlyo.web.app') 
+    {
     domain = 'evenlyo.web.app';
-  } else if (req.hostname === 'staging-evenlyo-vendor.web.app') {
+  } 
+  else if (req.hostname === 'staging-evenlyo-vendor.web.app') 
+    {
     domain = 'staging-evenlyo-vendor.web.app';
-  } else if (req.hostname === 'evenlyo-admin.web.app') {
+  } 
+  else if (req.hostname === 'evenlyo-admin.web.app') 
+  {
     domain = 'evenlyo-admin.web.app';
   }
   session({
@@ -284,8 +286,6 @@ app.use('/api/admin/settings', adminSettingsRoutes);
 
 const adminBlogRoutes = require('./routes/admin/blog');
 app.use('/api/admin/blogs', adminBlogRoutes);
-
-
 
 
 // Error handling middleware
