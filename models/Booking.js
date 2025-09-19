@@ -155,7 +155,7 @@ const bookingRequestSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['stripe', 'paypal', 'bank_transfer', 'cash']
+    enum: ['stripe', 'paypal', 'bank_transfer', 'cash', 'card']
   },
   statusHistory: [{
     status: {
