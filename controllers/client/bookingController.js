@@ -788,6 +788,16 @@ const markBookingComplete = asyncHandler(async (req, res) => {
   } catch (e) {
     console.error('Failed to create vendor notification for completed booking:', e);
   }
+
+  // Notify admins that booking is completed
+  try {
+    await notificationController.createAdminNotification({
+      message: `A booking has been marked as completed by the client.`,
+      bookingId: booking._id
+    });
+  } catch (e) {
+    console.error('Failed to create admin notification for completed booking:', e);
+  }
   res.json({
     success: true,
     message: 'Booking marked as complete',

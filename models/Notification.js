@@ -9,7 +9,7 @@ const NotificationSchema = new mongoose.Schema({
   bookingId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'BookingRequest',
-    required: true
+    required: false // Made optional for admin notifications
   },
   message: {
     type: String,

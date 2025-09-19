@@ -395,8 +395,8 @@ const verifyOtpAndRegister = async (req, res, userType = 'client') => {
 
     // Notify admin(s) of new client registration
     try {
-      const adminNotificationController = require('./admin/adminNotificationController');
-      await adminNotificationController.createAdminNotification({
+      const notificationController = require('./notificationController');
+      await notificationController.createAdminNotification({
         message: `A new client has registered: ${firstName} ${lastName}`
       });
     } catch (e) {
@@ -848,13 +848,10 @@ const registerVendor = async (req, res) => {
 
     // Notify admin(s) of new vendor registration
     try {
-      const adminNotificationController = require('./admin/adminNotificationController');
-      await adminNotificationController.createAdminNotification({
-        body: {
-          message: `A new vendor has registered: ${accountType === 'personal' ? firstName + ' ' + lastName : businessName}`,
-          userId: user._id
-        }
-      }, { status: () => ({ json: () => {} }) });
+      const notificationController = require('./notificationController');
+      await notificationController.createAdminNotification({
+        message: `A new vendor has registered: ${accountType === 'personal' ? firstName + ' ' + lastName : businessName}`
+      });
     } catch (e) {
       console.error('Failed to create admin notification for new vendor registration:', e);
     }

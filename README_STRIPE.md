@@ -30,3 +30,13 @@
 (Testing locally)
 - Use the Stripe CLI to forward events and test webhooks: `stripe listen --forward-to localhost:5000/api/payments/webhook`
 
+
+Admin 1
+
+Email: admin1@example.com
+Password: Admin@123
+Admin 2
+
+Email: admin2@example.com
+Password: SecurePass456
+
