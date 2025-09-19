@@ -87,25 +87,37 @@ app.use(i18nextMiddleware.handle(i18next));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Session configuration
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
-  resave: false,
-  saveUninitialized: false,
-  store: MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI,
-    collectionName: 'sessions',
-    ttl: 24 * 60 * 60 // 1 day
-  }),
-  cookie: {
-  secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
-  httpOnly: true,
-  maxAge: 24 * 60 * 60 * 1000, // 24 hours
-  // When running cross-site (frontend on different origin like evenl yo.web.app -> heroku app)
-  // browsers require SameSite=None and Secure to allow cookies; keep Lax for local dev.
-  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-  },
-  name: 'evenlyo.sid' // Custom session name
-}));
+
+// Session configuration with dynamic domain
+app.use((req, res, next) => {
+  let domain;
+  if (req.hostname === 'evenlyo.web.app') {
+    domain = 'evenlyo.web.app';
+  } else if (req.hostname === 'staging-evenlyo-vendor.web.app') {
+    domain = 'staging-evenlyo-vendor.web.app';
+  } else if (req.hostname === 'evenlyo-admin.web.app') {
+    domain = 'evenlyo-admin.web.app';
+  }
+  session({
+    secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({
+      mongoUrl: process.env.MONGODB_URI,
+      collectionName: 'sessions',
+      ttl: 24 * 60 * 60 // 1 day
+    }),
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000,
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      domain: domain,
+      path: '/',
+    },
+    name: 'evenlyo.sid'
+  })(req, res, next);
+});
 
 // Auth routes
 const authRoutes = require('./routes/auth');

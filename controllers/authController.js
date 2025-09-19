@@ -231,7 +231,12 @@ const logout = async (req, res) => {
         });
       }
 
-      res.clearCookie('evenlyo.sid');
+      res.clearCookie('evenlyo.sid', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        path: '/',
+      });
       res.json({
         success: true,
         message: 'Logout successful'
