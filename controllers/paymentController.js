@@ -2,8 +2,9 @@ const stripe = require('../config/stripe');
 const asyncHandler = require('express-async-handler');
 const Listing = require('../models/Listing');
 const PaymentIntent = require('../models/PaymentIntent');
+const Plan = require('../models/Plan');
+const Vendor = require('../models/Vendor');
 
-// Create a payment intent for a product (store internal mapping)
 const createPaymentIntent = asyncHandler(async (req, res) => {
   // Accept booking flow: { bookingId, items } OR listing flow: { listingId or productId }
   const { bookingId, items, listingId, productId, quantity = 1, metadata = {}, currency } = req.body;
@@ -136,67 +137,78 @@ const getPaymentIntentByInternalId = asyncHandler(async (req, res) => {
   });
 });
 
-// GET /api/payments/status/:internalId
-const getPaymentIntentStatus = asyncHandler(async (req, res) => {
-  const { internalId } = req.params;
-  if (!internalId) return res.status(400).json({ error: 'internalId is required' });
+// Create Stripe subscription for a vendor
+const createSubscription = asyncHandler(async (req, res) => {
+  // Expect: { vendorId, planId, paymentMethodId }
+  const { vendorId, planId, paymentMethodId } = req.body;
+  if (!vendorId || !planId || !paymentMethodId) {
+    return res.status(400).json({ error: 'vendorId, planId, and paymentMethodId are required.' });
+  }
 
-  const pi = await PaymentIntent.findOne({ internalId });
-  if (!pi) return res.status(404).json({ error: 'PaymentIntent not found' });
+  // Find vendor and plan
+  const vendor = await Vendor.findById(vendorId);
+  if (!vendor) return res.status(404).json({ error: 'Vendor not found' });
+  const plan = await Plan.findById(planId);
+  if (!plan || !plan.stripePriceId) return res.status(404).json({ error: 'Plan or Stripe price not found' });
 
-  res.json({ internalId: pi.internalId, status: pi.status, stripeId: pi.stripeIntentId });
-});
+  // Create Stripe customer if not already stored
+  let stripeCustomerId = vendor.stripeCustomerId;
+  if (!stripeCustomerId) {
+    const customer = await stripe.customers.create({
+      email: vendor.businessEmail,
+      name: vendor.businessName,
+      metadata: { vendorId: vendor._id.toString() }
+    });
+    stripeCustomerId = customer.id;
+    vendor.stripeCustomerId = stripeCustomerId;
+    await vendor.save();
+  }
 
-// POST /api/payments/refresh/:internalId - force fetch from Stripe and update DB
-const refreshPaymentIntentFromStripe = asyncHandler(async (req, res) => {
-  const { internalId } = req.params;
-  if (!internalId) return res.status(400).json({ error: 'internalId is required' });
+  // Attach payment method to customer
+  await stripe.paymentMethods.attach(paymentMethodId, { customer: stripeCustomerId });
+  await stripe.customers.update(stripeCustomerId, { invoice_settings: { default_payment_method: paymentMethodId } });
 
-  const pi = await PaymentIntent.findOne({ internalId });
-  if (!pi) return res.status(404).json({ error: 'PaymentIntent not found' });
-  if (!pi.stripeIntentId) return res.status(400).json({ error: 'No stripe intent id stored for this payment' });
+  // Create subscription
+  const subscription = await stripe.subscriptions.create({
+    customer: stripeCustomerId,
+    items: [{ price: plan.stripePriceId }],
+    payment_behavior: 'default_incomplete',
+    expand: ['latest_invoice.payment_intent'],
+    metadata: { vendorId: vendor._id.toString(), planId: plan._id.toString() }
+  });
 
-  // Fetch fresh from Stripe
-  const stripeIntent = await stripe.paymentIntents.retrieve(pi.stripeIntentId);
-  if (!stripeIntent) return res.status(500).json({ error: 'Failed to fetch PaymentIntent from Stripe' });
+  // Optionally, store subscription info in vendor
+  vendor.subscription = {
+    stripeSubscriptionId: subscription.id,
+    plan: plan._id,
+    status: subscription.status,
+    currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+    latestInvoice: subscription.latest_invoice,
+    clientSecret: subscription.latest_invoice.payment_intent.client_secret
+  };
+  await vendor.save();
 
-  // Update status in DB using existing helper
-  await exports.updateStatus(stripeIntent.id, stripeIntent.status);
-
-  const updated = await PaymentIntent.findOne({ internalId });
-  res.json({ internalId: updated.internalId, status: updated.status, stripeId: updated.stripeIntentId });
-});
-
-// POST /api/payments/refresh-by-stripe/:stripeId - force fetch from Stripe by Stripe PaymentIntent id and update DB
-const refreshPaymentIntentByStripe = asyncHandler(async (req, res) => {
-  const { stripeId } = req.params;
-  if (!stripeId) return res.status(400).json({ error: 'stripeId is required' });
-
-  // Find local mapping by stripeIntentId
-  const piLocal = await PaymentIntent.findOne({ stripeIntentId: stripeId });
-  if (!piLocal) return res.status(404).json({ error: 'PaymentIntent not found locally for provided stripeId' });
-  // Fetch fresh from Stripe
-  const stripeIntent = await stripe.paymentIntents.retrieve(stripeId);
-  if (!stripeIntent) return res.status(500).json({ error: 'Failed to fetch PaymentIntent from Stripe' });
-
-  // Update status in DB using existing helper
-  await exports.updateStatus(stripeIntent.id, stripeIntent.status);
-
-  const updated = await PaymentIntent.findOne({ stripeIntentId: stripeId });
-  res.json({ internalId: updated.internalId, status: updated.status, stripeId: updated.stripeIntentId });
+  res.status(201).json({
+    subscriptionId: subscription.id,
+    status: subscription.status,
+    clientSecret: subscription.latest_invoice.payment_intent.client_secret
+  });
 });
 
 // Exported for webhook controller to update status
-const updateStatus = asyncHandler(async (stripeIntentId, status) => {
+
+const updateStatus = asyncHandler(async (stripeIntentId, status, paymentMethod, amount) => {
   try {
-    console.log(`updateStatus called for stripeIntentId=${stripeIntentId} status=${status}`);
+  // ...existing code...
     const pi = await PaymentIntent.findOne({ stripeIntentId });
     if (!pi) {
-      console.warn('updateStatus: PaymentIntent not found for stripeIntentId=', stripeIntentId);
       return null;
     }
+  // ...existing code...
     pi.status = status;
-    await pi.save();
+    if (paymentMethod) pi.paymentMethod = paymentMethod;
+    if (amount) pi.amount = amount;
+  await pi.save();
 
     // If this payment intent is linked to a booking, update booking status/paymentStatus
     if (pi.booking) {
@@ -206,8 +218,7 @@ const updateStatus = asyncHandler(async (stripeIntentId, status) => {
         // Map Stripe status to booking fields
         if (status === 'succeeded') {
           booking.paymentStatus = 'paid';
-          booking.paymentMethod = 'stripe';
-          // also set booking.status to paid if your flow expects that
+          booking.paymentMethod = paymentMethod || 'stripe';
           booking.status = 'paid';
         } else if (status === 'failed' || (status && status.includes('fail'))) {
           booking.paymentStatus = booking.paymentStatus || 'pending';
@@ -217,13 +228,13 @@ const updateStatus = asyncHandler(async (stripeIntentId, status) => {
         await booking.save();
         console.log('updateStatus: booking updated', booking._id.toString(), 'paymentStatus=', booking.paymentStatus);
       } else {
-        console.warn('updateStatus: linked booking not found for id=', pi.booking);
+        // ...existing code...
       }
     }
 
     return pi;
   } catch (err) {
-    console.error('updateStatus error for', stripeIntentId, err);
+  // ...existing code...
     throw err;
   }
 });
@@ -232,8 +243,6 @@ module.exports = {
   createPaymentIntent,
   getPaymentIntent,
   getPaymentIntentByInternalId,
-  getPaymentIntentStatus,
-  refreshPaymentIntentFromStripe,
-  refreshPaymentIntentByStripe,
-  updateStatus,
+  createSubscription,
+  updateStatus
 };

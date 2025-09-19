@@ -11,6 +11,12 @@ const paymentIntentSchema = new mongoose.Schema({
   booking: { type: mongoose.Schema.Types.ObjectId, ref: 'BookingRequest' },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
   amount: { type: Number }, // amount in smallest currency unit
+  paymentMethod: { type: String },
+  paymentPurpose: {
+    type: String,
+    enum: ['booking', 'subscription', 'deposit', 'other'],
+    default: 'booking'
+  },
   currency: { type: String },
   quantity: { type: Number, default: 1 },
   metadata: { type: Object, default: {} },

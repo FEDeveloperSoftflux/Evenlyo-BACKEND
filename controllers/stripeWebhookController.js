@@ -28,7 +28,10 @@ exports.handleWebhook = asyncHandler(async (req, res) => {
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const pi = event.data.object;
-        await paymentController.updateStatus(pi.id, pi.status || 'succeeded');
+        // Store payment method and amount
+        const paymentMethod = pi.payment_method_types ? pi.payment_method_types[0] : (pi.payment_method || 'stripe');
+        const amount = pi.amount_received || pi.amount;
+        await paymentController.updateStatus(pi.id, pi.status || 'succeeded', paymentMethod, amount);
         break;
       }
       case 'payment_intent.payment_failed': {

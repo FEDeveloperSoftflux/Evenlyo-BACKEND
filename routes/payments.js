@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const {createPaymentIntent,getPaymentIntentByInternalId} = require('../controllers/paymentController');
+const { createPaymentIntent, getPaymentIntentByInternalId, createSubscription } = require('../controllers/paymentController');
 const stripeWebhookController = require('../controllers/stripeWebhookController');
 
 
@@ -9,6 +9,9 @@ router.post('/create-payment-intent', createPaymentIntent);
 
 // Convenience GET by internalId
 router.get('/get-payment-intent/:internalId', getPaymentIntentByInternalId);
+
+// Create Stripe subscription for vendor
+router.post('/create-subscription', createSubscription);
 
 // Stripe webhook endpoint
 router.post('/webhook', (req, res, next) => {
