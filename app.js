@@ -7,6 +7,7 @@ const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const mongoose = require('mongoose');
+const connectDB = require('./config/db'); // Adjusted path to db.js
 const cors = require('cors');
 require('dotenv').config();
 
@@ -27,12 +28,16 @@ i18next
     },
   });
 
-// Connect to MongoDB Atlas
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log('Connected to MongoDB Atlas');
-  })
-  .catch((err) => console.error('MongoDB connection error:', err));
+
+
+connectDB();
+
+mongoose.connection.on('connected', () => {
+  console.log('Mongoose connected');
+});
+mongoose.connection.on('disconnected', () => {
+  console.log('Mongoose disconnected');
+});
 
 
 const app = express();
@@ -48,6 +53,7 @@ const allowedOrigins =
   'http://127.0.0.1:3001',
   'https://evenlyo.web.app',
   'https://staging-evenlyo-vendor.web.app',
+  'https://evenlyo-admin.web.app/'
 ];
 
 // Trust first proxy for Heroku (needed for secure cookies)
@@ -66,8 +72,9 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
 }))
+
+
 // Capture raw body for Stripe webhook verification on the webhook route.
-// express.json would normally consume the stream and make raw body unavailable.
 app.use(express.json({
   verify: (req, res, buf) => {
     try {
