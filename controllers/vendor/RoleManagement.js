@@ -111,10 +111,112 @@ const getAllRoleUsers = async (req, res) => {
 	}
 };
 
+// Delete a designation for a vendor
+const deleteDesignation = async (req, res) => {
+	try {
+		const vendorId = req.user && req.user.vendorId;
+		if (!vendorId) return res.status(401).json({ error: 'Unauthorized: vendor authentication required' });
+		const { designationId } = req.params;
+		if (!designationId) return res.status(400).json({ error: 'designationId is required' });
+
+		const designation = await Designation.findOneAndDelete({ _id: designationId, vendor: vendorId });
+		if (!designation) return res.status(404).json({ error: 'Designation not found or not authorized' });
+
+		res.json({ message: 'Designation deleted successfully' });
+	} catch (err) {
+		res.status(500).json({ error: err.message });
+	}
+};
+
+const deleteRoleUser = async (req, res) => {
+	try {
+		const vendorId = req.user && req.user.vendorId;
+		if (!vendorId) return res.status(401).json({ error: 'Unauthorized: vendor authentication required' });
+		console.log('req.params:', req.params);
+		const { employeeId } = req.params;
+		if (!employeeId) return res.status(400).json({ error: 'employeeId is required' });
+
+		const employee = await Employee.findOneAndDelete({ _id: employeeId, vendor: vendorId });
+		if (!employee) return res.status(404).json({ error: 'Employee not found or not authorized' });
+
+		res.json({ message: 'Employee deleted successfully' });
+	} catch (err) {
+		res.status(500).json({ error: err.message });
+	}
+};
+
+// Edit a designation's name and permissions for a vendor
+const editDesignation = async (req, res) => {
+	try {
+		const vendorId = req.user && req.user.vendorId;
+		if (!vendorId) return res.status(401).json({ error: 'Unauthorized: vendor authentication required' });
+
+		const { designationId } = req.params;
+		const { name, permissions } = req.body;
+		if (!designationId) return res.status(400).json({ error: 'designationId is required' });
+
+		const update = {};
+		if (name) update.name = name;
+		if (permissions) update.permissions = permissions;
+
+		const designation = await Designation.findOneAndUpdate(
+			{ _id: designationId, vendor: vendorId },
+			{ $set: update },
+			{ new: true }
+		);
+
+		if (!designation) return res.status(404).json({ error: 'Designation not found or not authorized' });
+
+		res.json({ message: 'Designation updated successfully', designation });
+	} catch (err) {
+		res.status(500).json({ error: err.message });
+	}
+};
+
+// Update a role user (employee) for a vendor
+const editRoleUser = async (req, res) => {
+	try {
+		const vendorId = req.user && req.user.vendorId;
+		if (!vendorId) return res.status(401).json({ error: 'Unauthorized: vendor authentication required' });
+
+		const { employeeId } = req.params;
+		const { firstName, lastName, email, contactNumber, password, designationId } = req.body;
+		if (!employeeId) return res.status(400).json({ error: 'employeeId is required' });
+
+		const update = {};
+		if (firstName) update.firstName = firstName;
+		if (lastName) update.lastName = lastName;
+		if (email) update.email = email;
+		if (contactNumber) update.contactNumber = contactNumber;
+		if (designationId) update.designation = designationId;
+
+		if (password) {
+			const hashedPassword = await bcrypt.hash(password, 10);
+			update.password = hashedPassword;
+		}
+
+		const employee = await Employee.findOneAndUpdate(
+			{ _id: employeeId, vendor: vendorId },
+			{ $set: update },
+			{ new: true }
+		);
+
+		if (!employee) return res.status(404).json({ error: 'Employee not found or not authorized' });
+
+		res.json({ message: 'Employee updated successfully', employee });
+	} catch (err) {
+		res.status(500).json({ error: err.message });
+	}
+};
+
 
 module.exports = {
 	getAllDesignations,
 	createDesignation,
 	createRoleUser,
-	getAllRoleUsers
+	getAllRoleUsers,
+	deleteDesignation,
+	deleteRoleUser,
+editDesignation,
+editRoleUser
 };

@@ -15,7 +15,6 @@ const designationSchema = new mongoose.Schema({
 	  type: String,
 	  required: true,
 	  enum: [
-		'dashboard',
 		'listing_management',
 		'booking_analytics',
 		'tracking',
