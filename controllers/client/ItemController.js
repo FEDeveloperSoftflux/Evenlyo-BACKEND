@@ -39,8 +39,14 @@ const buyItem = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Item does not have a valid vendor assigned.' });
         }
 
-        // Calculate total price
-        const totalPrice = quantity * item.sellingPrice;
+    // Get platform fee from settings
+    const Settings = require('../../models/Settings');
+    const settings = await Settings.findOne();
+    const platformFee = settings && settings.salesItemPlatformFee ? settings.salesItemPlatformFee : 0;
+
+    // Calculate total price with platform fee
+    const totalPrice = (quantity * item.sellingPrice) * platformFee;
+
 
         // Track purchase
         const purchase = new Purchase({
