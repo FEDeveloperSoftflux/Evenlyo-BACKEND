@@ -50,6 +50,7 @@ i18next
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
+  'http://localhost:5173',
   'https://evenlyo.web.app',
   'https://staging-evenlyo-vendor.web.app',
   'https://evenlyo-admin.web.app',
@@ -91,11 +92,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Session Middleware
 // ==========================
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
+  secret: process.env.SESSION_SECRET || 'evenlyo_default_secret',
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
-    client: mongoose.connection.getClient(),   // reuse the same mongoose client
+    client: mongoose.connection.getClient(),   
     collectionName: 'sessions',
     ttl: 24 * 60 * 60 // 1 day
   }),
@@ -126,11 +127,11 @@ app.use('/api/settings', require('./routes/settings'));
 app.use('/api/support', require('./routes/client/support'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/vendor', require('./routes/client/vendors'));
+app.use('/api/items', require('./routes/client/Items'));
 
 // Vendor routes
 app.use('/api/vendor/dashboard', require('./routes/vendor/dashboard'));
 app.use('/api/vendor/listings', require('./routes/vendor/listings'));
-app.use('/api/vendor/items', require('./routes/vendor/items'));
 app.use('/api/vendor/bookings', require('./routes/vendor/booking'));
 app.use('/api/vendor/tracking', require('./routes/vendor/tracking'));
 app.use('/api/vendor/billing', require('./routes/vendor/billing'));
@@ -138,7 +139,7 @@ app.use('/api/vendor/profile', require('./routes/vendor/profile'));
 app.use('/api/vendor/roles', require('./routes/vendor/role'));
 app.use('/api/vendor/earnings', require('./routes/vendor/earnings'));
 app.use('/api/vendor/stock', require('./routes/vendor/stock'));
-
+app.use('/api/vendor/items', require('./routes/vendor/items'));
 // Payments
 app.use('/api/payments', require('./routes/payments'));
 
