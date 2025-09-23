@@ -40,3 +40,6 @@ Admin 2
 Email: admin2@example.com
 Password: SecurePass456
 
+server restart : heroku ps:scale web=1 -a polar-meadow-86616
+
+server stop : heroku ps:scale web=0 -a polar-meadow-86616

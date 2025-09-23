@@ -1,42 +1,38 @@
-
 const app = require('./app');
 const http = require('http');
 const { Server } = require('socket.io');
+const chatSocket = require('./sockets/chatSockets');
 
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 
-// Initialize Socket.io
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'https://evenlyo.web.app';
+// Shared allowed origins
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:3001',
+  'https://evenlyo.web.app',
+  'https://staging-evenlyo-vendor.web.app',
+  'https://evenlyo-admin.web.app'
+];
 
+// Initialize Socket.io
 const io = new Server(server, {
   cors: {
-    origin: FRONTEND_ORIGIN,
-    methods: ['GET', 'POST'],
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'OPTIONS'], // OPTIONS useful for preflight
     credentials: true,
   }
 });
 
-io.on('connection', (socket) => {
-  console.log('A user connected:', socket.id);
-
-  // Join a chat room
-  socket.on('joinRoom', (roomId) => {
-    socket.join(roomId);
-    console.log(`User ${socket.id} joined room ${roomId}`);
-  });
-
-  // Handle sending messages
-  socket.on('sendMessage', (data) => {
-    // data: { roomId, message, senderId, receiverId }
-    io.to(data.roomId).emit('receiveMessage', data);
-  });
-
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
-  });
-});
+// Attach socket logic
+chatSocket(io);
 
 server.listen(PORT, () => {
   console.log(`Server started on port ${PORT}`);
+});
+
+// Optional: catch server errors
+server.on('error', (err) => {
+  console.error('Server error:', err);
 });

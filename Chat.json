@@ -1,0 +1,101 @@
+{
+  "info": {
+    "_postman_id": "c0f6a6d9-0f2e-4d6b-9e5d-123456789abc",
+    "name": "Chat System API + Socket.IO",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Chat Room",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userIds\": [\"6889b90323da387246f6bf75\", \"688cee39901d51358af867f7\"]\n}"
+        },
+        "url": { "raw": "http://localhost:5000/api/chatrooms", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "chatrooms"] }
+      }
+    },
+    {
+      "name": "Send Message",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sender\": \"6889b90323da387246f6bf75\",\n  \"content\": \"Hello Vendor!\",\n  \"chatRoom\": \"<CHATROOM_ID>\"\n}"
+        },
+        "url": { "raw": "http://localhost:5000/api/messages", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "messages"] }
+      }
+    },
+    {
+      "name": "Get Messages by ChatRoom",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "http://localhost:5000/api/messages/<CHATROOM_ID>", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "messages", "<CHATROOM_ID>"] }
+      }
+    },
+    {
+      "name": "Get Recent Chats",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "http://localhost:5000/api/chatrooms/recent/6889b90323da387246f6bf75", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "chatrooms", "recent", "6889b90323da387246f6bf75"] }
+      }
+    },
+    {
+      "name": "Socket.IO - Join Room",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// In Postman, switch to Socket.IO tab and send this event",
+              "// event: joinRoom",
+              "// payload:",
+              "{ \"roomId\": \"<CHATROOM_ID>\" }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Socket.IO - Send Message",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// In Postman, switch to Socket.IO tab and send this event",
+              "// event: sendMessage",
+              "// payload:",
+              "{ \"roomId\": \"<CHATROOM_ID>\", \"senderId\": \"6889b90323da387246f6bf75\", \"receiverId\": \"688cee39901d51358af867f7\", \"message\": \"Hello from Postman!\" }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Socket.IO - Listen for receiveMessage",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// In Postman, configure listener for event:",
+              "// event: receiveMessage",
+              "// You will see incoming messages here when another client sends them."
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    }
+  ]
+}
