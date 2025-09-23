@@ -53,6 +53,7 @@ const allowedOrigins = [
   'https://evenlyo.web.app',
   'https://staging-evenlyo-vendor.web.app',
   'https://evenlyo-admin.web.app',
+  'https://staging-evenlyo-admin.web.app',
 ];
 
 app.use(cors({
@@ -87,7 +88,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
 // ==========================
-// Session Middleware (FIXED)
+// Session Middleware
 // ==========================
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
