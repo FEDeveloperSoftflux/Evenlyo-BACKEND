@@ -102,6 +102,7 @@ const getVendorListingsOverview = async (req, res) => {
 // @access  Private (Vendor only)
 const createListing = async (req, res) => {
 	try {
+
 		const listingData = req.body;
 
 		// Ensure title, subtitle, and description are strings (not objects)
@@ -113,6 +114,17 @@ const createListing = async (req, res) => {
 		}
 		if (typeof listingData.description === 'object' && listingData.description !== null) {
 			listingData.description = listingData.description.en || listingData.description.nl || '';
+		}
+
+		// Handle images array
+		if (Array.isArray(listingData.images)) {
+			listingData.images = listingData.images.filter(img => typeof img === 'string' && img.length > 0);
+		} else if (listingData.images && typeof listingData.images === 'string') {
+			listingData.images = [listingData.images];
+		}
+		// Fallback: if images is missing or empty, but media.gallery exists, copy gallery to images
+		if ((!listingData.images || listingData.images.length === 0) && listingData.media && Array.isArray(listingData.media.gallery)) {
+			listingData.images = listingData.media.gallery.filter(img => typeof img === 'string' && img.length > 0);
 		}
 
 		// Automatically set security fee based on service type
@@ -167,33 +179,45 @@ const createListing = async (req, res) => {
 // @access  Private (Vendor only)
 const updateListing = async (req, res) => {
   try {
-	const { id } = req.params;
-	const updateData = req.body;
-	// Find the existing listing
-	const existingListing = await Listing.findById(id);
-	if (!existingListing) {
-	  return res.status(404).json({
-		success: false,
-		message: 'Listing not found'
-	  });
-	}
 
-	// --- Ensure new pricing structure ---
-	if (updateData.pricing) {
-	  const { type, amount, extratimeCost, securityFee } = updateData.pricing;
-	  if (!type || amount === undefined) {
-		return res.status(400).json({
-		  success: false,
-		  message: 'Pricing type and amount are required.'
-		});
-	  }
-	  updateData.pricing = {
-		type,
-		amount,
-		extratimeCost: extratimeCost !== undefined ? extratimeCost : 0,
-		securityFee: securityFee !== undefined ? securityFee : 0
-	  };
-	}
+		const { id } = req.params;
+		const updateData = req.body;
+		// Find the existing listing
+		const existingListing = await Listing.findById(id);
+		if (!existingListing) {
+			return res.status(404).json({
+				success: false,
+				message: 'Listing not found'
+			});
+		}
+
+		// Handle images array
+		if (Array.isArray(updateData.images)) {
+			updateData.images = updateData.images.filter(img => typeof img === 'string' && img.length > 0);
+		} else if (updateData.images && typeof updateData.images === 'string') {
+			updateData.images = [updateData.images];
+		}
+		// Fallback: if images is missing or empty, but media.gallery exists, copy gallery to images
+		if ((!updateData.images || updateData.images.length === 0) && updateData.media && Array.isArray(updateData.media.gallery)) {
+			updateData.images = updateData.media.gallery.filter(img => typeof img === 'string' && img.length > 0);
+		}
+
+		// --- Ensure new pricing structure ---
+		if (updateData.pricing) {
+			const { type, amount, extratimeCost, securityFee } = updateData.pricing;
+			if (!type || amount === undefined) {
+				return res.status(400).json({
+					success: false,
+					message: 'Pricing type and amount are required.'
+				});
+			}
+			updateData.pricing = {
+				type,
+				amount,
+				extratimeCost: extratimeCost !== undefined ? extratimeCost : 0,
+				securityFee: securityFee !== undefined ? securityFee : 0
+			};
+		}
 
 	const updatedListing = await Listing.findByIdAndUpdate(
 	  id,

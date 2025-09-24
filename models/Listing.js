@@ -48,6 +48,7 @@ const listingSchema = new mongoose.Schema({
       min: 0,
       required: true
     },
+
     extratimeCost: {
       type: Number,
       min: 0,
@@ -63,6 +64,10 @@ const listingSchema = new mongoose.Schema({
       min: 0
     }
   },
+  images: {
+      type: [String],
+      default: [null]
+    },
   contact: {
     phone: {
       type: String,
