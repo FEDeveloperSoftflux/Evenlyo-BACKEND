@@ -28,7 +28,7 @@ const getVendorBookingAnalytics = async (req, res) => {
 					id: b._id,
 					date: b.details?.startDate,
 					status: b.status,
-					title: b.listingId?.title?.en || b.listingId?.title || '',
+					title: b.listingId?.title || b.listingId?.title || '',
 					time: b.details?.startTime || '',
 					customer: b.userId ? `${b.userId.firstName} ${b.userId.lastName}` : '',
 					description: b.details?.specialRequests?.en || b.details?.specialRequests || '',

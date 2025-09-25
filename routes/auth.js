@@ -33,6 +33,13 @@ router.post('/send-otp',
   authController.sendOtpForRegister
 );
 
+// Check if email or contact number already registered
+router.post('/check-registered',
+  rateLimit(10, 5 * 60 * 1000), //
+  csrfProtection,
+  authController.checkRegisteredUser
+);
+
 // Client Registration
 router.post('/client/register',
   rateLimit(10, 5 * 60 * 1000), 
@@ -87,7 +94,7 @@ router.get('/health', (req, res) => {
 // Firebase health check route
 router.get('/firebase-health', (req, res) => {
   try {
-    const { admin, projectId } = require('../config/firebase');
+    const { admin, projectId, auth } = require('../config/firebase');
     const app = admin.app();
 
     res.json({

@@ -521,13 +521,13 @@ const verifyOtpForForgotPassword = async (req, res) => {
 
 const resetPassword = async (req, res) => {
   try {
-    const { newPassword } = req.body;
+    const { password } = req.body;
     
     // Get email from session (set after OTP verification)
     const email = req.session.verifiedEmailForReset;
 
     console.log(email);
-    console.log(newPassword);
+    console.log(password);
     
     if (!email) {
       return res.status(400).json({
@@ -536,7 +536,7 @@ const resetPassword = async (req, res) => {
       });
     }
     
-    if (!newPassword) {
+    if (!password) {
       return res.status(400).json({
         success: false,
         message: 'Password is required'
@@ -560,7 +560,7 @@ const resetPassword = async (req, res) => {
     }
 
     // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
     user.password = hashedPassword;
     await user.save();
 
@@ -871,6 +871,54 @@ const vendorLogin = async (req, res) => {
   return performLogin(req, res, 'vendor');
 };
 
+// --- Check already registered user ---
+const checkRegisteredUser = async (req, res) => {
+  try {
+    const { email, contactNumber, userType } = req.body;
+
+    if (!email && !contactNumber) {
+      return res.status(400).json({ success: false, message: 'Email or contactNumber is required' });
+    }
+
+    // Validate userType if provided
+    if (userType && !['client', 'vendor', 'admin'].includes(userType)) {
+      return res.status(400).json({ success: false, message: 'Invalid userType' });
+    }
+
+    const query = {};
+    if (email) query.email = email;
+    if (contactNumber) query.contactNumber = contactNumber;
+
+    // If userType provided, include in query to narrow search
+    if (userType) query.userType = userType;
+
+    const existingUser = await User.findOne(query).lean();
+
+    if (!existingUser) {
+      return res.json({
+        success: true,
+        exists: false,
+        message: 'No account found. You may proceed to register.'
+      });
+    }
+
+    // If found, return minimal info (avoid leaking sensitive data)
+    // Provide a helpful message depending on provider
+    const provider = existingUser.provider || 'email';
+    const accountHint = provider === 'google' ? 'This account uses Google Sign-In. Please use Google to sign in.' : 'An account already exists.';
+    return res.json({
+      success: true,
+      exists: true,
+      userType: existingUser.userType || null,
+      provider,
+      message: accountHint
+    });
+  } catch (err) {
+    console.error('Check registered user error:', err);
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+};
+
 // --- Exports ---
 module.exports = {
   // Authentication
@@ -893,5 +941,6 @@ module.exports = {
   verifyOtpForForgotPassword,
 
   // Password Management
-  resetPassword
+  resetPassword,
+  checkRegisteredUser
 };
