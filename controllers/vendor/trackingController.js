@@ -4,6 +4,7 @@ const BookingRequest = require('../../models/Booking');
 const User = require('../../models/User');
 const Listing = require('../../models/Listing');
 const Vendor = require('../../models/Vendor');
+const notificationController = require('../notificationController');
 
 // GET /api/vendor/tracking
 const getVendorBookings = async (req, res) => {
@@ -101,9 +102,10 @@ const markBookingOnTheWay = asyncHandler(async (req, res) => {
 // @route   POST /api/booking/:id/mark-picked-up
 // @access  Private (Vendor)
 const markBookingPickedUp = asyncHandler(async (req, res) => {
-	const { condition, amount } = req.body;
-	// condition: 'good', 'fair', 'claim'
-	// amount: number (required for fair/claim)
+	const { condition, securityFee, claimAmount } = req.body;
+	// condition: 'Good', 'Fair', 'Claim'
+	// securityFee: number (required for Fair/Claim)
+	// claimAmount: number (required for Claim)
 
 	// Get vendor profile
 	const vendor = await Vendor.findOne({ userId: req.user.id });
@@ -127,65 +129,70 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
 		});
 	}
 
-		booking.status = 'picked_up';
-		booking.deliveryDetails.returnTime = new Date();
+	booking.status = 'picked_up';
+	booking.deliveryDetails.returnTime = new Date();
 
-		// Store condition in the new field
-		booking.condition = condition;
+	// Store condition
+	booking.condition = condition.toLowerCase();
 
-		if (condition === 'good') {
-			// No further action needed
-		} else if (condition === 'fair') {
-			if (!amount || isNaN(amount) || amount <= 0) {
-				return res.status(400).json({
-					success: false,
-					message: 'Amount to deduct from security fee is required for fair condition.'
-				});
-			}
-			// Store deduction in claimDetails for admin review
-			booking.claimDetails = {
-				reason: {
-					en: 'Fair condition - deduction from security fee',
-					nl: 'Redelijke staat - aftrek van borg'
-				},
-				claimedBy: 'vendor',
-				claimedAt: new Date(),
-				status: 'pending',
-				amount: amount
-			};
-		} else if (condition === 'claim') {
-			if (!amount || isNaN(amount) || amount <= 0) {
-				return res.status(400).json({
-					success: false,
-					message: 'Claim amount is required for claim condition.'
-				});
-			}
-			booking.claimDetails = {
-				reason: {
-					en: 'Claim requested by vendor',
-					nl: 'Claim aangevraagd door leverancier'
-				},
-				claimedBy: 'vendor',
-				claimedAt: new Date(),
-				status: 'pending',
-				amount: amount
-			};
-			// Send request/notification to admin for claim approval
-			try {
-				await notificationController.createNotification({
-					user: null, // or admin userId if available
-					booking: booking._id,
-					message: `Claim request submitted by vendor for booking. Amount: ${amount}`
-				});
-			} catch (e) {
-				console.error('Failed to notify admin for claim request:', e);
-			}
-		} else {
+	if (condition.toLowerCase() === 'good') {
+		booking.pricing.securityFee = 0;
+		booking.pricing.claimAmount = 0;
+	} else if (condition.toLowerCase() === 'fair') {
+		if (!securityFee || isNaN(securityFee) || securityFee <= 0) {
 			return res.status(400).json({
 				success: false,
-				message: 'Invalid condition. Must be one of: good, fair, claim.'
+				message: 'Security fee is required for fair condition.'
 			});
 		}
+		booking.pricing.securityFee = securityFee;
+		booking.pricing.claimAmount = 0;
+		// Store in claimDetails for admin review
+		booking.claimDetails = {
+			reason: {
+				en: 'Fair condition - security fee deduction',
+				nl: 'Redelijke staat - aftrek van borg'
+			},
+			claimedBy: 'vendor',
+			claimedAt: new Date(),
+			status: 'pending',
+			amount: securityFee
+		};
+	} else if (condition.toLowerCase() === 'claim') {
+		if (!securityFee || !claimAmount || isNaN(securityFee) || isNaN(claimAmount) || securityFee < 0 || claimAmount <= 0) {
+			return res.status(400).json({
+				success: false,
+				message: 'Security fee and claim amount are required for claim condition.'
+			});
+		}
+		booking.pricing.securityFee = securityFee;
+		booking.pricing.claimAmount = claimAmount;
+		booking.claimDetails = {
+			reason: {
+				en: 'Claim requested by vendor',
+				nl: 'Claim aangevraagd door leverancier'
+			},
+			claimedBy: 'vendor',
+			claimedAt: new Date(),
+			status: 'pending',
+			amount: securityFee + claimAmount
+		};
+		// Send request/notification to admin for claim approval
+		try {
+			await notificationController.createNotification({
+				user: null, // or admin userId if available
+				booking: booking._id,
+				message: `Claim request submitted by vendor for booking. Security Fee: ${securityFee}, Claim Amount: ${claimAmount}, Total: ${securityFee + claimAmount}`
+			});
+		} catch (e) {
+			console.error('Failed to notify admin for claim request:', e);
+		}
+	} else {
+		return res.status(400).json({
+			success: false,
+			message: 'Invalid condition. Must be one of: Good, Fair, Claim.'
+		});
+	}
 
 	await booking.save();
 
@@ -206,7 +213,16 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
 	res.json({
 		success: true,
 		message: 'Booking marked as picked up',
-		data: { booking }
+		data: {
+			booking: {
+				_id: booking._id,
+				status: booking.status,
+				condition: booking.condition,
+				securityFee: booking.pricing.securityFee,
+				claimAmount: booking.pricing.claimAmount,
+				totalClaim: booking.condition === 'claim' ? booking.pricing.securityFee + booking.pricing.claimAmount : booking.pricing.securityFee
+			}
+		}
 	});
 });
 

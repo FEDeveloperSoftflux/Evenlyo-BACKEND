@@ -301,11 +301,31 @@ const getCurrentUser = async (req, res) => {
 // --- Registration OTP endpoints ---
 const sendOtpForRegister = async (req, res) => {
   try {
-    const { email } = req.body;
+    let { email } = req.body;
     if (!email) {
       return res.status(400).json({
         success: false,
         message: 'Email is required'
+      });
+    }
+
+    // Normalize email to avoid case-sensitivity / whitespace issues
+    email = String(email).trim().toLowerCase();
+
+    // Check if user already exists to avoid sending OTP to registered accounts
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      // If the account uses social login, guide the user accordingly
+      if (existingUser.provider && existingUser.provider !== 'email') {
+        return res.status(409).json({
+          success: false,
+          message: `An account with this email already exists and uses ${existingUser.provider} sign-in. Please use the social provider to sign in.`
+        });
+      }
+
+      return res.status(409).json({
+        success: false,
+        message: 'Email is already registered. Please login or use password reset if you forgot your password.'
       });
     }
 
@@ -429,7 +449,7 @@ const verifyOtpAndRegister = async (req, res, userType = 'client') => {
 // --- Forgot Password OTP endpoints ---
 const sendOtpForForgotPassword = async (req, res) => {
   try {
-    let { email } = req.body;
+    let { email ,type } = req.body;
     if (!email) {
       return res.status(400).json({
         success: false,
@@ -761,7 +781,7 @@ const registerVendor = async (req, res) => {
       city,
       postalCode,
       fullAddress,
-      passportNumber,
+      passportDetails,
       kvkNumber,
       mainCategories,
       subCategories,
@@ -770,7 +790,6 @@ const registerVendor = async (req, res) => {
       otp,
       // Business fields
       businessName,
-      businessType,
       businessNumber,
       businessWebsite,
       teamType,
@@ -792,13 +811,13 @@ const registerVendor = async (req, res) => {
 
     // Personal account validations
     if (accountType === 'personal') {
-      if (!firstName || !lastName || !city || !postalCode || !fullAddress || !passportNumber || !mainCategories || !subCategories) {
+      if (!firstName || !lastName || !city || !postalCode || !fullAddress || !passportDetails || !mainCategories || !subCategories) {
         return res.status(400).json({ success: false, message: 'Missing required personal account fields' });
       }
     }
     // Business account validations
     if (accountType === 'business') {
-      if (!businessName || !businessType || !businessNumber || !teamSize || !teamType || !kvkNumber) {
+      if (!businessName || !businessNumber || !teamSize || !teamType || !kvkNumber) {
         return res.status(400).json({ success: false, message: 'Missing required business account fields' });
       }
     }
@@ -831,7 +850,7 @@ const registerVendor = async (req, res) => {
       password: hashedPassword,
       userType: 'vendor',
       isActive: true,
-      ...(accountType === 'personal' && { lastName, passportNumber }),
+      ...(accountType === 'personal' && { lastName, passportDetails }),
       ...(accountType === 'business' && { kvkNumber })
     };
     const user = new User(userData);
@@ -847,7 +866,6 @@ const registerVendor = async (req, res) => {
       // Business fields
       ...(accountType === 'business' && {
         businessName,
-        businessType,
         businessPhone: businessNumber,
         businessWebsite,
         teamType,

@@ -137,6 +137,16 @@ const bookingRequestSchema = new mongoose.Schema({
       default: 0,
       min: 0
     },
+    securityFee: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    claimAmount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
     totalPrice: {
       type: Number,
       required: true,
@@ -237,6 +247,11 @@ const bookingRequestSchema = new mongoose.Schema({
       type: String,
       enum: ['pending', 'resolved', 'rejected'],
       default: 'pending'
+    },
+    amount: {
+      type: Number,
+      default: 0,
+      min: 0
     },
     adminNotes: {
       en: {
