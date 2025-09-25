@@ -429,7 +429,7 @@ const verifyOtpAndRegister = async (req, res, userType = 'client') => {
 // --- Forgot Password OTP endpoints ---
 const sendOtpForForgotPassword = async (req, res) => {
   try {
-    const { email } = req.body;
+    let { email } = req.body;
     if (!email) {
       return res.status(400).json({
         success: false,
@@ -437,20 +437,31 @@ const sendOtpForForgotPassword = async (req, res) => {
       });
     }
 
-    // Check if user exists
+    // Normalize email to avoid case-sensitivity issues
+    email = String(email).trim().toLowerCase();
+
+    // Check if user exists and is active
     const user = await User.findOne({ email });
     if (!user) {
+      // Do NOT send OTP when user does not exist for forgot-password flow
       return res.status(404).json({
         success: false,
         message: 'No account found with this email'
       });
     }
 
-    // Check if user is a social login user
-    if (user.provider === 'google') {
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: 'Account is deactivated. Please contact support.'
+      });
+    }
+
+    // Prevent sending OTP to social login users
+    if (user.provider && user.provider !== 'email') {
       return res.status(400).json({
         success: false,
-        message: 'This account uses Google Sign-In. Password reset is not available for social login accounts. Please use Google to sign in.'
+        message: 'This account uses social login. Password reset via email is not available. Please use the social provider to sign in.'
       });
     }
 
