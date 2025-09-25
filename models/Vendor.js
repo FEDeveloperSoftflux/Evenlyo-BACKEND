@@ -71,6 +71,30 @@ const vendorSchema = new mongoose.Schema({
       default: 0
     }
   },
+  reviews: [{
+    bookingId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Booking'
+    },
+    clientId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    rating: {
+      type: Number,
+      min: 1,
+      max: 5,
+      required: true
+    },
+    review: {
+      en: String,
+      nl: String
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   totalBookings: {
     type: Number,
     default: 0

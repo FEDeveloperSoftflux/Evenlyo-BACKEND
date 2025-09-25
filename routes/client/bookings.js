@@ -8,7 +8,7 @@ const {
   getBookingHistory,
   getVendorBookingHistory,
   markBookingReceived,
-  markBookingComplete,
+  markBookingFinished,
   createClaim,
   getBookingDetails,
   reviewBooking,
@@ -50,7 +50,7 @@ router.post('/:id/mark-received', requireAuth, requireClient, markBookingReceive
 // @route   POST /api/booking/:id/mark-complete
 // @desc    Mark booking as complete
 // @access  Private (Client)
-router.post('/:id/mark-complete', requireAuth, requireClient, markBookingComplete);
+router.post('/:id/mark-finished', requireAuth, requireClient, markBookingFinished);
 
 // @route   POST /api/booking/:id/claim
 // @desc    Create a claim/report issue

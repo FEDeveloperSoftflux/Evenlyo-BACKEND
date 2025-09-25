@@ -155,7 +155,7 @@ const bookingRequestSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'accepted', 'rejected', 'paid', 'on_the_way', 'received', 'picked_up', 'completed', 'cancelled', 'claim'],
+    enum: ['pending', 'accepted', 'rejected', 'paid', 'on_the_way', 'received', 'picked_up', 'completed', 'cancelled', 'claim', 'finished', 'received_back'],
     default: 'pending'
   },
   paymentStatus: {

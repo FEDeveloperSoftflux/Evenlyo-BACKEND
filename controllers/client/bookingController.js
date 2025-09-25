@@ -71,7 +71,7 @@ const reviewBooking = asyncHandler(async (req, res) => {
   const booking = await BookingRequest.findOne({
     _id: req.params.id,
     userId: req.user.id,
-    status: 'completed'
+    status: 'finished'
   });
 
   if (!booking) {
@@ -88,15 +88,24 @@ const reviewBooking = asyncHandler(async (req, res) => {
   booking.feedback.rating = rating;
   await booking.save();
 
-  // Update listing's average rating and count
-  const listing = await Listing.findById(booking.listingId);
-  if (listing) {
-    const prevTotal = (listing.ratings.average || 0) * (listing.ratings.count || 0);
-    const newCount = (listing.ratings.count || 0) + 1;
+  // Update vendor's average rating, total reviews, and add review to reviews array
+  const vendor = await Vendor.findById(booking.vendorId);
+  if (vendor) {
+    const prevTotal = (vendor.rating.average || 0) * (vendor.rating.totalReviews || 0);
+    const newCount = (vendor.rating.totalReviews || 0) + 1;
     const newAverage = (prevTotal + rating) / newCount;
-    listing.ratings.average = newAverage;
-    listing.ratings.count = newCount;
-    await listing.save();
+    vendor.rating.average = newAverage;
+    vendor.rating.totalReviews = newCount;
+    
+    // Add review to vendor's reviews array
+    vendor.reviews.push({
+      bookingId: booking._id,
+      clientId: booking.userId,
+      rating: rating,
+      review: review ? toMultilingualText(review) : undefined
+    });
+    
+    await vendor.save();
   }
 
   res.json({
@@ -568,8 +577,8 @@ const getClientActionButtons = (status) => {
     case 'received':
       buttons.push(
         {
-          action: 'mark_complete',
-          label: 'Mark Complete',
+          action: 'mark_finished',
+          label: 'Mark Finished',
           color: 'green',
           type: 'success'
         },
@@ -758,7 +767,7 @@ const markBookingReceived = asyncHandler(async (req, res) => {
 // @desc    Mark booking as complete (Client action)
 // @route   POST /api/booking/:id/mark-complete
 // @access  Private (Client)
-const markBookingComplete = asyncHandler(async (req, res) => {
+const markBookingFinished = asyncHandler(async (req, res) => {
   const booking = await BookingRequest.findOne({
     _id: req.params.id,
     userId: req.user.id,
@@ -772,7 +781,7 @@ const markBookingComplete = asyncHandler(async (req, res) => {
     });
   }
 
-  booking.status = 'completed';
+  booking.status = 'finished';
   await booking.save();
 
   // Notify vendor that booking is completed
@@ -985,7 +994,7 @@ module.exports = {
   getBookingHistory,
   getVendorBookingHistory,
   markBookingReceived,
-  markBookingComplete,
+  markBookingFinished,
   createClaim,
   getBookingDetails,
   cancelBooking,

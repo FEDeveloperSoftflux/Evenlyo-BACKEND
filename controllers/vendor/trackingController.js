@@ -119,7 +119,7 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
 	const booking = await BookingRequest.findOne({
 		_id: req.params.id,
 		vendorId: vendor._id,
-		status: 'completed'
+		status: 'finished'
 	});
 
 	if (!booking) {
@@ -228,66 +228,123 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
 
 // @desc    Mark booking as completed 
 // @route   POST /api/booking/:id/mark-completed
-// @access  Private (Vendor)
+// @access  Private (Vendor) markBookingCompleted
 const markBookingCompleted = asyncHandler(async (req, res) => {
-	// Get vendor profile
-	const vendor = await Vendor.findOne({ userId: req.user.id });
-	if (!vendor) {
-		return res.status(404).json({
-			success: false,
-			message: 'Vendor profile not found'
-		});
-	}
+  // Get vendor profile
+  const vendor = await Vendor.findOne({ userId: req.user.id });
+  if (!vendor) {
+    return res.status(404).json({
+      success: false,
+      message: 'Vendor profile not found'
+    });
+  }
 
-	// Only allow if status is picked_up or claim
-	const booking = await Booking.findOne({
-		_id: req.params.id,
-		vendorId: vendor._id,
-		status: { $in: ['picked_up', 'claim'] }
-	});
+  const booking = await BookingRequest.findOne({
+    _id: req.params.id,
+    vendorId: vendor._id,
+    status: { $in: ['received_back'] }
+  });
+  console.log('markBookingCompleted - Found booking:', booking);
+  if (!booking) {
+    return res.status(404).json({
+      success: false,
+      message: 'Booking not found or not eligible for this action'
+    });
+  }
 
-	if (!booking) {
-		return res.status(404).json({
-			success: false,
-			message: 'Booking not found or not eligible for completion'
-		});
-	}
+  booking.status = 'completed';
+  await booking.save();
 
-	booking.status = 'completed';
-	booking.completedAt = new Date();
-	await booking.save();
+  // Notify client that booking is completed
+  try {
+    await notificationController.createNotification({
+      user: booking.userId,
+      bookingId: booking._id,
+      message: `Your booking has been marked as completed.`
+    });
+  } catch (e) {
+    console.error('Failed to create client notification for completed booking:', e);
+  }
 
-	// Notify client (user) that booking is completed
-	try {
-		await notificationController.createNotification({
-			user: booking.userId,
-			bookingId: booking._id,
-			message: `Your booking has been marked as completed.`
-		});
-	} catch (e) {
-		console.error('Failed to create client notification for completed booking:', e);
-	}
-
-	// Notify admins that booking is completed
-	try {
-		await notificationController.createAdminNotification({
-			message: `A booking has been marked as completed by the vendor.`,
-			bookingId: booking._id
-		});
-	} catch (e) {
-		console.error('Failed to create admin notification for completed booking:', e);
-	}
-
-	res.json({
-		success: true,
-		message: 'Booking marked as completed',
-		data: { booking }
-	});
+  // Notify admins that booking is completed
+  try {
+    await notificationController.createAdminNotification({
+      message: `A booking has been marked as completed by the vendor.`,
+      bookingId: booking._id
+    });
+  } catch (e) {
+    console.error('Failed to create admin notification for completed booking:', e);
+  }
+  res.json({
+    success: true,
+    message: 'Booking marked as complete',
+    data: { booking }
+  });
 });
 
+
+// @desc    Mark booking as received back
+// @route   POST /api/vendor/bookings/:id/received-back
+// @access  Private (Vendor)
+const markAsReceivedBack = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  // Get vendor profile
+  const vendor = await Vendor.findOne({ userId: req.user.id });
+  if (!vendor) {
+	return res.status(404).json({
+	  success: false,
+	  message: 'Vendor profile not found'
+	});
+  }
+
+  const booking = await BookingRequest.findOne({
+	_id: id,
+	vendorId: vendor._id,
+	status: 'picked_up'
+  });
+
+  if (!booking) {
+	return res.status(404).json({
+	  success: false,
+	  message: 'Booking not found or not in picked_up status'
+	});
+  }
+
+  console.log(`Marking booking ${id} as received_back for vendor ${vendor._id}`);
+
+  booking.status = 'received_back';
+  await booking.save();
+
+  // Notify client (user) of received back
+  try {
+	await notificationController.createNotification({
+	  user: booking.userId,
+	  bookingId: booking._id,
+	  message: `Your booking item has been received back.`
+	});
+  } catch (e) {
+	console.error('Failed to create client notification for received back booking:', e);
+  }
+
+  await booking.populate([
+	{ path: 'userId', select: 'firstName lastName email contactNumber' },
+	{ path: 'listingId', select: 'title featuredImage pricing' }
+  ]);
+
+  res.json({
+	success: true,
+	message: 'Booking marked as received back successfully',
+	data: {
+	  booking
+	}
+  });
+});
 module.exports = {
 		getVendorBookings,
 		markBookingOnTheWay,
 		markBookingPickedUp,
+		markAsReceivedBack,
 		markBookingCompleted
+		
 };

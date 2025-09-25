@@ -2,8 +2,9 @@ const asyncHandler = require('express-async-handler');
 const Booking = require('../../models/Booking');
 const Vendor = require('../../models/Vendor');
 const BookingRequest = require('../../models/Booking');
-const {getAvailabilityDetails , checkAvailability} = require('../../utils/bookingUtils')
 const notificationController = require('../notificationController');
+const Listing = require('../../models/Listing');
+const {getAvailabilityDetails , checkAvailability} = require('../../utils/bookingUtils')
 
 // GET /api/vendor/bookings/analytics
 const getVendorBookingAnalytics = async (req, res) => {
@@ -21,20 +22,31 @@ const getVendorBookingAnalytics = async (req, res) => {
 				.sort({ createdAt: -1 })
 				.populate('userId', 'firstName lastName email')
 				.populate('listingId', 'title')
-				.select('details status trackingId userId listingId description eventLocation createdAt')
+				.select('details status trackingId userId listingId description eventLocation createdAt statusHistory')
 		]);
+
+		// Get unique listing IDs
+		const listingIds = [...new Set(bookings.map(b => b.listingId).filter(id => id))];
+
+		// Fetch titles for listings
+		const listings = await Listing.find({ _id: { $in: listingIds } }).select('_id title');
+		const listingTitleMap = {};
+		listings.forEach(listing => {
+			listingTitleMap[listing._id.toString()] = listing.title;
+		});
 
 		const bookingsList = bookings.map(b => ({
 					id: b._id,
 					date: b.details?.startDate,
 					status: b.status,
-					title: b.listingId?.title || b.listingId?.title || '',
+					title: listingTitleMap[b.listingId?.toString()] || '',
 					time: b.details?.startTime || '',
 					customer: b.userId ? `${b.userId.firstName} ${b.userId.lastName}` : '',
 					description: b.details?.specialRequests?.en || b.details?.specialRequests || '',
 					service: b.listingId?._id,
 					location: b.details?.eventLocation || '',
-					trackingId: b.trackingId
+					trackingId: b.trackingId,
+					statusHistory: b.statusHistory
 				}));
 
 		res.json({

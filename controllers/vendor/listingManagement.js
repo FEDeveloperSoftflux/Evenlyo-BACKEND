@@ -72,7 +72,7 @@ const getVendorListingsOverview = async (req, res) => {
 		// listingTable: all listings with required details
 		const listingTable = listings.map(listing => ({
 			listingId: listing._id,
-			image: listing.media?.featuredImage || '',
+			image: listing.images[0] || '',
 			title: listing.title?.en || listing.title,
 			description: listing.description?.en || listing.description,
 			category: listing.category?.name?.en || '',
