@@ -84,8 +84,7 @@ app.use(express.json({
 app.use(cookieParser());
 app.use(i18nextMiddleware.handle(i18next));
 
-// Static uploads
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 
 
 // ==========================

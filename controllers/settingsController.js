@@ -136,50 +136,6 @@ const updatePersonalInfo = async (req, res) => {
   }
 };
 
-// Update profile picture
-const updateProfilePicture = async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'No profile picture uploaded'
-      });
-    }
-
-    // Testing purpose
-    const profileImagePath = `/uploads/profiles/${req.file.filename}`;
-
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { $set: { profileImage: profileImagePath } },
-      { new: true }
-    );
-
-    if (!updatedUser) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Profile picture updated successfully',
-      data: {
-        profileImage: updatedUser.profileImage
-      }
-    });
-  } catch (error) {
-    console.error('Update profile picture error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update profile picture',
-      error: error.message
-    });
-  }
-};
 
 // --- Security Details APIs ---
 
@@ -389,7 +345,6 @@ module.exports = {
   // Personal Information
   getPersonalInfo,
   updatePersonalInfo,
-  updateProfilePicture,
   
   // Security Details
   changePassword,

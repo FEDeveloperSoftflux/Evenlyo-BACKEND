@@ -13,18 +13,6 @@ const createUploadDirectory = (dirPath) => {
   }
 };
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadPath = path.join(__dirname, '../uploads/profiles');
-    createUploadDirectory(uploadPath);
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    // Generate unique filename
-    const uniqueName = `profile_${req.user.id}_${Date.now()}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  }
-});
 
 const fileFilter = (req, file, cb) => {
   // Check file type
@@ -39,13 +27,6 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
-  },
-  fileFilter: fileFilter
-});
 
 // --- Personal Information Routes ---
 
@@ -55,8 +36,6 @@ router.get('/personal-info', requireAuth, settingsController.getPersonalInfo);
 // Update personal information (contact number, address, language)
 router.put('/personal-info', requireAuth, settingsController.updatePersonalInfo);
 
-// Update profile picture
-router.put('/profile-picture', requireAuth, upload.single('profilePicture'), settingsController.updateProfilePicture);
 
 // --- Security Details Routes ---
 

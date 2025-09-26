@@ -215,13 +215,13 @@ const calculateFullBookingPrice = (listing, opts = {}) => {
     const eventsCount = Number(numberOfEvents) > 0 ? Number(numberOfEvents) : 1;
 console.log('Pricing Type:', pricingType);
     let bookingPrice = 0;
-    if (pricingType === 'PerHour' || pricingType === 'hourly' || pricingType === 'perhour') {
+    if (pricingType === 'PerHour' || pricingType === 'hourly' || pricingType === 'perhour' || pricingType === 'per hour') {
       bookingPrice = listing.pricing.amount * totalHours;
-    } else if (pricingType === 'PerDay' || pricingType === 'daily' || pricingType === 'perday') {
+    } else if (pricingType === 'PerDay' || pricingType === 'daily' || pricingType === 'perday' || pricingType === 'per day') {
       bookingPrice = listing.pricing.amount * diffDays;
-    } else if (pricingType === 'PerEvent' || pricingType === 'event' || pricingType === 'perevent') {
+    } else if (pricingType === 'PerEvent' || pricingType === 'event' || pricingType === 'perevent' || pricingType === 'per event') {
       bookingPrice = listing.pricing.amount * eventsCount;
-    } else if (pricingType === 'fixed' || pricingType === 'fixed price' || pricingType === 'one-time' || pricingType === 'flat') {
+    } else if (pricingType === 'fixed' || pricingType === 'fixedprice' || pricingType === 'one-time' || pricingType === 'fixed price' || pricingType === 'one time') {
       bookingPrice = listing.pricing.amount;
     } else {
       return { error: 'Unsupported pricing type.', status: 400 };

@@ -325,11 +325,17 @@ const createBookingRequest = asyncHandler(async (req, res) => {
   // Notify vendor of new booking request
   try {
     const vendor = await Vendor.findById(bookingRequest.vendorId);
+    const client = await User.findById(bookingRequest.userId).select('firstName lastName');
+    
     if (vendor && vendor.userId) {
+      const clientName = client ? `${client.firstName} ${client.lastName}` : 'A client';
+      const listingTitle = listing.title || 'your listing';
+      const bookingDates = `${startDate}${endDate !== startDate ? ` to ${endDate}` : ''}`;
+      
       await notificationController.createNotification({
         user: vendor.userId, // vendor's user account receives notification
         bookingId: bookingRequest._id,
-        message: `You have received a new booking request.`
+        message: `New booking request from ${clientName} for "${listingTitle}" on ${bookingDates}. Tracking ID: ${bookingRequest.trackingId}`
       });
     }
   } catch (e) {

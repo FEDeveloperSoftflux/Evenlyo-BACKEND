@@ -306,7 +306,8 @@ const getPopularListings = async (req, res) => {
     const query = {
       status: 'active',
       isActive: true,
-      'availability.isAvailable': true
+      'availability.isAvailable': true,
+      popular: true
     };
 
     // Filter by category if provided
@@ -345,7 +346,11 @@ const getPopularListings = async (req, res) => {
 const searchListings = async (req, res) => {
   try {
     const {
-      q, // search query
+      q, // general search query (title, description, etc.)
+      title, // specific title search
+      location, // location search
+      date, // date search (day of week)
+      dateTime, // specific date and time search
       page = 1,
       limit = 12,
       categoryId,
@@ -356,22 +361,132 @@ const searchListings = async (req, res) => {
       sortOrder = 'desc'
     } = req.query;
 
-    console.log('Search query:', q);
+    console.log('Search query:', { q, title, location, date, dateTime });
 
-    if (!q || q.trim().length === 0) {
+    // Build query object
+    const query = {
+      status: 'active',
+      isActive: true,
+      'availability.isAvailable': true
+    };
+
+    // Handle different search types
+    const searchConditions = [];
+
+    // General text search (title, description, tags)
+    if (q && q.trim().length > 0) {
+      searchConditions.push({ $text: { $search: q } });
+    }
+
+    // Specific title search
+    if (title && title.trim().length > 0) {
+      searchConditions.push({ title: { $regex: title, $options: 'i' } });
+    }
+
+    // Location search
+    if (location && location.trim().length > 0) {
+      searchConditions.push({ 'location.fullAddress': { $regex: location, $options: 'i' } });
+    }
+
+    // Date availability search (day of week)
+    if (date) {
+      try {
+        // Validate YYYY-MM-DD format
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(date)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid date format. Please use YYYY-MM-DD format.'
+          });
+        }
+
+        // Parse date manually to avoid timezone issues
+        const [year, month, day] = date.split('-').map(Number);
+        const searchDate = new Date(year, month - 1, day); // month is 0-indexed
+
+        if (isNaN(searchDate.getTime())) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid date. Please provide a valid date.'
+          });
+        }
+
+        const dayOfWeek = searchDate.toLocaleString('en-US', { weekday: 'short' }).toLowerCase();
+        searchConditions.push({ 'availability.availableDays': dayOfWeek });
+      } catch (error) {
+        console.error('Date parsing error:', error);
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid date format. Please use YYYY-MM-DD format.'
+        });
+      }
+    }
+
+    // Date and time availability search
+    if (dateTime) {
+      try {
+        // Validate ISO 8601 format (YYYY-MM-DDTHH:mm:ss or YYYY-MM-DDTHH:mm)
+        const dateTimeRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/;
+        if (!dateTimeRegex.test(dateTime)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid dateTime format. Please use ISO 8601 format (e.g., 2024-01-15T14:30:00).'
+          });
+        }
+
+        // Parse dateTime manually to avoid timezone issues
+        const [datePart, timePart] = dateTime.split('T');
+        const [year, month, day] = datePart.split('-').map(Number);
+        const [hour, minute] = timePart.split(':').map(Number);
+
+        const searchDateTime = new Date(year, month - 1, day, hour, minute);
+
+        if (isNaN(searchDateTime.getTime())) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid dateTime. Please provide a valid date and time.'
+          });
+        }
+
+        const dayOfWeek = searchDateTime.toLocaleString('en-US', { weekday: 'short' }).toLowerCase();
+        const timeString = searchDateTime.toTimeString().slice(0, 5); // HH:MM format
+
+        // Check if the day is available and time slot matches
+        searchConditions.push({
+          'availability.availableDays': dayOfWeek,
+          'availability.availableTimeSlots': {
+            $elemMatch: {
+              startTime: { $lte: timeString },
+              endTime: { $gte: timeString }
+            }
+          }
+        });
+      } catch (error) {
+        console.error('DateTime parsing error:', error);
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid dateTime format. Please use ISO 8601 format (e.g., 2024-01-15T14:30:00).'
+        });
+      }
+    }
+
+    // Apply search conditions (AND logic - all conditions must be met)
+    if (searchConditions.length > 0) {
+      // For combined searches, use $and to ensure all conditions are met
+      if (searchConditions.length > 1) {
+        query.$and = searchConditions;
+      } else {
+        // For single condition, add it directly to the query
+        Object.assign(query, searchConditions[0]);
+      }
+    } else if (!q && !title && !location && !date && !dateTime) {
       return res.status(400).json({
         success: false,
-        message: 'Search query is required'
+        message: 'At least one search parameter is required (q, title, location, date, or dateTime)'
       });
     }
 
-    const query = {
-      status: 'active',
-      'availability.isAvailable': true,
-      $text: { $search: q }
-    };
-
-    // Apply filters
+    // Apply additional filters
     if (categoryId) query.category = categoryId;
     if (subCategoryId) query.subCategory = subCategoryId;
     if (city) query['location.city'] = { $regex: city, $options: 'i' };
@@ -383,7 +498,13 @@ const searchListings = async (req, res) => {
     // Build sort object
     const sortOptions = {};
     if (sortBy === 'relevance') {
-      sortOptions.score = { $meta: 'textScore' };
+      // Only use text score if we have a text search (q parameter)
+      if (q && q.trim().length > 0) {
+        sortOptions.score = { $meta: 'textScore' };
+      } else {
+        // For non-text searches, sort by default sortOrder field
+        sortOptions.sortOrder = -1;
+      }
     } else if (sortBy === 'price') {
       sortOptions['pricing.amount'] = sortOrder === 'desc' ? -1 : 1;
     } else if (sortBy === 'rating') {
@@ -406,7 +527,13 @@ const searchListings = async (req, res) => {
     res.json({
       success: true,
       data: listings,
-      searchQuery: q,
+      searchCriteria: {
+        generalQuery: q || null,
+        title: title || null,
+        location: location || null,
+        date: date || null,
+        dateTime: dateTime || null
+      },
       pagination: {
         current: parseInt(page),
         pages: Math.ceil(total / limit),

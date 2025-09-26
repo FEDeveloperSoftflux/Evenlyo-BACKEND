@@ -257,11 +257,6 @@ const listingSchema = new mongoose.Schema({
     enum: ['flexible', 'moderate', 'strict'],
     default: 'moderate'
   },
-  instantBooking: {
-    type: Boolean,
-    default: false
-  }
-  ,
   popular: {
     type: Boolean,
     default: false,
