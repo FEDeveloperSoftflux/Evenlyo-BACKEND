@@ -48,7 +48,6 @@ const listingSchema = new mongoose.Schema({
       min: 0,
       required: true
     },
-
     extratimeCost: {
       type: Number,
       min: 0,
@@ -62,6 +61,11 @@ const listingSchema = new mongoose.Schema({
     pricePerKm: {
       type: Number,
       min: 0
+    },
+    totalPrice: {
+      type: Number,
+      min: 0,
+      default: 0,
     }
   },
   images: {
@@ -322,7 +326,7 @@ listingSchema.pre('save', function(next) {
   if (this.isModified('ratings') || this.isModified('bookings')) {
     this.sortOrder = (this.ratings.average * 20) + (this.bookings.completed * 0.1);
   }
-  
+
   // Automatically set security fee based on service type
   if (this.isModified('serviceType') || this.isModified('pricing.securityFee') || this.isNew) {
     if (this.serviceType === 'human') {
@@ -332,7 +336,13 @@ listingSchema.pre('save', function(next) {
       this.pricing.securityFee = 50; // Default €50 security fee for equipment/non-human services
     }
   }
-  
+
+  // Calculate totalPrice before saving
+  const amount = this.pricing?.amount || 0;
+  const extratimeCost = this.pricing?.extratimeCost || 0;
+  const securityFee = this.pricing?.securityFee || 0;
+  this.pricing.totalPrice = amount + extratimeCost + securityFee;
+
   next();
 });
 

@@ -306,7 +306,6 @@ const getPopularListings = async (req, res) => {
     const query = {
       status: 'active',
       isActive: true,
-      'availability.isAvailable': true,
       popular: true
     };
 
@@ -323,10 +322,25 @@ const getPopularListings = async (req, res) => {
       .limit(parseInt(limit))
       .select('-seo -__v');
 
-    res.json({
-      success: true,
-      data: listings
-    });
+      // Ensure fields are not null
+      const sanitizedListings = listings.map(listing => {
+        const obj = listing.toObject();
+        // If images is null or contains only null, set to []
+        if (!Array.isArray(obj.images) || obj.images.every(img => img == null)) {
+          obj.images = [];
+        }
+        // If vendor is null, set to empty object
+        if (obj.vendor == null) obj.vendor = {};
+        // If category is null, set to empty object
+        if (obj.category == null) obj.category = {};
+        // If subCategory is null, set to empty object
+        if (obj.subCategory == null) obj.subCategory = {};
+        return obj;
+      });
+      res.json({
+        success: true,
+        data: sanitizedListings
+      });
   } catch (error) {
     console.error('Error fetching popular listings:', error);
     res.status(500).json({
@@ -336,7 +350,6 @@ const getPopularListings = async (req, res) => {
     });
   }
 };
-
 
 // Optionally, you can expose this as an admin route or call it on a schedule.
 
@@ -624,10 +637,6 @@ const getListingsByVendor = async (req, res) => {
     });
   }
 };
-
-
-
-
 
 // @desc    Check listing availability for date range (enhanced for multi-day)
 // @route   GET /api/listing/:id/availability
