@@ -100,79 +100,100 @@ const getVendorListingsOverview = async (req, res) => {
 // @desc    Create a new listing
 // @route   POST /api/listings
 // @access  Private (Vendor only)
+// ...existing code...
 const createListing = async (req, res) => {
-	try {
+    try {
 
-		const listingData = req.body;
+        const listingData = req.body;
 
-		// Ensure title, subtitle, and description are strings (not objects)
-		if (typeof listingData.title === 'object' && listingData.title !== null) {
-			listingData.title = listingData.title.en || listingData.title.nl || '';
-		}
-		if (typeof listingData.subtitle === 'object' && listingData.subtitle !== null) {
-			listingData.subtitle = listingData.subtitle.en || listingData.subtitle.nl || '';
-		}
-		if (typeof listingData.description === 'object' && listingData.description !== null) {
-			listingData.description = listingData.description.en || listingData.description.nl || '';
-		}
+        // Ensure title, subtitle, and description are strings (not objects)
+        if (typeof listingData.title === 'object' && listingData.title !== null) {
+            listingData.title = listingData.title.en || listingData.title.nl || '';
+        }
+        if (typeof listingData.subtitle === 'object' && listingData.subtitle !== null) {
+            listingData.subtitle = listingData.subtitle.en || listingData.subtitle.nl || '';
+        }
+        if (typeof listingData.description === 'object' && listingData.description !== null) {
+            listingData.description = listingData.description.en || listingData.description.nl || '';
+        }
 
-		// Handle images array
-		if (Array.isArray(listingData.images)) {
-			listingData.images = listingData.images.filter(img => typeof img === 'string' && img.length > 0);
-		} else if (listingData.images && typeof listingData.images === 'string') {
-			listingData.images = [listingData.images];
-		}
-		// Fallback: if images is missing or empty, but media.gallery exists, copy gallery to images
-		if ((!listingData.images || listingData.images.length === 0) && listingData.media && Array.isArray(listingData.media.gallery)) {
-			listingData.images = listingData.media.gallery.filter(img => typeof img === 'string' && img.length > 0);
-		}
+        // Handle images array
+        if (Array.isArray(listingData.images)) {
+            listingData.images = listingData.images.filter(img => typeof img === 'string' && img.length > 0);
+        } else if (listingData.images && typeof listingData.images === 'string') {
+            listingData.images = [listingData.images];
+        }
+        // Fallback: if images is missing or empty, but media.gallery exists, copy gallery to images
+        if ((!listingData.images || listingData.images.length === 0) && listingData.media && Array.isArray(listingData.media.gallery)) {
+            listingData.images = listingData.media.gallery.filter(img => typeof img === 'string' && img.length > 0);
+        }
 
-		// Automatically set security fee based on service type
-		if (listingData.serviceType === 'human') {
-			if (listingData.pricing) {
-				listingData.pricing.securityFee = 0;
-			}
-		} else if (listingData.serviceType === 'non_human') {
-			if (listingData.pricing && (!listingData.pricing.securityFee || listingData.pricing.securityFee === 0)) {
-				listingData.pricing.securityFee = 50; // Default security fee for equipment
-			}
-		}
+        // Handle location coordinates
+        if (listingData.location && listingData.location.coordinates) {
+            const { latitude, longitude } = listingData.location.coordinates;
+            if (latitude !== undefined && (latitude < -90 || latitude > 90)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid latitude: must be between -90 and 90'
+                });
+            }
+            if (longitude !== undefined && (longitude < -180 || longitude > 180)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid longitude: must be between -180 and 180'
+                });
+            }
+            // Ensure they are numbers
+            if (latitude !== undefined) listingData.location.coordinates.latitude = parseFloat(latitude);
+            if (longitude !== undefined) listingData.location.coordinates.longitude = parseFloat(longitude);
+        }
 
-		console.log("listingData", listingData);
-		const listing = new Listing(listingData);
-		await listing.save();
+        // Automatically set security fee based on service type
+        if (listingData.serviceType === 'human') {
+            if (listingData.pricing) {
+                listingData.pricing.securityFee = 0;
+            }
+        } else if (listingData.serviceType === 'non_human') {
+            if (listingData.pricing && (!listingData.pricing.securityFee || listingData.pricing.securityFee === 0)) {
+                listingData.pricing.securityFee = 50; // Default security fee for equipment
+            }
+        }
 
-		// Populate the response
-		const populatedListing = await Listing.findById(listing._id)
-			.populate('vendor', '_id businessName businessLocation businessDescription businessEmail businessPhone businessWebsite gallery userId')
-			.populate('category', 'name icon description')
-			.populate('subCategory', 'name icon description');
+        console.log("listingData", listingData);
+        const listing = new Listing(listingData);
+        await listing.save();
 
-		res.status(201).json({
-			success: true,
-			message: 'Listing created successfully',
-			data: populatedListing
-		});
-	} catch (error) {
-		console.error('Error creating listing:', error);
+        // Populate the response
+        const populatedListing = await Listing.findById(listing._id)
+            .populate('vendor', '_id businessName businessLocation businessDescription businessEmail businessPhone businessWebsite gallery userId')
+            .populate('category', 'name icon description')
+            .populate('subCategory', 'name icon description');
 
-		if (error.name === 'ValidationError') {
-			const errors = Object.values(error.errors).map(err => err.message);
-			return res.status(400).json({
-				success: false,
-				message: 'Validation error',
-				errors
-			});
-		}
+        res.status(201).json({
+            success: true,
+            message: 'Listing created successfully',
+            data: populatedListing
+        });
+    } catch (error) {
+        console.error('Error creating listing:', error);
 
-		res.status(500).json({
-			success: false,
-			message: 'Error creating listing',
-			error: error.message
-		});
-	}
+        if (error.name === 'ValidationError') {
+            const errors = Object.values(error.errors).map(err => err.message);
+            return res.status(400).json({
+                success: false,
+                message: 'Validation error',
+                errors
+            });
+        }
+
+        res.status(500).json({
+            success: false,
+            message: 'Error creating listing',
+            error: error.message
+        });
+    }
 };
-
+// ...existing code...
 
 // @desc    Update an existing listing
 // @route   PUT /api/listings/:id

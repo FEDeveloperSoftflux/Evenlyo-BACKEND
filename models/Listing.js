@@ -85,21 +85,20 @@ const listingSchema = new mongoose.Schema({
       linkedin: String
     }
   },
-  experience: {
-    years: {
-      type: Number,
-      min: 0
-    },
-      description: {
-        type: String,
-        trim: true
-      },
-      specialties: [String],
-    previousClients: [String],
-    certifications: [String]
-  },
   location: {
     fullAddress: String,
+    coordinates: {
+      latitude: {
+        type: Number,
+        min: -90,
+        max: 90
+      },
+      longitude: {
+        type: Number,
+        min: -180,
+        max: 180
+      }
+    }
   },
   availability: {
     isAvailable: {
@@ -114,10 +113,6 @@ const listingSchema = new mongoose.Schema({
       startTime: String, // "09:00"
       endTime: String    // "17:00"
     }],
-    advanceBookingDays: {
-      type: Number,
-      default: 1 // minimum days in advance for booking
-    }
   },
   personalInfo: {
     displayName: String, // Professional name like "DJ Ray Beatz"
@@ -137,23 +132,11 @@ const listingSchema = new mongoose.Schema({
       default: 'human'
     },
     serviceTypes: [String], // e.g., ['weddings', 'corporate events', 'private parties']
-    equipmentProvided: [String],
     travelDistance: Number, // in kilometers
     setupTime: Number, // in minutes
     minimumBookingDuration: Number, // in hours
-    categoryIncluded: {
-      type: Boolean,
-      default: true
-    },
-    subCategoryIncluded: {
-      type: Boolean,
-      default: true
-    }
   },
   media: {
-    featuredImage: {
-      type: String,
-    },
     gallery: [String], // Array of image URLs
     videos: [String]   // Array of video URLs
   },
@@ -183,26 +166,11 @@ const listingSchema = new mongoose.Schema({
       default: true
     }
   }],
-  requirements: [{
-    type: String,
-    trim: true
-  }],
-  tags: [{
-    type: String,
-    trim: true,
-    lowercase: true
-  }],
+
   duration: {
     min: Number, // minimum duration in minutes
     max: Number, // maximum duration in minutes
     default: Number // default duration in minutes
-  },
-  capacity: {
-    min: {
-      type: Number,
-      default: 1
-    },
-    max: Number
   },
   status: {
     type: String,
@@ -217,6 +185,20 @@ const listingSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+
+  reviews: [{
+    user: {
+      name: String,
+      profilePicture: String
+    },
+    comment: String,
+    rating: {
+      type: Number,
+      min: 0,
+      max: 5
+    }
+  }],
+
   ratings: {
     average: {
       type: Number,
@@ -239,10 +221,6 @@ const listingSchema = new mongoose.Schema({
       default: 0
     }
   },
-  views: {
-    type: Number,
-    default: 0
-  },
   sortOrder: {
     type: Number,
     default: 0
@@ -251,11 +229,6 @@ const listingSchema = new mongoose.Schema({
     metaTitle: String,
     metaDescription: String,
     keywords: [String]
-  },
-  cancellationPolicy: {
-    type: String,
-    enum: ['flexible', 'moderate', 'strict'],
-    default: 'moderate'
   },
   popular: {
     type: Boolean,

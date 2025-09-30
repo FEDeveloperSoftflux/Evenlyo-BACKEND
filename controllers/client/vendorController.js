@@ -20,15 +20,16 @@ const getVendorFullDetails = async (req, res) => {
     const businessDetails = {
       email: vendor.businessEmail,
       phone: vendor.businessPhone,
-      rating: vendor.rating?.average || 0,
+      rating: parseFloat((vendor.rating?.average || 0).toFixed(1)),
       businessName: vendor.businessName,
-      location: vendor.businessLocation,
+      location: vendor.businessAddress,
       employees: vendor.teamSize || null,
       description: typeof vendor.businessDescription === 'object' ? (vendor.businessDescription.en || vendor.businessDescription.nl || '') : vendor.businessDescription,
       whyChooseUs: vendor.whyChooseUs || '',
       reviews: vendor.rating?.totalReviews || 0,
       bannerImage: vendor.bannerImage || '',
-      profileImage: vendor.userId?.profileImage || ''
+      profileImage: vendor.userId?.profileImage || '',
+      buisnessLogo: vendor.businessLogo || ''
     };
 
     // User details
@@ -37,68 +38,80 @@ const getVendorFullDetails = async (req, res) => {
     };
 
     // All listings for this vendor (similar to filter API)
-    const listings = await Listing.find({ vendor: vendorId, status: 'active', isActive: true })
-      .select('title description pricing location ratings media.featuredImage category subCategory')
-      .populate('category', 'name')
-      .populate('subCategory', 'name')
-      .lean();
-    const formattedListings = listings.map(listing => {
-      let pricingPerEvent = null;
-      if (listing.pricing?.perEvent) {
-        pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perEvent}`;
-      } else if (listing.pricing?.perDay) {
-        pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perDay}/day`;
-      } else if (listing.pricing?.perHour) {
-        pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perHour}/hour`;
-      } else {
-        pricingPerEvent = 'Quote on request';
-      }
-      return {
-        id: listing._id,
-        title: listing.title,
-        description: listing.description,
-        rating: listing.ratings?.average || 0,
-        ratingCount: listing.ratings?.count || 0,
-        pricingPerEvent,
-        location: listing.location?.city || '',
-        featuredImage: listing.media?.featuredImage,
-        category: listing.category?.name,
-        subCategory: listing.subCategory?.name
-      };
-    });
+const listings = await Listing.find({ vendor: vendorId, status: 'active', isActive: true })
+  .select('title description pricing location ratings images media category subCategory')
+  .populate('category', 'name')
+  .populate('subCategory', 'name')
+  .lean();
 
-    // Popular listings for this vendor
-    const popularListings = await Listing.find({ vendor: vendorId, status: 'active', isActive: true })
-      .sort({ 'bookings.completed': -1, views: -1, 'ratings.average': -1 })
-      .limit(5)
-      .select('title description pricing location ratings media.featuredImage category subCategory')
-      .populate('category', 'name')
-      .populate('subCategory', 'name')
-      .lean();
-    const formattedPopularListings = popularListings.map(listing => {
-      let pricingPerEvent = null;
-      if (listing.pricing?.perEvent) {
-        pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perEvent}`;
-      } else if (listing.pricing?.perDay) {
-        pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perDay}/day`;
-      } else if (listing.pricing?.perHour) {
-        pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perHour}/hour`;
-      } else {
-        pricingPerEvent = 'Quote on request';
-      }
-      return {
-        id: listing._id,
-        title: listing.title,
-        description: listing.description,
-        rating: listing.ratings?.average || 0,
-        ratingCount: listing.ratings?.count || 0,
-        pricingPerEvent,
-        location: listing.location?.city || '',
-        featuredImage: listing.media?.featuredImage,
-        category: listing.category?.name,
-        subCategory: listing.subCategory?.name
-      };
-    });
+const formattedListings = listings.map(listing => {
+  let pricingPerEvent = null;
+  if (listing.pricing?.type === 'PerEvent') {
+    pricingPerEvent = `€${listing.pricing.amount}`;
+  } else if (listing.pricing?.type === 'PerDay') {
+    pricingPerEvent = `€${listing.pricing.amount}/day`;
+  } else if (listing.pricing?.type === 'PerHour') {
+    pricingPerEvent = `€${listing.pricing.amount}/hour`;
+  } else if (listing.pricing?.type === 'Fixed') {
+    pricingPerEvent = `€${listing.pricing.amount} (fixed)`;
+  } else {
+    pricingPerEvent = 'Quote on request';
+  }
+  
+  return {
+    id: listing._id,
+    title: listing.title,
+    description: listing.description,
+    rating: listing.ratings?.average || 0,
+    ratingCount: listing.ratings?.count || 0,
+    pricingPerEvent,
+    location: listing.location?.fullAddress || '',
+    featuredImage: listing.images?.[0] || null,
+    images: listing.images || [],
+    gallery: listing.media?.gallery || [],
+    category: listing.category?.name,
+    subCategory: listing.subCategory?.name
+  };
+});
+
+// Popular listings for this vendor
+const popularListings = await Listing.find({ vendor: vendorId, status: 'active', isActive: true })
+  .sort({ 'bookings.completed': -1, 'ratings.average': -1 })
+  .limit(5)
+  .select('title description pricing location ratings images media category subCategory')
+  .populate('category', 'name')
+  .populate('subCategory', 'name')
+  .lean();
+
+const formattedPopularListings = popularListings.map(listing => {
+  let pricingPerEvent = null;
+  if (listing.pricing?.type === 'PerEvent') {
+    pricingPerEvent = `€${listing.pricing.amount}`;
+  } else if (listing.pricing?.type === 'PerDay') {
+    pricingPerEvent = `€${listing.pricing.amount}/day`;
+  } else if (listing.pricing?.type === 'PerHour') {
+    pricingPerEvent = `€${listing.pricing.amount}/hour`;
+  } else if (listing.pricing?.type === 'Fixed') {
+    pricingPerEvent = `€${listing.pricing.amount} (fixed)`;
+  } else {
+    pricingPerEvent = 'Quote on request';
+  }
+  
+  return {
+    id: listing._id,
+    title: listing.title,
+    description: listing.description,
+    rating: listing.ratings?.average || 0,
+    ratingCount: listing.ratings?.count || 0,
+    pricingPerEvent,
+    location: listing.location?.fullAddress || '',
+    featuredImage: listing.images?.[0] || null,
+    images: listing.images || [],
+    gallery: listing.media?.gallery || [],
+    category: listing.category?.name,
+    subCategory: listing.subCategory?.name
+  };
+});
 
     res.json({
       success: true,
@@ -752,7 +765,9 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
     .select(`
       businessName 
       businessEmail
-      businessDescription 
+      businessPhone
+      businessDescription
+      businessLocation 
       businessLogo 
       rating 
       totalBookings 
@@ -760,6 +775,8 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
       contactMeEnabled
       approvalStatus
       createdAt
+      bannerImage
+      businessLogo
     `)
     .sort(sortOptions)
     .skip(skip)
@@ -777,6 +794,8 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
     return {
       _id: vendor._id,
       businessName: vendor.businessName,
+      businessLogo: vendor.businessLogo,
+      businessLocation: vendor.businessLocation,
       rating: {
         stars: Math.round(vendor.rating?.average || 0),
         average: vendor.rating?.average || 0,
@@ -785,6 +804,7 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
       availability: vendor.contactMeEnabled && vendor.approvalStatus === 'approved' ? 'AVAILABLE' : 'UNAVAILABLE',
       whyChooseUs: description.length > 100 ? description.substring(0, 100) + '...' : description,
       businessEmail: vendor.businessEmail,
+      businessPhone: vendor.businessPhone,
       businessDescription: description
     };
   });

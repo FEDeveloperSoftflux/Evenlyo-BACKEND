@@ -479,8 +479,8 @@ const getBookingHistory = asyncHandler(async (req, res) => {
   }
 
   const bookings = await BookingRequest.find(filter)
-    .populate('vendorId', 'businessName businessEmail businessPhone')
-    .populate('listingId', 'title featuredImage pricing')
+    .populate('vendorId', 'businessName businessEmail businessPhone businessLogo')
+    .populate('listingId', 'title pricing images')
     .sort({ createdAt: -1 })
     .limit(limit * 1)
     .skip((page - 1) * limit);
@@ -512,7 +512,9 @@ const getBookingHistory = asyncHandler(async (req, res) => {
       specialRequests: booking.details.specialRequests,
       paymentStatus: booking.paymentStatus,
       rejectionReason: booking.rejectionReason,
-      claimDetails: booking.claimDetails
+      claimDetails: booking.claimDetails,
+      images: booking.images || [],
+      gallery: listing.media?.gallery || [],
     };
 
     return bookingData;
@@ -901,6 +903,26 @@ const cancelBooking = asyncHandler(async (req, res) => {
     });
   }
 
+  // Accept cancellation reason from request body (optional)
+  let reason = req.body && req.body.reason;
+  let notes = {
+    en: 'Booking cancelled by client',
+    nl: 'Boeking geannuleerd door klant'
+  };
+  if (reason) {
+    if (typeof reason === 'object' && (reason.en || reason.nl)) {
+      notes = {
+        en: reason.en || notes.en,
+        nl: reason.nl || notes.nl
+      };
+    } else if (typeof reason === 'string') {
+      notes = {
+        en: reason,
+        nl: reason // Use same for Dutch, can be translated later
+      };
+    }
+  }
+
   booking.status = 'cancelled';
   booking.statusHistory.push({
     status: 'cancelled',
@@ -909,10 +931,7 @@ const cancelBooking = asyncHandler(async (req, res) => {
       userType: 'client',
       name: req.user.firstName + ' ' + req.user.lastName
     },
-    notes: {
-      en: 'Booking cancelled by client',
-      nl: 'Boeking geannuleerd door klant'
-    }
+    notes: notes
   });
   await booking.save();
 

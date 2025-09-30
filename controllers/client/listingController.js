@@ -217,7 +217,7 @@ const getAvailableListings = async (req, res) => {
 const getListingById = async (req, res) => {
   try {
     const listing = await Listing.findById(req.params.id)
-      .populate('vendor', '_id businessName businessLocation businessDescription businessEmail businessPhone businessWebsite gallery userId')
+      .populate('vendor', '_id businessName businessLocation businessDescription businessEmail businessPhone businessWebsite gallery userId businessLogo')
       .populate('category', 'name icon description')
       .populate('subCategory', 'name icon description');
 
@@ -843,7 +843,7 @@ const filterListings = async (req, res) => {
       .sort(sortOptions)
       .skip(skip)
       .limit(parseInt(limit))
-      .select('title description pricing location ratings media.featuredImage');
+      .select('title description pricing location ratings images media.featuredImage');
 
     // Get total count for pagination
     const total = await Listing.countDocuments(query);
@@ -858,7 +858,8 @@ const filterListings = async (req, res) => {
         pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perDay}/day`;
       } else if (listing.pricing.perHour) {
         pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perHour}/hour`;
-      } else {
+      } 
+      else {
         pricingPerEvent = 'Quote on request';
       }
 
@@ -871,7 +872,8 @@ const filterListings = async (req, res) => {
         ratingCount: listing.ratings?.count || 0,
         pricingPerEvent,
         location: `${listing.location.city}${listing.location.region ? ', ' + listing.location.region : ''}`,
-        featuredImage: listing.media?.featuredImage,
+        featuredImage: listing.images?.[0] || null,
+        images: listing.images || [],
         category: listing.category?.name,
         subCategory: listing.subCategory?.name
       };
