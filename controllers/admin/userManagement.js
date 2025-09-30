@@ -2,6 +2,7 @@ const User = require('../../models/User');
 const Vendor = require('../../models/Vendor');
 const Booking = require('../../models/Booking');
 const nodemailer = require('nodemailer');
+const bcrypt = require('bcryptjs');
 
 // --- Admin User Management ---
 const getAllClients = async (req, res) => {
@@ -186,6 +187,204 @@ const getClientDetails = async (req, res) => {
   }
 };
 
+// --- Reset Client Password ---
+const resetClientPassword = async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { newPassword } = req.body;
+
+    // Validate required fields
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password is required and must be at least 8 characters long'
+      });
+    }
+
+    // Find the client
+    const client = await User.findOne({ _id: clientId, userType: 'client' });
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        message: 'Client not found'
+      });
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update the client's password
+    client.password = hashedPassword;
+    await client.save();
+
+    // Send notification email to the client
+    try {
+      const htmlMessage = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+          <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #333; margin: 0;">Evenlyo</h1>
+              <p style="color: #666; margin: 5px 0;">Event Management Platform</p>
+            </div>
+
+            <h2 style="color: #333; margin-bottom: 20px;">Password Reset Notification</h2>
+
+            <p style="color: #666; margin-bottom: 20px;">Hello ${client.firstName} ${client.lastName},</p>
+
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <p style="margin: 0;">Your password has been reset by an administrator.</p>
+              <p style="margin: 10px 0 0 0;">If you did not request this change, please contact support immediately.</p>
+            </div>
+
+            <p style="color: #666; font-size: 14px; margin-top: 30px; text-align: center;">
+              Best regards,<br>
+              Evenlyo Admin Team
+            </p>
+
+            <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+              <p style="color: #999; font-size: 12px;">
+                This is an automated message. Please do not reply to this email.
+              </p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: client.email,
+        subject: '[Evenlyo] Password Reset Notification',
+        html: htmlMessage,
+        text: `Hello ${client.firstName} ${client.lastName},\n\nYour password has been reset by an administrator.\n\nIf you did not request this change, please contact support immediately.\n\nBest regards,\nEvenlyo Admin Team`
+      };
+
+      await transporter.sendMail(mailOptions);
+    } catch (emailError) {
+      console.error('Failed to send password reset notification email:', emailError);
+      // Don't fail the password reset if email fails
+    }
+
+    res.json({
+      success: true,
+      message: 'Client password reset successfully',
+      data: {
+        clientId: client._id,
+        clientName: `${client.firstName} ${client.lastName}`,
+        email: client.email
+      }
+    });
+
+  } catch (error) {
+    console.error('Reset client password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reset client password',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// --- Reset Vendor Password ---
+const resetVendorPassword = async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    const { newPassword } = req.body;
+
+    // Validate required fields
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password is required and must be at least 8 characters long'
+      });
+    }
+
+    // Find the vendor
+    const vendor = await User.findOne({ _id: vendorId, userType: 'vendor' });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+
+    // Get vendor profile for business name
+    const vendorProfile = await Vendor.findOne({ userId: vendorId });
+    const vendorName = vendorProfile?.businessName || `${vendor.firstName} ${vendor.lastName}`;
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update the vendor's password
+    vendor.password = hashedPassword;
+    await vendor.save();
+
+    // Send notification email to the vendor
+    try {
+      const htmlMessage = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+          <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #333; margin: 0;">Evenlyo</h1>
+              <p style="color: #666; margin: 5px 0;">Event Management Platform</p>
+            </div>
+
+            <h2 style="color: #333; margin-bottom: 20px;">Password Reset Notification</h2>
+
+            <p style="color: #666; margin-bottom: 20px;">Hello ${vendorName},</p>
+
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <p style="margin: 0;">Your password has been reset by an administrator.</p>
+              <p style="margin: 10px 0 0 0;">If you did not request this change, please contact support immediately.</p>
+            </div>
+
+            <p style="color: #666; font-size: 14px; margin-top: 30px; text-align: center;">
+              Best regards,<br>
+              Evenlyo Admin Team
+            </p>
+
+            <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+              <p style="color: #999; font-size: 12px;">
+                This is an automated message. Please do not reply to this email.
+              </p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: vendor.email,
+        subject: '[Evenlyo Partner] Password Reset Notification',
+        html: htmlMessage,
+        text: `Hello ${vendorName},\n\nYour password has been reset by an administrator.\n\nIf you did not request this change, please contact support immediately.\n\nBest regards,\nEvenlyo Admin Team`
+      };
+
+      await transporter.sendMail(mailOptions);
+    } catch (emailError) {
+      console.error('Failed to send password reset notification email:', emailError);
+      // Don't fail the password reset if email fails
+    }
+
+    res.json({
+      success: true,
+      message: 'Vendor password reset successfully',
+      data: {
+        vendorId: vendor._id,
+        vendorName: vendorName,
+        email: vendor.email
+      }
+    });
+
+  } catch (error) {
+    console.error('Reset vendor password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reset vendor password',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 // --- Admin Vendor Management ---
 const getAllVendors = async (req, res) => {
   try {
@@ -225,6 +424,7 @@ const getAllVendors = async (req, res) => {
         
         return {
           id: vendorUser._id,
+          vendorId: vendorProfile?._id || null,
           vendorName: businessName || `${vendorUser.firstName || ''} ${vendorUser.lastName || ''}`.trim(),
           email: vendorUser.email,
           address: vendorUser.address || 'Not provided',
@@ -711,10 +911,12 @@ module.exports = {
   getAllClients,
   toggleClientStatus,
   getClientDetails,
+  resetClientPassword,
   getAllVendors,
   toggleVendorStatus,
   toggleVendorApproval,
   getVendorDetails,
+  resetVendorPassword,
   sendEmailToClients,
   sendEmailToVendors
 };

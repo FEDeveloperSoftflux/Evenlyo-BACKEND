@@ -29,6 +29,14 @@ router.patch('/clients/:clientId/status',
   userManagementController.toggleClientStatus
 );
 
+// Reset client password
+router.patch('/clients/:clientId/reset-password', 
+  requireAuth,
+  requireAdmin,
+  requireActiveAdmin,
+  userManagementController.resetClientPassword
+);
+
 // --- Vendor Management Routes ---
 
 // Get all vendors with stats and table data
@@ -61,6 +69,14 @@ router.patch('/vendors/:vendorId/approval',
   requireAdmin,
   requireActiveAdmin,
   userManagementController.toggleVendorApproval
+);
+
+// Reset vendor password
+router.patch('/vendors/:vendorId/reset-password', 
+  requireAuth,
+  requireAdmin,
+  requireActiveAdmin,
+  userManagementController.resetVendorPassword
 );
 
 // --- Email Management Routes ---

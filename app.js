@@ -153,7 +153,7 @@ app.use('/api/admin/plans', require('./routes/admin/plans'));
 app.use('/api/admin/designations', require('./routes/admin/adminDesignations'));
 app.use('/api/admin/employees', require('./routes/admin/adminEmployees'));
 app.use('/api/admin/support', require('./routes/admin/support'));
-app.use('/api/admin/settings', require('./routes/admin/settings'));
+app.use('/api/admin/settings', require('./routes/admin/settinsgs'));
 app.use('/api/admin/blogs', require('./routes/admin/blog'));
 
 // Chat routes
