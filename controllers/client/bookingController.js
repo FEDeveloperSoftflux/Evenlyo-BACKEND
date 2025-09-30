@@ -514,7 +514,6 @@ const getBookingHistory = asyncHandler(async (req, res) => {
       rejectionReason: booking.rejectionReason,
       claimDetails: booking.claimDetails,
       images: booking.images || [],
-      gallery: listing.media?.gallery || [],
     };
 
     return bookingData;

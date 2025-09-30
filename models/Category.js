@@ -18,7 +18,16 @@ const categorySchema = new mongoose.Schema({
     }
   },
 
-  icon: String,
+  icon: {
+    type: String,
+    validate: {
+      validator: function(v) {
+        if (!v) return true; // Allow empty/null values
+        return /^https:\/\/res\.cloudinary\.com\//.test(v);
+      },
+      message: 'Icon must be a valid Cloudinary URL'
+    }
+  },
   description: {
     en: {
       type: String,
