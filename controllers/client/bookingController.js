@@ -108,6 +108,26 @@ const reviewBooking = asyncHandler(async (req, res) => {
     await vendor.save();
   }
 
+    // Update listing's average rating, total reviews, and add review to reviews array
+    const listing = await Listing.findById(booking.listingId);
+    if (listing) {
+      const prevTotal = (listing.rating?.average || 0) * (listing.rating?.totalReviews || 0);
+      const newCount = (listing.rating?.totalReviews || 0) + 1;
+      const newAverage = (prevTotal + rating) / newCount;
+      listing.rating = listing.rating || {};
+      listing.rating.average = newAverage;
+      listing.rating.totalReviews = newCount;
+      // Add review to listing's reviews array
+      listing.reviews = listing.reviews || [];
+      listing.reviews.push({
+        bookingId: booking._id,
+        clientId: booking.userId,
+        rating: rating,
+        review: review ? toMultilingualText(review) : undefined
+      });
+      await listing.save();
+    }
+
   res.json({
     success: true,
     message: 'Review submitted successfully.',

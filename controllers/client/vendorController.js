@@ -10,10 +10,37 @@ const getVendorFullDetails = async (req, res) => {
 
     // Fetch vendor with user details
     const vendor = await Vendor.findById(vendorId)
-      .populate('userId', 'firstName lastName profileImage')
+      .populate('userId', 'firstName lastName')
       .lean();
     if (!vendor) {
       return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+    
+    // Fetch reviews with client details
+    let vendorReviews = [];
+    if (Array.isArray(vendor.reviews) && vendor.reviews.length > 0) {
+      // Get all clientIds from reviews
+      const clientIds = vendor.reviews.map(r => r.clientId).filter(Boolean);
+      // Fetch client details
+      const clients = await User.find({ _id: { $in: clientIds } }).select('firstName lastName profileImage').lean();
+      const clientMap = {};
+      clients.forEach(c => { clientMap[c._id.toString()] = c; });
+      vendorReviews = vendor.reviews.map(r => {
+        const client = clientMap[r.clientId?.toString()] || {};
+        return {
+          rating: r.rating,
+          review: r.review,
+          bookingId: r.bookingId,
+          createdAt: r.createdAt,
+          client: {
+            _id: r.clientId,
+            name: client.firstName && client.lastName ? `${client.firstName} ${client.lastName}` : '',
+            firstName: client.firstName,
+            lastName: client.lastName,
+            profileImage: client.profileImage
+          }
+        };
+      });
     }
 
     // Business details
@@ -119,7 +146,9 @@ const formattedPopularListings = popularListings.map(listing => {
         businessDetails,
         userDetails,
         listings: formattedListings,
-        popularListings: formattedPopularListings
+        popularListings: formattedPopularListings,
+        reviews: vendorReviews,
+        rating: vendor.rating || {}
       }
     });
   } catch (error) {

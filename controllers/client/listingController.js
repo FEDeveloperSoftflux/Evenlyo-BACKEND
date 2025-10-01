@@ -217,9 +217,10 @@ const getAvailableListings = async (req, res) => {
 const getListingById = async (req, res) => {
   try {
     const listing = await Listing.findById(req.params.id)
-      .populate('vendor', '_id businessName businessLocation businessDescription businessEmail businessPhone businessWebsite gallery userId businessLogo')
+      .populate('vendor', '_id businessName businessLocation businessDescription businessEmail businessPhone businessWebsite  userId businessLogo')
       .populate('category', 'name icon description')
-      .populate('subCategory', 'name icon description');
+      .populate('subCategory', 'name icon description')
+      .populate('reviews.clientId', 'firstName lastName profileImage');
 
     if (!listing || !listing.isActive || listing.status !== 'active') {
       return res.status(404).json({

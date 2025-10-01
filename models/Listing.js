@@ -191,30 +191,30 @@ const listingSchema = new mongoose.Schema({
   },
 
   reviews: [{
-    user: {
-      name: String,
-      profilePicture: String
+    bookingId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Booking'
     },
-    comment: String,
+    clientId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
     rating: {
       type: Number,
-      min: 0,
-      max: 5
+      min: 1,
+      max: 5,
+      required: true
+    },
+    review: {
+      en: String,
+      nl: String
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
     }
   }],
 
-  ratings: {
-    average: {
-      type: Number,
-      default: 0,
-      min: 0,
-      max: 5
-    },
-    count: {
-      type: Number,
-      default: 0
-    }
-  },
   bookings: {
     total: {
       type: Number,
@@ -228,11 +228,6 @@ const listingSchema = new mongoose.Schema({
   sortOrder: {
     type: Number,
     default: 0
-  },
-  seo: {
-    metaTitle: String,
-    metaDescription: String,
-    keywords: [String]
   },
   popular: {
     type: Boolean,
@@ -322,9 +317,9 @@ listingSchema.virtual('fullLocation').get(function() {
 
 // Pre-save middleware
 listingSchema.pre('save', function(next) {
-  // Update the sort order based on ratings and bookings if not manually set
-  if (this.isModified('ratings') || this.isModified('bookings')) {
-    this.sortOrder = (this.ratings.average * 20) + (this.bookings.completed * 0.1);
+  // Update the sort order based on rating and bookings if not manually set
+  if (this.isModified('rating') || this.isModified('bookings')) {
+    this.sortOrder = (this.rating.average * 20) + (this.bookings.completed * 0.1);
   }
 
   // Automatically set security fee based on service type
@@ -352,7 +347,7 @@ listingSchema.index({ category: 1, subCategory: 1, isActive: 1 });
 listingSchema.index({ 'location.city': 1, isActive: 1 });
 listingSchema.index({ status: 1, isActive: 1, isFeatured: -1, sortOrder: -1 });
 listingSchema.index({ tags: 1 });
-listingSchema.index({ 'ratings.average': -1, 'bookings.completed': -1 });
+listingSchema.index({ 'rating.average': -1, 'bookings.completed': -1 });
 listingSchema.index({ 'title.en': 'text', 'title.nl': 'text', 'description.en': 'text', 'description.nl': 'text', tags: 'text' });
 
 // Compound index for category-based filtering
