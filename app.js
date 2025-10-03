@@ -127,6 +127,7 @@ app.use('/api/support', require('./routes/client/support'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/vendor', require('./routes/client/vendors'));
 app.use('/api/items', require('./routes/client/Items'));
+app.use('/api/client/purchases', require('./routes/client/purchases'));
 
 // Vendor routes
 app.use('/api/vendor/dashboard', require('./routes/vendor/dashboard'));
