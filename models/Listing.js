@@ -38,8 +38,7 @@ const listingSchema = new mongoose.Schema({
   },
   pricing: {
     type: {
-      en: { type: String, trim: true  },
-      nl: { type: String, trim: true  }
+      type: String,
     },
     amount: {
       type: Number,
@@ -214,10 +213,10 @@ listingSchema.pre('save', function(next) {
   }
 
   // Automatically set security fee based on service type
-  if (this.isModified('serviceType') || this.isModified('pricing.securityFee') || this.isNew) {
-    if (this.serviceType === 'human') {
+  if (this.isModified('serviceDetails.serviceType') || this.isModified('pricing.securityFee') || this.isNew) {
+    if (this.serviceDetails?.serviceType === 'human') {
       this.pricing.securityFee = 0;
-    } else if (this.serviceType === 'non_human' && (!this.pricing.securityFee || this.pricing.securityFee === 0)) {
+    } else if (this.serviceDetails?.serviceType === 'non_human' && (!this.pricing.securityFee || this.pricing.securityFee === 0)) {
       // Set a default security fee for non-human services if not already set
       this.pricing.securityFee = 50; // Default €50 security fee for equipment/non-human services
     }
@@ -227,7 +226,9 @@ listingSchema.pre('save', function(next) {
   const amount = this.pricing?.amount || 0;
   const extratimeCost = this.pricing?.extratimeCost || 0;
   const securityFee = this.pricing?.securityFee || 0;
-  this.pricing.totalPrice = amount + extratimeCost + securityFee;
+  const pricePerKm = this.pricing?.pricePerKm || 0;
+  const escrowFee = this.pricing?.escrowFee || 0;
+  this.pricing.totalPrice = amount + extratimeCost + securityFee + escrowFee;
 
   next();
 });

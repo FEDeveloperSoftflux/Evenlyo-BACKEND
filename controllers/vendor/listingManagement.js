@@ -211,11 +211,12 @@ const createListing = async (req, res) => {
         }
 
         // Automatically set security fee based on service type
-        if (listingData.serviceType === 'human') {
+        const serviceType = listingData.serviceDetails?.serviceType || listingData.serviceType;
+        if (serviceType === 'human') {
             if (listingData.pricing) {
                 listingData.pricing.securityFee = 0;
             }
-        } else if (listingData.serviceType === 'non_human') {
+        } else if (serviceType === 'non_human') {
             if (listingData.pricing && (!listingData.pricing.securityFee || listingData.pricing.securityFee === 0)) {
                 listingData.pricing.securityFee = 50; // Default security fee for equipment
             }
@@ -352,23 +353,40 @@ const updateListing = async (req, res) => {
 			}
 		}
 
-		// --- Ensure new pricing structure ---
+		// --- Merge pricing updates with existing pricing ---
 		if (updateData.pricing) {
-			const { type, amount, extratimeCost, securityFee } = updateData.pricing;
-			if (!type || amount === undefined) {
+			const { type, amount, extratimeCost, securityFee, pricePerKm, escrowFee } = updateData.pricing;
+			
+			// Get existing pricing to preserve unmodified fields
+			const existingPricing = existingListing.pricing || {};
+			
+			// Merge existing pricing with updates, only updating provided fields
+			updateData.pricing = {
+				type: type !== undefined ? type : existingPricing.type,
+				amount: amount !== undefined ? amount : existingPricing.amount,
+				extratimeCost: extratimeCost !== undefined ? extratimeCost : existingPricing.extratimeCost,
+				securityFee: securityFee !== undefined ? securityFee : existingPricing.securityFee,
+				pricePerKm: pricePerKm !== undefined ? pricePerKm : existingPricing.pricePerKm,
+				escrowFee: escrowFee !== undefined ? escrowFee : existingPricing.escrowFee
+			};
+			
+			// Validate required fields after merging
+			if (!updateData.pricing.type || updateData.pricing.amount === undefined) {
 				return res.status(400).json({
 					success: false,
 					message: 'Pricing type and amount are required.'
 				});
 			}
-			updateData.pricing = {
-				type,
-				amount,
-				extratimeCost: extratimeCost !== undefined ? extratimeCost : 0,
-				securityFee: securityFee !== undefined ? securityFee : 0
-			};
+			
+			// Calculate totalPrice after merging pricing updates
+			const finalAmount = updateData.pricing.amount || 0;
+			const finalExtratimeCost = updateData.pricing.extratimeCost || 0;
+			const finalSecurityFee = updateData.pricing.securityFee || 0;
+			const finalEscrowFee = updateData.pricing.escrowFee || 0;
+			updateData.pricing.totalPrice = finalAmount + finalExtratimeCost + finalSecurityFee + finalEscrowFee;
 		}
 
+	// Update the listing and trigger middleware
 	const updatedListing = await Listing.findByIdAndUpdate(
 	  id,
 	  updateData,
