@@ -28,8 +28,8 @@ const vendorSchema = new mongoose.Schema({
     min: 1
   },
   businessLocation: {
-    en: { type: String, trim: true },
-    nl: { type: String, trim: true }
+    type: String,
+    trim: true
   },
   businessLogo: String,
   bannerImage: String,

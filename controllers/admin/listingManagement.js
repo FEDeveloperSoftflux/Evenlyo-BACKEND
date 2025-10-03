@@ -3,8 +3,6 @@ const SubCategory = require('../../models/SubCategory');
 const Listing = require('../../models/Listing');
 const Booking = require('../../models/Booking');
 
-
-
 const getAllListingManagementData = async (req, res) => {
   try {
     // Stats Card
