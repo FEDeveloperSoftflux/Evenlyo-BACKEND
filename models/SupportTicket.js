@@ -18,14 +18,12 @@ const supportTicketSchema = new mongoose.Schema({
     required: true
   },
   issueRelatedto: {
-    type: String,
-    required: true
+    en: { type: String, trim: true, required: true },
+    nl: { type: String, trim: true, required: true },
   },
   details: {
-    type: String,
-    required: true,
-    trim: true,
-    maxlength: 2000
+    en: { type: String, trim: true, required: true, maxlength: 2000 },
+    nl: { type: String, trim: true, required: true, maxlength: 2000 }
   },
   status: {
     type: String,

@@ -12,7 +12,7 @@ const userSchema = new mongoose.Schema({
     },
     trim: true
   },
-  passportNumber: {
+  passportDetails: {
     type: String,
     required: function() {
       return this.userType === 'vendor' && this.accountType === 'personal';
@@ -56,7 +56,7 @@ const userSchema = new mongoose.Schema({
       return !this.provider || this.provider === 'email';
     },
     minlength: 8,
-    default: null // Default to null for social logins
+    default: '' // Default to null for social logins
   },
   contactNumber: {
     type: String,
@@ -70,17 +70,31 @@ const userSchema = new mongoose.Schema({
     enum: ['email', 'google'],
     default: 'email'
   },
-  address: {
-    city: String,
-    postalCode: String,
-    fullAddress: String
+  googleId: {
+    type: String,
+    sparse: true // Allow multiple null values
   },
+  accountType: {
+    type: String,
+    enum: ['personal', 'business'],
+    required: function() {
+      return this.userType === 'vendor';
+    }
+  },
+address: {
+  type: String,
+  default: '',
+  trim: true
+},
   userType: {
     type: String,
     enum: ['client', 'vendor', 'admin'],
     required: true
   },
-  profileImage: String,
+  profileImage: {
+    type: String,
+    default: ''
+  },
   isActive: {
     type: Boolean,
     default: true

@@ -13,9 +13,8 @@ const commentSchema = new mongoose.Schema({
     lowercase: true
   },
   content: {
-    type: String,
-    required: true,
-    trim: true
+    en: { type: String, trim: true, required: true, maxlength: 1000 },
+    nl: { type: String, trim: true, required: true, maxlength: 1000 }
   },
   createdAt: {
     type: Date,
@@ -29,20 +28,16 @@ const commentSchema = new mongoose.Schema({
 
 const blogSchema = new mongoose.Schema({
   title: {
-    type: String,
-    required: true,
-    trim: true,
-    maxlength: 200
+    en: { type: String, trim: true, required: true, maxlength: 1000 },
+    nl: { type: String, trim: true, required: true, maxlength: 1000 }
   },
   description: {
-    type: String,
-    required: true,
-    trim: true,
-    maxlength: 500
+    en: { type: String, trim: true, required: true, maxlength: 5000 },
+    nl: { type: String, trim: true, required: true, maxlength: 5000 }
   },
   content: {
-    type: String,
-    required: true
+    en: { type: String, trim: true, required: true },
+    nl: { type: String, trim: true, required: true }
   },
   author: {
     type: String,

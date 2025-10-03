@@ -424,11 +424,11 @@ const getAllVendors = async (req, res) => {
         
         return {
           id: vendorUser._id,
-          vendorId: vendorProfile?._id || null,
+          vendorId: vendorProfile?._id || '',
           vendorName: businessName || `${vendorUser.firstName || ''} ${vendorUser.lastName || ''}`.trim(),
           email: vendorUser.email,
-          address: vendorUser.address || 'Not provided',
-          contactNumber: vendorUser.contactNumber || 'Not provided',
+          address: vendorUser.address || '',
+          contactNumber: vendorUser.contactNumber || '',
           totalOrders: totalOrders,
           status: vendorUser.isActive ? 'Active' : 'Blocked',
           approvalStatus: approvalStatus,

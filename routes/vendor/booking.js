@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { getVendorBookingAnalytics } = require('../../controllers/vendor/bookingAnalytics');
-const { requireAuth, requireVendor, requireApprovedVendor } = require('../../middleware/authMiddleware');
+const { requireAuth, requireVendor } = require('../../middleware/authMiddleware');
 const {acceptBooking, rejectBooking} = require('../../controllers/vendor/bookingAnalytics')
 
 // GET /api/vendor/bookings/analytics
-router.get('/analytics', requireAuth, requireVendor, requireApprovedVendor, getVendorBookingAnalytics);
+router.get('/analytics', requireAuth, requireVendor, getVendorBookingAnalytics);
 
 router.post('/:id/accept', requireAuth, requireVendor, acceptBooking);
 

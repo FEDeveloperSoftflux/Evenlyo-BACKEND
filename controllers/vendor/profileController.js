@@ -26,8 +26,8 @@ const getProfile = async (req, res) => {
         businessDescription: vendor.businessDescription,
         teamType: vendor.teamType,
         teamSize: vendor.teamSize,
-        kvkNumber: vendor.userId.kvkNumber || null
-      };
+        kvkNumber: vendor.userId.kvkNumber || ''
+      }
     } else {
       profile = {
         accountType: 'personal',
@@ -37,7 +37,7 @@ const getProfile = async (req, res) => {
         contactNumber: vendor.userId.contactNumber,
         address: vendor.userId.address,
         profileImage: vendor.userId.profileImage,
-        passportNumber: vendor.userId.passportNumber || null
+        passportNumber: vendor.userId.passportNumber || ''
       };
     }
     return res.json(profile);

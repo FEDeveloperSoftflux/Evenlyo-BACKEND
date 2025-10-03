@@ -64,8 +64,6 @@ const getVendorBookingAnalytics = async (req, res) => {
 		res.status(500).json({ success: false, message: 'Server error', error: err.message });
 	}
 };
-
-
 // @desc    Accept booking request
 // @route   POST /api/booking/:id/accept
 // @access  Private (Vendor)

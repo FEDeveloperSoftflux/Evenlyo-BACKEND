@@ -7,8 +7,8 @@ const vendorSchema = new mongoose.Schema({
     required: true
   },
   businessName: {
-    type: String,
-    required: false
+    en: { type: String, trim: true },
+    nl: { type: String, trim: true }
   },
   businessEmail: {
     type: String
@@ -16,35 +16,30 @@ const vendorSchema = new mongoose.Schema({
   businessPhone: {
     type: String
   },
-  businessAddress: {
-    type: String
-  },
   businessWebsite: {
     type: String
   },
   teamType: {
-    type: String,
+    en: { type: String, trim: true },
+    nl: { type: String, trim: true }
   },
   teamSize: {
-    type: String,
+    type: Number,
+    min: 1
   },
-  businessLocation: String,
+  businessLocation: {
+    en: { type: String, trim: true },
+    nl: { type: String, trim: true }
+  },
   businessLogo: String,
   bannerImage: String,
   whyChooseUs: {
-    type: String,
-    trim: true,
-    default: ''
+    en: { type: String, trim: true, default: '' },
+    nl: { type: String, trim: true, default: '' }
   },
   businessDescription: {
-    en: {
-      type: String,
-      trim: true
-    },
-    nl: {
-      type: String,
-      trim: true
-    }
+    en: { type: String, trim: true },
+    nl: { type: String, trim: true }
   },
   mainCategories: [{
     type: mongoose.Schema.Types.ObjectId,
@@ -54,11 +49,6 @@ const vendorSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'SubCategory'
   }],
-  gallery: {
-    companyIcon: String,
-    workImages: [String],
-    workVideo: String
-  },
   rating: {
     average: {
       type: Number,
@@ -87,8 +77,8 @@ const vendorSchema = new mongoose.Schema({
       required: true
     },
     review: {
-      en: String,
-      nl: String
+      en: { type: String, trim: true },
+      nl: { type: String, trim: true }
     },
     createdAt: {
       type: Date,
@@ -107,16 +97,27 @@ const vendorSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  approvalStatus: {
-    type: String,
-    enum: ['pending', 'approved', 'rejected'],
-    default: 'pending'
-  },
-  rejectionReason: String,
-
   contactMeEnabled: {
     type: Boolean,
     default: true
+  },
+  passportDetails: {
+    type: String,
+    required: function () {
+      return this.userType === 'vendor' && this.accountType === 'personal';
+    },
+    trim: true
+  },
+  kvkNumber: {
+    type: String,
+    required: function () {
+      return this.userType === 'vendor' && this.accountType === 'business';
+    },
+    trim: true
+  },
+  accountType: {
+    type: String,
+    enum: ['personal', 'business'],
   }
 }, { timestamps: true });
 

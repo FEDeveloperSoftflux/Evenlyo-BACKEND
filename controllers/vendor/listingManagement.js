@@ -1,11 +1,19 @@
 const Listing = require('../../models/Listing');
 const Booking = require('../../models/Booking');
+const { toMultilingualText } = require('../../utils/textUtils');
 
 
 const toggleListingStatus = async (req, res) => {
 	try {
-		const vendorId = req.vendor._id;
+		const vendorId = req.vendor?._id || req.user?._id || req.user?.vendorId || req.user?.id;
 		const listingId = req.params.id;
+
+		if (!vendorId) {
+			return res.status(400).json({ 
+				success: false, 
+				message: 'Vendor not found in request.' 
+			});
+		}
 
 		// Find the listing and ensure it belongs to the vendor
 		const listing = await Listing.findOne({ _id: listingId, vendor: vendorId });
@@ -33,7 +41,14 @@ const toggleListingStatus = async (req, res) => {
 // GET /api/vendor/listings/overview
 const getVendorListingsOverview = async (req, res) => {
 	try {
-		const vendorId = req.vendor._id;
+		const vendorId = req.vendor?._id || req.user?._id || req.user?.vendorId || req.user?.id;
+
+		if (!vendorId) {
+			return res.status(400).json({ 
+				success: false, 
+				message: 'Vendor not found in request.' 
+			});
+		}
 
 		// Get all listings for this vendor
 		const listings = await Listing.find({ vendor: vendorId })
@@ -103,18 +118,46 @@ const getVendorListingsOverview = async (req, res) => {
 // ...existing code...
 const createListing = async (req, res) => {
     try {
-
         const listingData = req.body;
 
-        // Ensure title, subtitle, and description are strings (not objects)
-        if (typeof listingData.title === 'object' && listingData.title !== null) {
-            listingData.title = listingData.title.en || listingData.title.nl || '';
+        // Validate required fields before processing
+        if (!listingData.title || (typeof listingData.title === 'string' && !listingData.title.trim())) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation error',
+                errors: ['Title is required']
+            });
         }
-        if (typeof listingData.subtitle === 'object' && listingData.subtitle !== null) {
-            listingData.subtitle = listingData.subtitle.en || listingData.subtitle.nl || '';
+
+        if (!listingData.description || (typeof listingData.description === 'string' && !listingData.description.trim())) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation error',
+                errors: ['Description is required']
+            });
         }
-        if (typeof listingData.description === 'object' && listingData.description !== null) {
-            listingData.description = listingData.description.en || listingData.description.nl || '';
+
+        // Convert text fields to multilingual format using toMultilingualText
+        listingData.title = toMultilingualText(listingData.title);
+        listingData.description = toMultilingualText(listingData.description);
+        
+        // Handle optional fields
+        if (listingData.subtitle) {
+            listingData.subtitle = toMultilingualText(listingData.subtitle);
+        }
+
+        // Set vendor ID from authenticated user
+        const vendorId = req.vendor?._id || req.user?._id || req.user?.vendorId || req.user?.id;
+        if (!vendorId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vendor not found in request.'
+            });
+        }
+
+        // If vendor is not set in the listing data, set it from the authenticated user
+        if (!listingData.vendor) {
+            listingData.vendor = vendorId;
         }
 
         // Handle images array
@@ -128,24 +171,43 @@ const createListing = async (req, res) => {
             listingData.images = listingData.media.gallery.filter(img => typeof img === 'string' && img.length > 0);
         }
 
-        // Handle location coordinates
+        // Handle location coordinates - support both lat/lng and latitude/longitude formats
         if (listingData.location && listingData.location.coordinates) {
-            const { latitude, longitude } = listingData.location.coordinates;
-            if (latitude !== undefined && (latitude < -90 || latitude > 90)) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid latitude: must be between -90 and 90'
-                });
+            const coords = listingData.location.coordinates;
+            
+            // Extract latitude and longitude, handling both formats
+            let latitude = coords.latitude !== undefined ? coords.latitude : coords.lat;
+            let longitude = coords.longitude !== undefined ? coords.longitude : coords.lng;
+            
+            // Validate latitude
+            if (latitude !== undefined) {
+                latitude = parseFloat(latitude);
+                if (isNaN(latitude) || latitude < -90 || latitude > 90) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Invalid latitude: must be a number between -90 and 90'
+                    });
+                }
             }
-            if (longitude !== undefined && (longitude < -180 || longitude > 180)) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid longitude: must be between -180 and 180'
-                });
+            
+            // Validate longitude
+            if (longitude !== undefined) {
+                longitude = parseFloat(longitude);
+                if (isNaN(longitude) || longitude < -180 || longitude > 180) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Invalid longitude: must be a number between -180 and 180'
+                    });
+                }
             }
-            // Ensure they are numbers
-            if (latitude !== undefined) listingData.location.coordinates.latitude = parseFloat(latitude);
-            if (longitude !== undefined) listingData.location.coordinates.longitude = parseFloat(longitude);
+            
+            // Set the coordinates in the correct format for the model
+            if (latitude !== undefined && longitude !== undefined) {
+                listingData.location.coordinates = {
+                    latitude: latitude,
+                    longitude: longitude
+                };
+            }
         }
 
         // Automatically set security fee based on service type
@@ -212,6 +274,34 @@ const updateListing = async (req, res) => {
 			});
 		}
 
+		// Validate required fields if they are being updated
+		if (updateData.title !== undefined) {
+			if (!updateData.title || (typeof updateData.title === 'string' && !updateData.title.trim())) {
+				return res.status(400).json({
+					success: false,
+					message: 'Validation error',
+					errors: ['Title cannot be empty']
+				});
+			}
+			updateData.title = toMultilingualText(updateData.title);
+		}
+
+		if (updateData.description !== undefined) {
+			if (!updateData.description || (typeof updateData.description === 'string' && !updateData.description.trim())) {
+				return res.status(400).json({
+					success: false,
+					message: 'Validation error',
+					errors: ['Description cannot be empty']
+				});
+			}
+			updateData.description = toMultilingualText(updateData.description);
+		}
+
+		// Convert text fields to multilingual format using toMultilingualText
+		if (updateData.subtitle) {
+			updateData.subtitle = toMultilingualText(updateData.subtitle);
+		}
+
 		// Handle images array
 		if (Array.isArray(updateData.images)) {
 			updateData.images = updateData.images.filter(img => typeof img === 'string' && img.length > 0);
@@ -221,6 +311,45 @@ const updateListing = async (req, res) => {
 		// Fallback: if images is missing or empty, but media.gallery exists, copy gallery to images
 		if ((!updateData.images || updateData.images.length === 0) && updateData.media && Array.isArray(updateData.media.gallery)) {
 			updateData.images = updateData.media.gallery.filter(img => typeof img === 'string' && img.length > 0);
+		}
+
+		// Handle location coordinates - support both lat/lng and latitude/longitude formats
+		if (updateData.location && updateData.location.coordinates) {
+			const coords = updateData.location.coordinates;
+			
+			// Extract latitude and longitude, handling both formats
+			let latitude = coords.latitude !== undefined ? coords.latitude : coords.lat;
+			let longitude = coords.longitude !== undefined ? coords.longitude : coords.lng;
+			
+			// Validate latitude
+			if (latitude !== undefined) {
+				latitude = parseFloat(latitude);
+				if (isNaN(latitude) || latitude < -90 || latitude > 90) {
+					return res.status(400).json({
+						success: false,
+						message: 'Invalid latitude: must be a number between -90 and 90'
+					});
+				}
+			}
+			
+			// Validate longitude
+			if (longitude !== undefined) {
+				longitude = parseFloat(longitude);
+				if (isNaN(longitude) || longitude < -180 || longitude > 180) {
+					return res.status(400).json({
+						success: false,
+						message: 'Invalid longitude: must be a number between -180 and 180'
+					});
+				}
+			}
+			
+			// Set the coordinates in the correct format for the model
+			if (latitude !== undefined && longitude !== undefined) {
+				updateData.location.coordinates = {
+					latitude: latitude,
+					longitude: longitude
+				};
+			}
 		}
 
 		// --- Ensure new pricing structure ---
@@ -282,8 +411,15 @@ const updateListing = async (req, res) => {
 // @access  Private (Vendor only)
 const deleteListing = async (req, res) => {
 	try {
-		const vendorId = req.vendor._id;
+		const vendorId = req.vendor?._id || req.user?._id || req.user?.vendorId || req.user?.id;
 		const listingId = req.params.id;
+
+		if (!vendorId) {
+			return res.status(400).json({ 
+				success: false, 
+				message: 'Vendor not found in request.' 
+			});
+		}
 
 		// Find the listing and ensure it belongs to the vendor
 		const listing = await Listing.findOne({ _id: listingId, vendor: vendorId });

@@ -86,7 +86,7 @@ const getDashboardStats = async (req, res) => {
           id: client._id,
           name: `${client.firstName || ''} ${client.lastName || ''}`.trim(),
           email: client.email,
-          lastBooking: lastBooking ? lastBooking.createdAt : null
+          lastBooking: lastBooking ? lastBooking.createdAt : ''
         };
       })
     );
@@ -102,7 +102,7 @@ const getDashboardStats = async (req, res) => {
           const booking = await Booking.findOne({ vendorId: vendorProfile._id })
             .sort({ createdAt: -1 })
             .select('createdAt');
-          lastBooking = booking ? booking.createdAt : null;
+          lastBooking = booking ? booking.createdAt : '';
         }
 
         return {

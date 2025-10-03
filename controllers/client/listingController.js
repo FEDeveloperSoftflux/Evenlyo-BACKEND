@@ -217,7 +217,7 @@ const getAvailableListings = async (req, res) => {
 const getListingById = async (req, res) => {
   try {
     const listing = await Listing.findById(req.params.id)
-      .populate('vendor', '_id businessName businessLocation businessDescription businessEmail businessPhone businessWebsite  userId businessLogo')
+      .populate('vendor', '_id businessName  businessDescription businessEmail businessPhone businessWebsite userId businessLogo')
       .populate('category', 'name icon description')
       .populate('subCategory', 'name icon description')
       .populate('reviews.clientId', 'firstName lastName profileImage');
@@ -542,11 +542,11 @@ const searchListings = async (req, res) => {
       success: true,
       data: listings,
       searchCriteria: {
-        generalQuery: q || null,
-        title: title || null,
-        location: location || null,
-        date: date || null,
-        dateTime: dateTime || null
+        generalQuery: q || '',
+        title: title || '',
+        location: location || '',
+        date: date || '',
+        dateTime: dateTime || ''
       },
       pagination: {
         current: parseInt(page),
@@ -882,7 +882,7 @@ const filterListings = async (req, res) => {
         ratingCount: listing.ratings?.count || 0,
         pricingPerEvent,
         location: `${listing.location.city}${listing.location.region ? ', ' + listing.location.region : ''}`,
-        featuredImage: listing.images?.[0] || null,
+        featuredImage: listing.images?.[0] || '',
         images: listing.images || [],
         category: listing.category?.name,
         subCategory: listing.subCategory?.name
@@ -899,8 +899,8 @@ const filterListings = async (req, res) => {
         limit: parseInt(limit)
       },
       filter: {
-        categoryId: categoryId || null,
-        subCategoryId: subCategoryId || null,
+        categoryId: categoryId || '',
+        subCategoryId: subCategoryId || '',
         sortBy,
         sortOrder
       }
@@ -916,6 +916,174 @@ const filterListings = async (req, res) => {
   }
 };
 
+// @desc    Get listings and vendors by category and subcategory
+// @route   GET /api/listings/by-category
+// @access  Public
+const getListingsAndVendorsByCategory = async (req, res) => {
+  try {
+    const {
+      categoryId,
+      subCategoryId,
+      subcategoryId, // Alternative parameter name for compatibility
+      page = 1,
+      limit = 12,
+      includeListings = true,
+      includeVendors = true,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    // Use either subCategoryId or subcategoryId (for compatibility)
+    const finalSubCategoryId = subCategoryId || subcategoryId;
+
+    // Validate input
+    if (!categoryId && !finalSubCategoryId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Either categoryId or subCategoryId/subcategoryId is required'
+      });
+    }
+
+    // Build query object for listings
+    const listingQuery = {
+      status: 'active',
+      isActive: true
+    };
+
+    // Filter by category
+    if (categoryId) {
+      listingQuery.category = categoryId;
+    }
+
+    // Filter by subcategory
+    if (finalSubCategoryId) {
+      listingQuery.subCategory = finalSubCategoryId;
+    }
+
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+
+    // Build sort object
+    const sortOptions = {};
+    if (sortBy === 'rating') {
+      sortOptions['ratings.average'] = sortOrder === 'desc' ? -1 : 1;
+    } else if (sortBy === 'popularity') {
+      sortOptions['bookings.completed'] = sortOrder === 'desc' ? -1 : 1;
+    } else {
+      sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+    }
+
+    const results = {};
+
+    // Fetch listings if requested
+    if (includeListings === 'true' || includeListings === true) {
+      const listings = await Listing.find(listingQuery)
+        .populate('vendor', '_id businessName businessLocation businessLogo bannerImage userId')
+        .populate('category', 'name icon')
+        .populate('subCategory', 'name icon')
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .select('-seo -__v -contact.email -contact.phone');
+
+      const totalListings = await Listing.countDocuments(listingQuery);
+
+      results.listings = {
+        data: listings,
+        pagination: {
+          current: parseInt(page),
+          pages: Math.ceil(totalListings / limit),
+          total: totalListings,
+          limit: parseInt(limit)
+        }
+      };
+    }
+
+    // Fetch vendors if requested
+    if (includeVendors === 'true' || includeVendors === true) {
+      // Build vendor query based on their mainCategories and subCategories fields
+      const vendorQuery = {
+        isApproved: true // Use isApproved instead of isActive for vendors
+      };
+
+      // Build query conditions
+      const queryConditions = [];
+
+      // If both category and subcategory are provided
+      if (categoryId && finalSubCategoryId) {
+        queryConditions.push({
+          $and: [
+            { mainCategories: { $in: [categoryId] } },
+            { subCategories: { $in: [finalSubCategoryId] } }
+          ]
+        });
+      }
+      // If only category is provided
+      else if (categoryId) {
+        queryConditions.push({
+          mainCategories: { $in: [categoryId] }
+        });
+      }
+      // If only subcategory is provided
+      else if (finalSubCategoryId) {
+        queryConditions.push({
+          subCategories: { $in: [finalSubCategoryId] }
+        });
+      }
+
+      // Add the conditions to the main query
+      if (queryConditions.length > 0) {
+        vendorQuery.$or = queryConditions;
+      }
+
+      console.log('Vendor Query:', JSON.stringify(vendorQuery, null, 2));
+
+      const vendorSortOptions = {};
+      vendorSortOptions[sortBy === 'rating' ? 'rating.average' : sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+      const vendors = await Vendor.find(vendorQuery)
+        .populate('userId', 'firstName lastName email profileImage')
+        .populate('mainCategories', 'name icon')
+        .populate('subCategories', 'name icon')
+        .sort(vendorSortOptions)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .select('-__v -businessEmail -businessPhone -passportDetails -kvkNumber'); // Hide sensitive info
+
+      console.log('Found Vendors:', vendors.length);
+
+      const totalVendors = await Vendor.countDocuments(vendorQuery);
+
+      results.vendors = {
+        data: vendors,
+        pagination: {
+          current: parseInt(page),
+          pages: Math.ceil(totalVendors / limit),
+          total: totalVendors,
+          limit: parseInt(limit)
+        }
+      };
+    }
+
+    // Get category and subcategory info for context
+    const categoryInfo = categoryId ? await Category.findById(categoryId).select('name icon description') : '';
+    const subCategoryInfo = finalSubCategoryId ? await SubCategory.findById(finalSubCategoryId).populate('mainCategory', 'name').select('name icon description mainCategory') : '';
+
+    res.json({
+      success: true,
+      data: results,
+    });
+
+  } catch (error) {
+    console.error('Error fetching listings and vendors by category:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching listings and vendors by category',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getAvailableListings,
   getListingById,
@@ -925,5 +1093,6 @@ module.exports = {
   getListingsByVendor,
   checkListingAvailability,
   getListingCalendar,
-  filterListings
+  filterListings,
+  getListingsAndVendorsByCategory
 };

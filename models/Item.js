@@ -3,9 +3,8 @@ const mongoose = require('mongoose');
 
 const serviceItemSchema = new mongoose.Schema({
   title: {
-    type: String,
-    required: true,
-    trim: true
+    en: { type: String, trim: true, required: true },
+    nl: { type: String, trim: true, required: true }
   },
   mainCategory: {
     type: mongoose.Schema.Types.ObjectId,
@@ -19,14 +18,6 @@ const serviceItemSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Vendor',
     required: true
-  },
-  mainCategoryName: {
-    type: String,
-    default: 'Others'
-  },
-  subCategoryName: {
-    type: String,
-    default: 'Others'
   },
   purchasePrice: {
     type: Number,

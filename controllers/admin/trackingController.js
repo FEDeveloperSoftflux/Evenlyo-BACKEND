@@ -69,15 +69,15 @@ const getAllBookingsTracking = async (req, res) => {
         name: booking.userId 
           ? `${booking.userId.firstName || ''} ${booking.userId.lastName || ''}`.trim() 
           : 'Unknown Buyer',
-        profilePic: booking.userId?.profileImage || null,
-        email: booking.userId?.email || null
+        profilePic: booking.userId?.profileImage || '',
+        email: booking.userId?.email || ''
       };
 
       // Vendor Info
       let vendorInfo = {
         name: 'Unknown Vendor',
-        profilePic: null,
-        email: null
+        profilePic: '',
+        email: ''
       };
 
       if (booking.vendorId) {
@@ -85,15 +85,15 @@ const getAllBookingsTracking = async (req, res) => {
           // Business vendor
           vendorInfo = {
             name: booking.vendorId.businessName,
-            profilePic: booking.vendorId.businessLogo || null,
-            email: booking.vendorId.userId?.email || null
+            profilePic: booking.vendorId.businessLogo || '',
+            email: booking.vendorId.userId?.email || ''
           };
         } else if (booking.vendorId.userId) {
           // Personal vendor
           vendorInfo = {
             name: `${booking.vendorId.userId.firstName || ''} ${booking.vendorId.userId.lastName || ''}`.trim(),
-            profilePic: booking.vendorId.userId.profileImage || null,
-            email: booking.vendorId.userId.email || null
+            profilePic: booking.vendorId.userId.profileImage || '',
+            email: booking.vendorId.userId.email || ''
           };
         }
       }
@@ -181,10 +181,10 @@ const getBookingByTrackingId = async (req, res) => {
         name: booking.userId 
           ? `${booking.userId.firstName || ''} ${booking.userId.lastName || ''}`.trim() 
           : 'Unknown Buyer',
-        profilePic: booking.userId?.profileImage || null,
-        email: booking.userId?.email || null,
-        phone: booking.userId?.contactNumber || null,
-        address: booking.userId?.address || null
+        profilePic: booking.userId?.profileImage || '',
+        email: booking.userId?.email || '',
+        phone: booking.userId?.contactNumber || '',
+        address: booking.userId?.address || ''
       },
 
       // Vendor Details
@@ -192,10 +192,10 @@ const getBookingByTrackingId = async (req, res) => {
         if (!booking.vendorId) {
           return {
             name: 'Unknown Vendor',
-            profilePic: null,
-            email: null,
-            phone: null,
-            address: null
+            profilePic: '',
+            email: '',
+            phone: '',
+            address: ''
           };
         }
 
@@ -203,20 +203,20 @@ const getBookingByTrackingId = async (req, res) => {
           // Business vendor
           return {
             name: booking.vendorId.businessName,
-            profilePic: booking.vendorId.businessLogo || null,
-            email: booking.vendorId.businessEmail || booking.vendorId.userId?.email || null,
-            phone: booking.vendorId.businessPhone || booking.vendorId.userId?.contactNumber || null,
-            address: booking.vendorId.businessAddress || booking.vendorId.userId?.address || null,
+            profilePic: booking.vendorId.businessLogo || '',
+            email: booking.vendorId.businessEmail || booking.vendorId.userId?.email || '',
+            phone: booking.vendorId.businessPhone || booking.vendorId.userId?.contactNumber || '',
+            address: booking.vendorId.businessAddress || booking.vendorId.userId?.address || '',
             type: 'business'
           };
         } else if (booking.vendorId.userId) {
           // Personal vendor
           return {
             name: `${booking.vendorId.userId.firstName || ''} ${booking.vendorId.userId.lastName || ''}`.trim(),
-            profilePic: booking.vendorId.userId.profileImage || null,
-            email: booking.vendorId.userId.email || null,
-            phone: booking.vendorId.userId.contactNumber || null,
-            address: booking.vendorId.userId.address || null,
+            profilePic: booking.vendorId.userId.profileImage || '',
+            email: booking.vendorId.userId.email || '',
+            phone: booking.vendorId.userId.contactNumber || '',
+            address: booking.vendorId.userId.address || '',
             type: 'personal'
           };
         }
@@ -224,11 +224,11 @@ const getBookingByTrackingId = async (req, res) => {
 
       // Listing Details
       listing: {
-        name: booking.listingId?.title || 'Unknown Listing',
-        subtitle: booking.listingId?.subtitle || null,
-        description: booking.listingId?.description || null,
-        location: booking.listingId?.location || null,
-        pricing: booking.listingId?.pricing || null
+        name: booking.listingId?.title || '',
+        subtitle: booking.listingId?.subtitle || '',
+        description: booking.listingId?.description || '',
+        location: booking.listingId?.location || '',
+        pricing: booking.listingId?.pricing || ''
       },
 
       // Booking Details
@@ -261,9 +261,9 @@ const getBookingByTrackingId = async (req, res) => {
       statusHistory: booking.statusHistory || [],
       
       // Additional Details
-      cancellationDetails: booking.cancellationDetails || null,
-      claimDetails: booking.claimDetails || null,
-      rejectionReason: booking.rejectionReason || null,
+      cancellationDetails: booking.cancellationDetails || '',
+      claimDetails: booking.claimDetails || '',
+      rejectionReason: booking.rejectionReason || '',
       
       updatedAt: booking.updatedAt
     };
@@ -445,9 +445,9 @@ const getBookingStatusHistory = async (req, res) => {
               (history.updatedBy?.userId ? 
                 `${history.updatedBy.userId.firstName || ''} ${history.updatedBy.userId.lastName || ''}`.trim() : 
                 'Unknown User'),
-        profileImage: history.updatedBy?.userId?.profileImage || null
+        profileImage: history.updatedBy?.userId?.profileImage || ''
       },
-      notes: history.notes || null
+      notes: history.notes || ''
     }));
 
     res.status(200).json({
@@ -503,9 +503,9 @@ const getBookingStatusHistoryById = async (req, res) => {
               (history.updatedBy?.userId ? 
                 `${history.updatedBy.userId.firstName || ''} ${history.updatedBy.userId.lastName || ''}`.trim() : 
                 'Unknown User'),
-        profileImage: history.updatedBy?.userId?.profileImage || null
+        profileImage: history.updatedBy?.userId?.profileImage || ''
       },
-      notes: history.notes || null
+      notes: history.notes || ''
     }));
 
     res.status(200).json({

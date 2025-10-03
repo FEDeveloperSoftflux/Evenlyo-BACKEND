@@ -2,6 +2,8 @@ const asyncHandler = require('express-async-handler');
 const Blog = require('../../models/Blog');
 const User = require('../../models/User');
 const { sendPromotionalEmail } = require('../../utils/mailer');
+const { toMultilingualText } = require('../../utils/textUtils');
+const sanitizeHtml = require('sanitize-html');
 
 // @desc    Get all blogs
 // @route   GET /api/blogs
@@ -20,14 +22,33 @@ const createBlog = asyncHandler(async (req, res) => {
       });
     }
     // Sanitize HTML content
-    const sanitizedContent = sanitizeHtml(content, {
-      allowedTags: sanitizeHtml.defaults.allowedTags.concat(['h1', 'h2', 'u']),
-      allowedAttributes: false
-    });
+    const sanitizeContent = (content) => {
+      if (typeof content === 'string') {
+        return sanitizeHtml(content, {
+          allowedTags: sanitizeHtml.defaults.allowedTags.concat(['h1', 'h2', 'u']),
+          allowedAttributes: false
+        });
+      } else if (typeof content === 'object' && content !== null) {
+        return {
+          en: sanitizeHtml(content.en || '', {
+            allowedTags: sanitizeHtml.defaults.allowedTags.concat(['h1', 'h2', 'u']),
+            allowedAttributes: false
+          }),
+          nl: sanitizeHtml(content.nl || '', {
+            allowedTags: sanitizeHtml.defaults.allowedTags.concat(['h1', 'h2', 'u']),
+            allowedAttributes: false
+          })
+        };
+      }
+      return content;
+    };
+
+    const processedContent = sanitizeContent(toMultilingualText(content));
+
     const blog = new Blog({
-      title,
-      description,
-      content: sanitizedContent,
+      title: toMultilingualText(title),
+      description: toMultilingualText(description),
+      content: processedContent,
       author,
       category,
       readTime,
@@ -199,7 +220,7 @@ const addComment = asyncHandler(async (req, res) => {
     const newComment = {
       author,
       email,
-      content,
+      content: toMultilingualText(content),
       createdAt: new Date()
     };
 
@@ -292,7 +313,7 @@ const addCommentWithPromotion = asyncHandler(async (req, res) => {
     const newComment = {
       author: author.trim(),
       email: email.toLowerCase().trim(),
-      content: content.trim(),
+      content: toMultilingualText(content.trim()),
       createdAt: new Date(),
       isApproved: true // Instantly approve comments
     };

@@ -108,19 +108,10 @@ const performLogin = async (req, res, userType) => {
       }
     }
 
-    // Additional checks for vendor
-    if (userType === 'vendor') {
-      if (userData.approvalStatus !== 'approved') {
-        return res.status(403).json({
-          success: false,
-          message: 'Vendor account is not approved yet. Please wait for approval.'
-        });
-      }
-    }
 
     // Update last login
     user.lastLogin = new Date();
-    await user.save();
+    await user.save({ validateBeforeSave: false });
 
     if (userData && userData.lastLogin !== undefined) {
       userData.lastLogin = new Date();
@@ -405,7 +396,7 @@ const verifyOtpAndRegister = async (req, res, userType = 'client') => {
       lastName,
       email,
       contactNumber,
-      address,
+      address: address || '',
       password: hashedPassword,
       userType,
       isActive: true
@@ -791,7 +782,12 @@ const registerVendor = async (req, res) => {
       // Business fields
       businessName,
       businessNumber,
+      businessLocation,
       businessWebsite,
+      businessDescription,
+      businessLogo,
+      bannerImage,
+      whyChooseUs,
       teamType,
       teamSize
     } = req.body;
@@ -842,16 +838,13 @@ const registerVendor = async (req, res) => {
       firstName: accountType === 'personal' ? firstName : businessName,
       email,
       contactNumber,
-      address: {
-        city: city || '',
-        postalCode: postalCode || '',
-        fullAddress: fullAddress || ''
-      },
+      address: fullAddress || '',
       password: hashedPassword,
       userType: 'vendor',
+      accountType, // Add accountType field
       isActive: true,
       ...(accountType === 'personal' && { lastName, passportDetails }),
-      ...(accountType === 'business' && { kvkNumber })
+      ...(accountType === 'business' && { kvkNumber, passportDetails })
     };
     const user = new User(userData);
     await user.save();
@@ -862,12 +855,15 @@ const registerVendor = async (req, res) => {
       mainCategories: mainCategories || [],
       subCategories: subCategories || [],
       isApproved: false,
-      approvalStatus: 'pending',
       // Business fields
       ...(accountType === 'business' && {
         businessName,
         businessPhone: businessNumber,
         businessWebsite,
+        businessDescription,
+        businessLogo,
+        bannerImage,
+        whyChooseUs,
         teamType,
         teamSize
       })
@@ -887,7 +883,7 @@ const registerVendor = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Vendor registration successful. Your account is pending approval.'
+      message: 'Vendor registration successful.'
     });
   } catch (err) {
     console.error('Vendor registration error:', err);
@@ -948,6 +944,165 @@ const checkRegisteredUser = async (req, res) => {
   }
 };
 
+const registerVendor2 = async (req, res) => {
+  try {
+    const {
+      accountType, // 'personal' or 'business'
+      email,
+      contactNumber,
+      password,
+      confirmPassword,
+      otp,
+      // Personal account fields (stored in User model)
+      firstName,
+      lastName,
+      city,
+      postalCode,
+      fullAddress,
+      passportDetails,
+      mainCategories,
+      subCategories,
+      // Business account fields (stored in Vendor model)
+      businessName,
+      businessNumber,
+      businessWebsite,
+      businessDescription,
+      businessLogo,
+      bannerImage,
+      whyChooseUs,
+      teamType,
+      teamSize,
+      kvkNumber
+    } = req.body;
+
+    // Validate accountType
+    if (!['personal', 'business'].includes(accountType)) {
+      return res.status(400).json({ success: false, message: 'Invalid account type' });
+    }
+
+    // Common validations (for both types)
+    if (!email || !contactNumber || !password || !confirmPassword || !otp) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+    if (password !== confirmPassword) {
+      return res.status(400).json({ success: false, message: 'Password and confirm password do not match' });
+    }
+
+    // Personal account validations
+    if (accountType === 'personal') {
+      if (!firstName || !lastName || !city || !postalCode || !fullAddress || !passportDetails || !mainCategories || !subCategories) {
+        return res.status(400).json({ success: false, message: 'Missing required personal account fields' });
+      }
+    }
+
+    // Business account validations
+    if (accountType === 'business') {
+      if (!businessName || !businessNumber || !teamSize || !teamType || !kvkNumber || !mainCategories || !subCategories) {
+        return res.status(400).json({ success: false, message: 'Missing required business account fields' });
+      }
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({ success: false, message: 'Email already registered' });
+    }
+
+    // OTP verification
+    const valid = await verifyOTP(email, otp);
+    if (!valid) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user (common data for both types)
+    const userData = {
+      email,
+      contactNumber,
+      password: hashedPassword,
+      userType: 'vendor',
+      accountType,
+      isActive: true
+    };
+
+    // Add account-specific fields to User model
+    if (accountType === 'personal') {
+      userData.firstName = firstName;
+      userData.lastName = lastName;
+      userData.address = fullAddress;
+      userData.city = city;
+      userData.postalCode = postalCode;
+      userData.passportDetails = passportDetails;
+    } 
+    else {
+      // For business, store minimal info in User
+      userData.firstName = businessName;
+    }
+
+    const user = new User(userData);
+    await user.save();
+
+    // Create vendor profile
+    const vendorData = {
+      userId: user._id,
+      mainCategories: mainCategories || [],
+      subCategories: subCategories || [],
+      isApproved: false
+    };
+
+    // Handle businessName based on account type
+    if (accountType === 'personal') 
+      {
+      // Store firstName + lastName as businessName for personal accounts
+      vendorData.businessName = `${firstName} ${lastName}`;
+      vendorData.businessPhone = contactNumber; 
+      vendorData.businessLocation = `${city} ${fullAddress}`
+      vendorData.accountType = accountType;
+      vendorData.businessEmail = email; 
+    } else if (accountType === 'business') {
+      // Store all business fields for business accounts
+      vendorData.businessName = businessName;
+      vendorData.businessPhone = businessNumber;
+      vendorData.businessLocation = fullAddress;
+      vendorData.businessWebsite = businessWebsite;
+      vendorData.businessDescription = businessDescription;
+      vendorData.businessLogo = businessLogo;
+      vendorData.bannerImage = bannerImage;
+      vendorData.whyChooseUs = whyChooseUs;
+      vendorData.teamType = teamType;
+      vendorData.teamSize = teamSize;
+      vendorData.kvkNumber = kvkNumber;
+      vendorData.accountType = accountType;
+    }
+
+    const vendor = new Vendor(vendorData);
+    await vendor.save();
+
+    console.log("Vendor data:", vendorData);
+    console.log("Vendor saved:", userData);
+
+    // Notify admin(s) of new vendor registration
+    try {
+      const notificationController = require('./notificationController');
+      await notificationController.createAdminNotification({
+        message: `A new vendor has registered: ${accountType === 'personal' ? firstName + ' ' + lastName : businessName}`
+      });
+    } catch (e) {
+      console.error('Failed to create admin notification for new vendor registration:', e);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Vendor registration successful.'
+    });
+  } catch (err) {
+    console.error('Vendor registration error:', err);
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+};
+
 // --- Exports ---
 module.exports = {
   // Authentication
@@ -962,7 +1117,7 @@ module.exports = {
   // Registration
   registerClient,
   verifyOtpAndRegister: verifyOtpAndRegisterGeneral,
-  registerVendor,
+  registerVendor2,
 
   // OTP Management
   sendOtpForRegister,

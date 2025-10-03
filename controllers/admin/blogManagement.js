@@ -2,6 +2,7 @@ const asyncHandler = require('express-async-handler');
 const Blog = require('../../models/Blog');
 const User = require('../../models/User');
 const { sendPromotionalEmail } = require('../../utils/mailer');
+const { toMultilingualText } = require('../../utils/textUtils');
 const sanitizeHtml = require('sanitize-html');
 
 
@@ -36,15 +37,33 @@ const createBlog = asyncHandler(async (req, res) => {
     }
 
       // Sanitize HTML content
-      const sanitizeHtml = require('sanitize-html');
-      const sanitizedContent = sanitizeHtml(content, {
-        allowedTags: sanitizeHtml.defaults.allowedTags.concat(['h1', 'h2', 'u']),
-        allowedAttributes: false
-      });
+      const sanitizeContent = (content) => {
+        if (typeof content === 'string') {
+          return sanitizeHtml(content, {
+            allowedTags: sanitizeHtml.defaults.allowedTags.concat(['h1', 'h2', 'u']),
+            allowedAttributes: false
+          });
+        } else if (typeof content === 'object' && content !== null) {
+          return {
+            en: sanitizeHtml(content.en || '', {
+              allowedTags: sanitizeHtml.defaults.allowedTags.concat(['h1', 'h2', 'u']),
+              allowedAttributes: false
+            }),
+            nl: sanitizeHtml(content.nl || '', {
+              allowedTags: sanitizeHtml.defaults.allowedTags.concat(['h1', 'h2', 'u']),
+              allowedAttributes: false
+            })
+          };
+        }
+        return content;
+      };
+
+      const processedContent = sanitizeContent(toMultilingualText(content));
+
       const blog = await Blog.create({
-        title,
-        description,
-        content: sanitizedContent,
+        title: toMultilingualText(title),
+        description: toMultilingualText(description),
+        content: processedContent,
         author,
         category,
         readTime,
@@ -73,7 +92,7 @@ const createBlog = asyncHandler(async (req, res) => {
 const updateBlog = asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = { ...req.body };
 
     const blog = await Blog.findById(id);
     if (!blog) {
@@ -81,6 +100,23 @@ const updateBlog = asyncHandler(async (req, res) => {
         success: false,
         message: 'Blog not found'
       });
+    }
+
+    // Convert string fields to multilingual objects if needed
+    if (updateData.title) {
+      updateData.title = toMultilingualText(updateData.title);
+    }
+    if (updateData.description) {
+      updateData.description = toMultilingualText(updateData.description);
+    }
+    if (updateData.content) {
+      const processedContent = typeof updateData.content === 'string' 
+        ? sanitizeHtml(updateData.content, {
+            allowedTags: sanitizeHtml.defaults.allowedTags.concat(['h1', 'h2', 'u']),
+            allowedAttributes: false
+          })
+        : updateData.content;
+      updateData.content = toMultilingualText(processedContent);
     }
 
     // If setting as main blog, unset other main blogs

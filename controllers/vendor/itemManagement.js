@@ -2,8 +2,6 @@
 const Item = require('../../models/Item');
 const Category = require('../../models/Category');
 const SubCategory = require('../../models/SubCategory');
-
-
 // Create a new item
 const createItem = async (req, res) => {
 	try {
@@ -39,15 +37,15 @@ const createItem = async (req, res) => {
 
 		const item = new Item({
 			title,
-			mainCategory: mainCategory || null,
-			subCategory: subCategory || null,
+			mainCategory: mainCategory || '',
+			subCategory: subCategory || '',
 			mainCategoryName,
 			subCategoryName,
 			purchasePrice,
 			sellingPrice,
 			stockQuantity,
 			image,
-			vendor: vendorId || req.user.vendorId || null
+			vendor: vendorId || req.user.vendorId || ''
 		});
 
 		await item.save();

@@ -117,7 +117,7 @@ router.get('/firebase-health', (req, res) => {
 router.post('/vendor/register',
   rateLimit(10, 5 * 60 * 1000),
   csrfProtection,
-  authController.registerVendor
+  authController.registerVendor2
 );
 
 module.exports = router;

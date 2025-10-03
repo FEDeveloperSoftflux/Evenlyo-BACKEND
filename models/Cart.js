@@ -37,13 +37,6 @@ const cartSchema = new mongoose.Schema({
     listingSnapshot: {
       title: String,
       featuredImage: String,
-      pricing: {
-        pricingType: String, // Changed from 'type' to 'pricingType' to avoid conflict
-        perHour: Number,
-        perDay: Number,
-        perEvent: Number,
-        currency: String
-      },
       vendorId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Vendor'

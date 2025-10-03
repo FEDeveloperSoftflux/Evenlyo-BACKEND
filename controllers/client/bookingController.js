@@ -6,6 +6,7 @@ const User = require('../../models/User');
 const Vendor = require('../../models/Vendor');
 const Settings = require('../../models/Settings');
 const {checkAvailability,calculateFullBookingPrice} = require('../../utils/bookingUtils');
+const {toMultilingualText} = require('../../utils/textUtils');
 const stripe = require('../../config/stripe');
 
 // @desc    Create Stripe PaymentIntent for a booking
@@ -135,18 +136,6 @@ const reviewBooking = asyncHandler(async (req, res) => {
   });
 });
 
-
-// Helper function to convert string to multilingual object
-const toMultilingualText = (text) => {
-  if (typeof text === 'string') {
-    return {
-      en: text,
-      nl: text // Use same value for Dutch, can be translated later
-    };
-  }
-  return text; // If already an object, return as-is
-};
-
 // @desc    Create a booking request
 // @route   POST /api/booking/request
 // @access  Private (User)
@@ -193,7 +182,9 @@ const createBookingRequest = asyncHandler(async (req, res) => {
     _id: listingId,
     isActive: true,
     status: 'active'
-  }).populate('vendor');
+  }).populate('vendor')
+    .populate('category', 'name')
+    .populate('subCategory', 'name');
 
   if (!listing) {
     return res.status(404).json({
@@ -302,6 +293,48 @@ const createBookingRequest = asyncHandler(async (req, res) => {
     userId: req.user.id,
     vendorId,
     listingId,
+    listingDetails: {
+      title: listing.title,
+      subtitle: listing.subtitle,
+      description: listing.description,
+      featuredImage: listing.images && listing.images.length > 0 ? listing.images[0] : '',
+      images: listing.images || [],
+      pricing: {
+        type: listing.pricing.type,
+        amount: listing.pricing.amount,
+        extratimeCost: listing.pricing.extratimeCost || 0,
+        securityFee: listing.pricing.securityFee || 0,
+        pricePerKm: listing.pricing.pricePerKm || 0
+      },
+      category: listing.category ? {
+        _id: listing.category._id,
+        name: listing.category.name
+      } : '',
+      subCategory: listing.subCategory ? {
+        _id: listing.subCategory._id,
+        name: listing.subCategory.name
+      } : '',
+      serviceDetails: {
+        serviceType: listing.serviceDetails?.serviceType
+      },
+      location: {
+        fullAddress: listing.location?.fullAddress,
+        coordinates: {
+          latitude: listing.location?.coordinates?.latitude,
+          longitude: listing.location?.coordinates?.longitude
+        }
+      },
+      contact: {
+        phone: listing.contact?.phone,
+        email: listing.contact?.email,
+        website: listing.contact?.website
+      },
+      features: listing.features || [],
+      rating: {
+        average: listing.rating?.average || 0,
+        totalReviews: listing.rating?.totalReviews || 0
+      }
+    },
     details: {
       startDate,
       endDate,
@@ -361,11 +394,10 @@ const createBookingRequest = asyncHandler(async (req, res) => {
   } catch (e) {
     console.error('Failed to create vendor notification for new booking:', e);
   }
-  // Populate the response
+  // Populate the response (listing details are now stored directly in listingDetails field)
   await bookingRequest.populate([
     { path: 'userId', select: 'firstName lastName email contactNumber' },
-    { path: 'vendorId', select: 'businessName businessEmail businessPhone' },
-    { path: 'listingId', select: 'title featuredImage pricing' }
+    { path: 'vendorId', select: 'businessName businessEmail businessPhone' }
   ]);
 
   res.status(201).json({
@@ -395,7 +427,6 @@ const getPendingBookings = asyncHandler(async (req, res) => {
     status: 'pending'
   })
   .populate('userId', 'firstName lastName email contactNumber')
-  .populate('listingId', 'title featuredImage pricing')
   .sort({ createdAt: -1 });
 
   res.json({
@@ -416,7 +447,6 @@ const getAcceptedBookings = asyncHandler(async (req, res) => {
     status: 'accepted'
   })
   .populate('vendorId', 'businessName businessEmail businessPhone')
-  .populate('listingId', 'title featuredImage pricing')
   .sort({ createdAt: -1 });
 
   res.json({
@@ -500,7 +530,6 @@ const getBookingHistory = asyncHandler(async (req, res) => {
 
   const bookings = await BookingRequest.find(filter)
     .populate('vendorId', 'businessName businessEmail businessPhone businessLogo')
-    .populate('listingId', 'title pricing images')
     .sort({ createdAt: -1 })
     .limit(limit * 1)
     .skip((page - 1) * limit);
@@ -699,7 +728,6 @@ const getVendorBookingHistory = asyncHandler(async (req, res) => {
 
   const bookings = await BookingRequest.find(filter)
     .populate('userId', 'firstName lastName email contactNumber')
-    .populate('listingId', 'title featuredImage pricing')
     .sort({ createdAt: -1 })
     .limit(limit * 1)
     .skip((page - 1) * limit);
@@ -968,8 +996,7 @@ const cancelBooking = asyncHandler(async (req, res) => {
 const getBookingDetails = asyncHandler(async (req, res) => {
   const booking = await BookingRequest.findById(req.params.id)
     .populate('userId', 'firstName lastName email contactNumber')
-    .populate('vendorId', 'businessName businessEmail businessPhone')
-    .populate('listingId', 'title featuredImage pricing description');
+    .populate('vendorId', 'businessName businessEmail businessPhone');
 
   if (!booking) {
     return res.status(404).json({
@@ -980,9 +1007,9 @@ const getBookingDetails = asyncHandler(async (req, res) => {
 
   // Check if user has access to this booking
   const vendor = await Vendor.findOne({ userId: req.user.id });
-  const bookingUserIdStr = booking.userId && booking.userId._id ? booking.userId._id.toString() : (booking.userId ? booking.userId.toString() : null);
-  const bookingVendorIdStr = booking.vendorId && booking.vendorId._id ? booking.vendorId._id.toString() : (booking.vendorId ? booking.vendorId.toString() : null);
-  const vendorIdStr = vendor && vendor._id ? vendor._id.toString() : null;
+  const bookingUserIdStr = booking.userId && booking.userId._id ? booking.userId._id.toString() : (booking.userId ? booking.userId.toString() : '');
+  const bookingVendorIdStr = booking.vendorId && booking.vendorId._id ? booking.vendorId._id.toString() : (booking.vendorId ? booking.vendorId.toString() : '');
+  const vendorIdStr = vendor && vendor._id ? vendor._id.toString() : '';
 
   const hasAccess = (bookingUserIdStr && bookingUserIdStr === req.user.id) || (vendorIdStr && bookingVendorIdStr && bookingVendorIdStr === vendorIdStr);
 

@@ -157,43 +157,6 @@ const requirePermission = (requiredPermissions) => {
   };
 };
 
-// --- Vendor Status Check Middleware ---
-const requireApprovedVendor = async (req, res, next) => {
-  try {
-    if (!req.user || req.user.userType !== 'vendor') {
-      return res.status(403).json({
-        success: false,
-        message: 'Vendor access required'
-      });
-    }
-
-    // Check vendor approval status
-    const vendor = await Vendor.findOne({ userId: req.user.id });
-    if (!vendor) {
-      return res.status(404).json({
-        success: false,
-        message: 'Vendor profile not found'
-      });
-    }
-
-    if (vendor.approvalStatus !== 'approved') {
-      return res.status(403).json({
-        success: false,
-        message: 'Vendor account not approved'
-      });
-    }
-
-    // Add vendor data to request
-    req.vendor = vendor;
-    next();
-  } catch (error) {
-    console.error('Vendor status check error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Vendor status check error'
-    });
-  }
-};
 
 // --- Admin Status Check Middleware ---
 const requireActiveAdmin = async (req, res, next) => {
@@ -249,7 +212,7 @@ const requireActiveAdmin = async (req, res, next) => {
 
 // --- Route-specific Middleware Combinations ---
 const clientRoutes = [requireAuth, requireClient];
-const vendorRoutes = [requireAuth, requireVendor, requireApprovedVendor];
+const vendorRoutes = [requireAuth, requireVendor];
 const adminRoutes = [requireAuth, requireAdmin, requireActiveAdmin];
 
 // --- Optional Authentication Middleware ---
@@ -400,7 +363,6 @@ module.exports = {
   requirePermission,
 
   // Status checks
-  requireApprovedVendor,
   requireActiveAdmin,
 
   // Security helpers

@@ -1,11 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const vendorController = require('../../controllers/client/vendorController');
-const { getVendorFullDetails } = require('../../controllers/client/vendorController');
 const { 
   requireAuth, 
   requireVendor, 
-  requireApprovedVendor 
 } = require('../../middleware/authMiddleware');
 
 // --- Public Routes ---
@@ -52,12 +50,12 @@ router.get('/business-details', requireAuth, requireVendor, vendorController.get
 // @desc    Get vendor dashboard stats
 // @route   GET /api/vendor/dashboard
 // @access  Private (Approved Vendor)
-router.get('/dashboard', requireAuth, requireVendor, requireApprovedVendor, vendorController.getVendorDashboard);
+router.get('/dashboard', requireAuth, requireVendor, vendorController.getVendorDashboard);
 
 // getVendorFullDetails is now in vendorController
 // @desc    Get all details related to a vendor (business, user, listings, popular)
 // @route   GET /api/vendor/:vendorId/details
 // @access  Public
-router.get('/details/:vendorId', getVendorFullDetails);
+router.get('/details/:vendorId', vendorController.getVendorFullDetails);
 
 module.exports = router;

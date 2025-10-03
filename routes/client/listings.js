@@ -8,6 +8,7 @@ router.get('/filter', listingController.filterListings);
 router.get('/search', listingController.searchListings);
 router.get('/featured', listingController.getFeaturedListings);
 router.get('/popular', listingController.getPopularListings);
+router.get('/by-category', listingController.getListingsAndVendorsByCategory);
 router.get('/vendor/:vendorId', listingController.getListingsByVendor);
 router.get('/:id', listingController.getListingById);
 

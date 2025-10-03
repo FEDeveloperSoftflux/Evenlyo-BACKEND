@@ -9,19 +9,17 @@ const listingSchema = new mongoose.Schema({
     description: 'Current stock quantity for this listing.'
   },
   title: {
-    type: String,
-    trim: true,
-    maxlength: 200
+    en: { type: String, trim: true, required: true, maxlength: 100 },
+    nl: { type: String, trim: true, required: true, maxlength: 100 }
   },
   subtitle: {
-    type: String,
-    trim: true,
-    maxlength: 150
+    en: { type: String, trim: true,  },
+    nl: { type: String, trim: true,  }
+
   },
   description: {
-    type: String,
-    trim: true,
-    maxlength: 2000
+    en: { type: String, trim: true, required: true,  },
+    nl: { type: String, trim: true, required: true,  }
   },
   vendor: {
     type: mongoose.Schema.Types.ObjectId,
@@ -40,8 +38,8 @@ const listingSchema = new mongoose.Schema({
   },
   pricing: {
     type: {
-      type: String,
-      required: true
+      en: { type: String, trim: true  },
+      nl: { type: String, trim: true  }
     },
     amount: {
       type: Number,
@@ -62,6 +60,11 @@ const listingSchema = new mongoose.Schema({
       type: Number,
       min: 0
     },
+    escrowFee: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
     totalPrice: {
       type: Number,
       min: 0,
@@ -70,7 +73,7 @@ const listingSchema = new mongoose.Schema({
   },
   images: {
       type: [String],
-      default: [null]
+      default: []
     },
   contact: {
     phone: {
@@ -118,16 +121,7 @@ const listingSchema = new mongoose.Schema({
       endTime: String    // "17:00"
     }],
   },
-  personalInfo: {
-    displayName: String, // Professional name like "DJ Ray Beatz"
-    realName: String,
-      bio: {
-        type: String,
-        trim: true
-      },
-    profileImage: String,
-    coverImage: String
-  },
+
   serviceDetails: {
     serviceType: {
       type: String,
@@ -135,47 +129,8 @@ const listingSchema = new mongoose.Schema({
       required: true,
       default: 'human'
     },
-    serviceTypes: [String], // e.g., ['weddings', 'corporate events', 'private parties']
-    travelDistance: Number, // in kilometers
-    setupTime: Number, // in minutes
-    minimumBookingDuration: Number, // in hours
   },
-  media: {
-    gallery: [String], // Array of image URLs
-    videos: [String]   // Array of video URLs
-  },
-  features: [{
-    name: {
-      en: {
-        type: String,
-        trim: true
-      },
-      nl: {
-        type: String,
-        trim: true
-      }
-    },
-    description: {
-      en: {
-        type: String,
-        trim: true
-      },
-      nl: {
-        type: String,
-        trim: true
-      }
-    },
-    isIncluded: {
-      type: Boolean,
-      default: true
-    }
-  }],
 
-  duration: {
-    min: Number, // minimum duration in minutes
-    max: Number, // maximum duration in minutes
-    default: Number // default duration in minutes
-  },
   status: {
     type: String,
     enum: ['draft', 'pending', 'active', 'inactive', 'suspended'],
@@ -185,11 +140,18 @@ const listingSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  isFeatured: {
-    type: Boolean,
-    default: false
+  rating: {
+    average: {
+      type: Number, 
+      min: 0,
+      max: 5,
+      default: 0
+    },
+    totalReviews: {
+      type: mongoose.Schema.Types.Double,
+      default: 0
+    }
   },
-
   reviews: [{
     bookingId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -241,79 +203,8 @@ const listingSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Virtual for getting formatted price
-listingSchema.virtual('formattedPrice').get(function() {
-  if (!this.pricing || !this.pricing.type) return 'Price on request';
-  switch (this.pricing.type) {
-    case 'PerHour':
-      return `${this.pricing.currency} ${this.pricing.amount}/hour`;
-    case 'PerDay':
-      return `${this.pricing.currency} ${this.pricing.amount}/day`;
-    case 'PerEvent':
-      return `${this.pricing.currency} ${this.pricing.amount}/event`;
-    case 'Fixed':
-      return `${this.pricing.currency} ${this.pricing.amount} (fixed)`;
-    default:
-      return 'Price on request';
-  }
-});
 
-// Virtual for getting security fee info
-listingSchema.virtual('securityInfo').get(function() {
-  if (this.serviceDetails?.serviceType === 'non_human') {
-    return {
-      required: false,
-      message: 'No security fee required for equipment/non-human services'
-    };
-  } else {
-    return {
-      required: this.pricing?.securityFee > 0,
-      amount: this.pricing?.securityFee || 0,
-      message: this.pricing?.securityFee > 0 
-        ? `Security deposit: ${this.pricing.currency} ${this.pricing.securityFee}` 
-        : 'No security deposit required'
-    };
-  }
-});
 
-// Virtual for getting extra time cost info
-listingSchema.virtual('extraTimeInfo').get(function() {
-  if (this.pricing?.extraTimeCost?.perHour) {
-    return {
-      available: true,
-      rate: `${this.pricing.currency} ${this.pricing.extraTimeCost.perHour}/hour`,
-      description: this.pricing.extraTimeCost.description || 'Additional time beyond standard booking'
-    };
-  }
-  return {
-    available: false,
-    message: 'Extra time not available'
-  };
-});
-
-// Virtual for getting contact display
-listingSchema.virtual('contactDisplay').get(function() {
-  return {
-    displayName: this.personalInfo?.displayName || this.title,
-    phone: this.contact?.phone,
-    email: this.contact?.email,
-    website: this.contact?.website,
-    socialMedia: this.contact?.socialMedia
-  };
-});
-
-// Virtual for getting experience summary
-listingSchema.virtual('experienceSummary').get(function() {
-  if (this.experience?.years) {
-    return `${this.experience.years}+ years experience`;
-  }
-  return 'Experienced professional';
-});
-
-// Virtual for getting full location
-listingSchema.virtual('fullLocation').get(function() {
-  return `${this.location.city}, ${this.location.country}`;
-});
 
 // Pre-save middleware
 listingSchema.pre('save', function(next) {

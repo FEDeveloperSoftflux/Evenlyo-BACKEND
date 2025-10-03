@@ -19,7 +19,7 @@ const getVendorBillingInvoices = async (req, res) => {
 		const formatted = invoices.map(inv => ({
 			billingId: inv._id,
 			date: inv.billingDate,
-			subscriptionPlan: inv.planId ? inv.planId.planName : null,
+			subscriptionPlan: inv.planId ? inv.planId.planName : '',
 			amount: inv.amount,
 			status: inv.status,
 			invoiceNumber: inv.invoiceNumber

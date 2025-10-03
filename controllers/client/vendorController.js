@@ -1,3 +1,11 @@
+
+
+const Vendor = require('../../models/Vendor');
+const User = require('../../models/User');
+const Listing = require('../../models/Listing');
+const mongoose = require('mongoose');
+const asyncHandler = require('express-async-handler');
+
 // @desc    Get all details related to a vendor (business, user, listings, popular)
 // @route   GET /api/vendor/details/:vendorId
 // @access  Public
@@ -49,8 +57,8 @@ const getVendorFullDetails = async (req, res) => {
       phone: vendor.businessPhone,
       rating: parseFloat((vendor.rating?.average || 0).toFixed(1)),
       businessName: vendor.businessName,
-      location: vendor.businessAddress,
-      employees: vendor.teamSize || null,
+      location: vendor.businessLocation || '',
+      employees: vendor.teamSize || '',
       description: typeof vendor.businessDescription === 'object' ? (vendor.businessDescription.en || vendor.businessDescription.nl || '') : vendor.businessDescription,
       whyChooseUs: vendor.whyChooseUs || '',
       reviews: vendor.rating?.totalReviews || 0,
@@ -93,7 +101,7 @@ const formattedListings = listings.map(listing => {
     ratingCount: listing.ratings?.count || 0,
     pricingPerEvent,
     location: listing.location?.fullAddress || '',
-    featuredImage: listing.images?.[0] || null,
+    featuredImage: listing.images?.[0] || '',
     images: listing.images || [],
     gallery: listing.media?.gallery || [],
     category: listing.category?.name,
@@ -132,7 +140,7 @@ const formattedPopularListings = popularListings.map(listing => {
     ratingCount: listing.ratings?.count || 0,
     pricingPerEvent,
     location: listing.location?.fullAddress || '',
-    featuredImage: listing.images?.[0] || null,
+    featuredImage: listing.images?.[0] || '',
     images: listing.images || [],
     gallery: listing.media?.gallery || [],
     category: listing.category?.name,
@@ -156,11 +164,6 @@ const formattedPopularListings = popularListings.map(listing => {
     res.status(500).json({ success: false, message: 'Error fetching vendor details', error: error.message });
   }
 };
-const Vendor = require('../../models/Vendor');
-const User = require('../../models/User');
-const Listing = require('../../models/Listing');
-const mongoose = require('mongoose');
-const asyncHandler = require('express-async-handler');
 
 // @desc    Get vendor profile (public and private access)
 // @route   GET /api/vendor/profile/:vendorId (public)
@@ -200,9 +203,8 @@ const getVendorProfile = asyncHandler(async (req, res) => {
       businessName: vendor.businessName,
       businessEmail: isPublicAccess ? undefined : vendor.businessEmail,
       businessPhone: isPublicAccess ? undefined : vendor.businessPhone,
-      businessAddress: vendor.businessAddress,
-      businessWebsite: vendor.businessWebsite,
       businessLocation: vendor.businessLocation,
+      businessWebsite: vendor.businessWebsite,
       businessDescription: vendor.businessDescription
     },
     teamInfo: {
@@ -276,7 +278,6 @@ const updateVendorProfile = asyncHandler(async (req, res) => {
     businessName,
     businessEmail,
     businessPhone,
-    businessAddress,
     businessWebsite,
     teamType,
     teamSize,
@@ -303,7 +304,6 @@ const updateVendorProfile = asyncHandler(async (req, res) => {
   if (businessName) vendor.businessName = businessName;
   if (businessEmail) vendor.businessEmail = businessEmail;
   if (businessPhone) vendor.businessPhone = businessPhone;
-  if (businessAddress) vendor.businessAddress = businessAddress;
   if (businessWebsite) vendor.businessWebsite = businessWebsite;
   if (teamType) vendor.teamType = teamType;
   if (teamSize) vendor.teamSize = teamSize;
@@ -367,7 +367,6 @@ const getVendorBusinessDetails = asyncHandler(async (req, res) => {
       businessName: vendor.businessName,
       businessEmail: vendor.businessEmail,
       businessPhone: vendor.businessPhone,
-      businessAddress: vendor.businessAddress,
       businessWebsite: vendor.businessWebsite,
       businessLocation: vendor.businessLocation,
       businessDescription: vendor.businessDescription
@@ -599,7 +598,6 @@ const getFeaturedVendors = asyncHandler(async (req, res) => {
       businessName 
       businessEmail
       businessPhone
-      businessAddress
       businessLocation 
       businessDescription 
       businessLogo 
@@ -642,9 +640,8 @@ const getFeaturedVendors = asyncHandler(async (req, res) => {
         businessName: vendor.businessName,
         businessEmail: vendor.businessEmail,
         businessPhone: vendor.businessPhone,
-        businessAddress: vendor.businessAddress,
-        businessWebsite: vendor.businessWebsite,
         businessLocation: vendor.businessLocation,
+        businessWebsite: vendor.businessWebsite,
         businessDescription: description,
         shortDescription: description.length > 150 ? description.substring(0, 150) + '...' : description
       },
@@ -750,10 +747,8 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
   // Handle both path parameter and query parameter for category
   const categoryId = req.params.categoryId || category;
 
-  // Build query object
-  const query = {
-    approvalStatus: 'approved'
-  };
+  // Build query object - Include all vendors regardless of approval status to include personal accounts
+  const query = {};
 
   // Filter by main category (use categoryId from path param or category from query param)
   if (categoryId) {
@@ -788,7 +783,7 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
   }
 
   const vendors = await Vendor.find(query)
-    .populate('userId', 'firstName lastName profileImage isActive')
+    .populate('userId', 'firstName lastName profileImage isActive accountType userType')
     .populate('mainCategories', 'name icon description')
     .populate('subCategories', 'name icon description')
     .select(`
@@ -802,10 +797,10 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
       totalBookings 
       completedBookings
       contactMeEnabled
-      approvalStatus
+      isApproved
       createdAt
       bannerImage
-      businessLogo
+      accountType
     `)
     .sort(sortOptions)
     .skip(skip)
@@ -820,21 +815,31 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
       ? vendor.businessDescription.en || vendor.businessDescription.nl || ''
       : vendor.businessDescription || '';
 
+    // Handle business name for personal accounts
+    const displayBusinessName = vendor.businessName || 
+      (vendor.userId?.firstName && vendor.userId?.lastName 
+        ? `${vendor.userId.firstName} ${vendor.userId.lastName}` 
+        : 'Business Name Not Set');
+
     return {
       _id: vendor._id,
-      businessName: vendor.businessName,
+      businessName: displayBusinessName,
       businessLogo: vendor.businessLogo,
       businessLocation: vendor.businessLocation,
+      accountType: vendor.userId?.accountType || vendor.accountType,
+      userType: vendor.userId?.userType,
       rating: {
         stars: Math.round(vendor.rating?.average || 0),
         average: vendor.rating?.average || 0,
         totalReviews: vendor.rating?.totalReviews || 0
       },
-      availability: vendor.contactMeEnabled && vendor.approvalStatus === 'approved' ? 'AVAILABLE' : 'UNAVAILABLE',
+      availability: vendor.contactMeEnabled && vendor.userId?.isActive ? 'AVAILABLE' : 'UNAVAILABLE',
       whyChooseUs: description.length > 100 ? description.substring(0, 100) + '...' : description,
       businessEmail: vendor.businessEmail,
       businessPhone: vendor.businessPhone,
-      businessDescription: description
+      businessDescription: description,
+      isActive: vendor.userId?.isActive,
+      isApproved: vendor.isApproved
     };
   });
 
@@ -848,11 +853,12 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
       limit: parseInt(limit)
     },
     filters: {
-      category: category || null,
-      subcategory: subcategory || null,
+      category: categoryId || '',
+      subcategory: subcategory || '',
       sortBy,
       sortOrder
-    }
+    },
+    note: 'Returns all vendors (personal and business accounts) based on category and subcategory'
   });
 });
 

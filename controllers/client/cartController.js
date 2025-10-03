@@ -367,7 +367,7 @@ const submitCart = asyncHandler(async (req, res) => {
           totalPrice: bookingPrice + (listing.pricing.securityFee || 0),
           ...(isMultiDay && {
             dailyRate: Math.round(bookingPrice / diffDays),
-            multiDayDiscount: listing.pricing.multiDayDiscount || null
+            multiDayDiscount: listing.pricing.multiDayDiscount || ''
           })
         }
       });

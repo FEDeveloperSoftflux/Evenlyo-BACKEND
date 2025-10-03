@@ -1,11 +1,33 @@
 const Booking = require('../../models/Booking');
 const Listing = require('../../models/Listing');
 const User = require('../../models/User');
+const Vendor = require('../../models/Vendor');
 
 // Vendor Dashboard Analytics Controller
 const getDashboardAnalytics = async (req, res) => {
   try {
-    const vendorId = req.vendor._id;
+    // Ensure user is authenticated
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Get vendor ID from session or find vendor by user ID
+    let vendorId = req.user.vendorId;
+    
+    if (!vendorId) {
+      // Fallback: find vendor by user ID
+      const vendor = await Vendor.findOne({ userId: req.user.id });
+      if (!vendor) {
+        return res.status(404).json({
+          success: false,
+          message: 'Vendor profile not found'
+        });
+      }
+      vendorId = vendor._id;
+    }
 
     // 6. Recent Clients (last 5 unique clients who booked with vendor)
     const recentClientBookings = await Booking.find({ vendorId })
@@ -34,7 +56,6 @@ const getDashboardAnalytics = async (req, res) => {
       { $count: 'total' }
     ]);
     const totalClients = totalClientsAgg.length > 0 ? totalClientsAgg[0].total : 0;
-    const Vendor = require('../../models/Vendor');
 
     // Use Vendor model stats if available
     const vendorDoc = await Vendor.findById(vendorId);
@@ -105,8 +126,8 @@ const getDashboardAnalytics = async (req, res) => {
         status: b.status,
         createdAt: b.createdAt
       })),
-  orderOverview,
-  recentClients
+      orderOverview,
+      recentClients
     });
   } catch (err) {
     console.error('Dashboard analytics error:', err);

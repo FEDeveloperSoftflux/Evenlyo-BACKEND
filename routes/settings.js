@@ -6,13 +6,6 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// --- Multer Configuration for Profile Picture Upload ---
-const createUploadDirectory = (dirPath) => {
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
-  }
-};
-
 
 const fileFilter = (req, file, cb) => {
   // Check file type

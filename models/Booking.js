@@ -31,6 +31,89 @@ const bookingRequestSchema = new mongoose.Schema({
     ref: 'Listing',
     required: true
   },
+  listingDetails: {
+    title: {
+      en: { type: String, trim: true, required: true },
+      nl: { type: String, trim: true, required: true }
+    },
+    subtitle: {
+      en: { type: String, trim: true },
+      nl: { type: String, trim: true }
+    },
+    description: {
+      en: { type: String, trim: true },
+      nl: { type: String, trim: true }
+    },
+    images: [{
+      type: String
+    }],
+    pricing: {
+      type: {
+        type: String,
+        required: true
+      },
+      amount: {
+        type: Number,
+        required: true
+      },
+      extratimeCost: {
+        type: Number,
+        default: 0
+      },
+      securityFee: {
+        type: Number,
+        default: 0
+      },
+      pricePerKm: {
+        type: Number,
+        default: 0
+      }
+    },
+    category: {
+      _id: {
+        type: mongoose.Schema.Types.ObjectId
+      },
+      name: {
+        type: String
+      }
+    },
+    subCategory: {
+      _id: {
+        type: mongoose.Schema.Types.ObjectId
+      },
+      name: {
+        type: String
+      }
+    },
+    serviceDetails: {
+      serviceType: {
+        type: String,
+        enum: ['human', 'non_human']
+      }
+    },
+    location: {
+      fullAddress: String,
+      coordinates: {
+        latitude: Number,
+        longitude: Number
+      }
+    },
+    contact: {
+      phone: String,
+      email: String,
+      website: String
+    },
+    rating: {
+      average: {
+        type: Number,
+        default: 0
+      },
+      totalReviews: {
+        type: Number,
+        default: 0
+      }
+    }
+  },
   details: { // Updated field name to match requirements
     startDate: {
       type: Date,
@@ -264,16 +347,6 @@ const bookingRequestSchema = new mongoose.Schema({
       }
     }
   },
-  deliveryDetails: {
-    driverInfo: {
-      name: String,
-      id: String,
-      contactNumber: String
-    },
-    pickupTime: Date,
-    deliveryTime: Date,
-    returnTime: Date
-  },
   feedback: {
     clientFeedback: {
       en: {
@@ -285,16 +358,6 @@ const bookingRequestSchema = new mongoose.Schema({
         trim: true
       }
     },
-    vendorFeedback: {
-      en: {
-        type: String,
-        trim: true
-      },
-      nl: {
-        type: String,
-        trim: true
-      }
-    }
   },
   invoiceUrl: String,
   // Platform fees

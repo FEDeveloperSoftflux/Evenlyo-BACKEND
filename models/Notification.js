@@ -12,8 +12,8 @@ const NotificationSchema = new mongoose.Schema({
     required: false // Made optional for admin notifications
   },
   message: {
-    type: String,
-    required: true
+    en: { type: String, trim: true, required: true },
+    nl: { type: String, trim: true, required: true }
   },
   isRead: {
     type: Boolean,
