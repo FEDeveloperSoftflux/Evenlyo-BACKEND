@@ -1,8 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { requireAuth, requireVendor } = require('../../middleware/authMiddleware');
-const { getVendorListingsOverview, toggleListingStatus, createListing, updateListing, deleteListing } = require('../../controllers/vendor/listingManagement');
+const { getVendorListingsOverview, getVendorListings, toggleListingStatus, createListing, updateListing, deleteListing } = require('../../controllers/vendor/listingManagement');
 
+
+// GET /api/vendor/listings
+router.get('/all', requireAuth, requireVendor, getVendorListings);
 
 // GET /api/vendor/listings/overview
 router.get('/overview', requireAuth, requireVendor, getVendorListingsOverview);

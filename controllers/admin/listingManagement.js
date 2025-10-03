@@ -1,7 +1,3 @@
-
-
-
-
 const Category = require('../../models/Category');
 const SubCategory = require('../../models/SubCategory');
 const Listing = require('../../models/Listing');

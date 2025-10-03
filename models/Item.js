@@ -19,6 +19,11 @@ const serviceItemSchema = new mongoose.Schema({
     ref: 'Vendor',
     required: true
   },
+  linkedListing: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Listing',
+    description: 'Optional reference to a listing this item is associated with'
+  },
   purchasePrice: {
     type: Number,
     required: true,

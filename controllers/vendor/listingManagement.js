@@ -457,9 +457,48 @@ const deleteListing = async (req, res) => {
 	}
 };
 
+// @desc    Get vendor listings (name and id only)
+// @route   GET /api/vendor/listings
+// @access  Private (Vendor only)
+const getVendorListings = async (req, res) => {
+	try {
+		const vendorId = req.vendor?._id || req.user?._id || req.user?.vendorId || req.user?.id;
+
+		if (!vendorId) {
+			return res.status(400).json({ 
+				success: false, 
+				message: 'Vendor not found in request.' 
+			});
+		}
+
+		// Get listings for this vendor with only name and id
+		const listings = await Listing.find({ vendor: vendorId })
+			.select('_id title')
+			.lean();
+
+		// Format the response to include name and id with both languages
+		const formattedListings = listings.map(listing => ({
+			id: listing._id,
+			name: {
+				en: listing.title?.en || listing.title || 'Untitled',
+				nl: listing.title?.nl || listing.title || 'Naamloos'
+			}
+		}));
+
+		res.json({
+			success: true,
+			data: formattedListings
+		});
+	} catch (err) {
+		console.error('Get vendor listings error:', err);
+		res.status(500).json({ success: false, message: 'Server error', error: err.message });
+	}
+};
+
 module.exports = {
 	toggleListingStatus,
 	getVendorListingsOverview,
+	getVendorListings,
 	createListing,
 	updateListing,
 	deleteListing
