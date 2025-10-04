@@ -1,52 +1,47 @@
 const jwt = require('jsonwebtoken');
 
-// Centralized JWT helper (access + password reset) – refresh tokens removed.
+// Access & Refresh token helpers
+// Access tokens: short lived (e.g. 15m)
+// Refresh tokens: longer lived (e.g. 7d)
+// Password reset / one-off: very short (e.g. 10m)
 
-const {
-  JWT_ACCESS_SECRET,
-  JWT_PASSWORD_RESET_SECRET,
-  JWT_ACCESS_EXPIRES_IN = '15m',
-  JWT_PASSWORD_RESET_EXPIRES_IN = '10m',
-  NODE_ENV
-} = process.env;
+const ACCESS_TOKEN_TTL = process.env.JWT_ACCESS_EXPIRES_IN || '15m';
+const PASSWORD_RESET_TTL = process.env.JWT_PASSWORD_RESET_EXPIRES_IN || '10m';
 
-// Basic hardening: require strong secrets in production.
-function ensureSecret(name, value) {
-  if (!value) {
-    if (NODE_ENV === 'production') {
-      throw new Error(`[jwtUtils] Required secret ${name} missing in production.`);
-    } else {
-      console.warn(`[jwtUtils] Missing ${name}. Using insecure development fallback.`);
-    }
-  } else if (value.length < 24) {
-    console.warn(`[jwtUtils] ${name} is shorter than 24 chars. Consider strengthening it.`);
-  }
+if (!process.env.JWT_ACCESS_SECRET) {
+  console.warn('[jwtUtils] Missing JWT_ACCESS_SECRET env var. Using insecure fallback for development.');
+}
+if (!process.env.JWT_PASSWORD_RESET_SECRET) {
+  console.warn('[jwtUtils] Missing JWT_PASSWORD_RESET_SECRET env var. Using insecure fallback for development.');
 }
 
-ensureSecret('JWT_ACCESS_SECRET', JWT_ACCESS_SECRET);
-ensureSecret('JWT_PASSWORD_RESET_SECRET', JWT_PASSWORD_RESET_SECRET);
+const signAccessToken = (payload, opts = {}) => {
+  return jwt.sign(payload, process.env.JWT_ACCESS_SECRET || 'dev_access_secret', {
+    expiresIn: ACCESS_TOKEN_TTL,
+    ...opts
+  });
+};
 
-const accessSecret = JWT_ACCESS_SECRET || 'dev_access_secret';
-const resetSecret  = JWT_PASSWORD_RESET_SECRET || 'dev_pw_reset_secret';
-const ALG = 'HS256';
 
-// Generic helpers
-const sign = (payload, secret, expiresIn, extraOpts = {}) =>
-  jwt.sign(payload, secret, { algorithm: ALG, expiresIn, ...extraOpts });
-const verify = (token, secret) => jwt.verify(token, secret, { algorithms: [ALG] });
+const signPasswordResetToken = (payload, opts = {}) => {
+  return jwt.sign(payload, process.env.JWT_PASSWORD_RESET_SECRET || 'dev_pw_reset_secret', {
+    expiresIn: PASSWORD_RESET_TTL,
+    ...opts
+  });
+};
 
-// Public API
-const signAccessToken = (payload, opts = {}) =>
-  sign(payload, accessSecret, JWT_ACCESS_EXPIRES_IN, opts);
-const verifyAccessToken = (token) => verify(token, accessSecret);
+const verifyAccessToken = (token) => {
+  return jwt.verify(token, process.env.JWT_ACCESS_SECRET || 'dev_access_secret');
+};
 
-const signPasswordResetToken = (payload, opts = {}) =>
-  sign(payload, resetSecret, JWT_PASSWORD_RESET_EXPIRES_IN, opts);
-const verifyPasswordResetToken = (token) => verify(token, resetSecret);
+
+const verifyPasswordResetToken = (token) => {
+  return jwt.verify(token, process.env.JWT_PASSWORD_RESET_SECRET || 'dev_pw_reset_secret');
+};
 
 module.exports = {
   signAccessToken,
-  verifyAccessToken,
   signPasswordResetToken,
+  verifyAccessToken,
   verifyPasswordResetToken
 };

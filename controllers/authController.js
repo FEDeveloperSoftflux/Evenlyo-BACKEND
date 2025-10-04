@@ -187,7 +187,7 @@ const adminLogin = performAdminLogin;
 // --- Logout (stateless) ---
 const logout = async (_req, res) => {
   // Client should discard JWT. No server state to clear.
-  res.json({ success: true, message: 'Logged out ' });
+  res.json({ success: true, message: 'Logged out (stateless). Discard your token client-side.' });
 };
 
 // --- Get Current User ---

@@ -24,8 +24,8 @@ router.post('/admin/login',
   authController.adminLogin
 );
 
-// Logout route (stateless; no auth required) - client just discards token
-router.post('/logout', authController.logout);
+// Logout route
+router.post('/logout', requireAuth, authController.logout);
 
 // OTP routes
 router.post('/send-otp',
