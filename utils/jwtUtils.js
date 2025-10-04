@@ -5,8 +5,8 @@ const jwt = require('jsonwebtoken');
 // Refresh tokens: longer lived (e.g. 7d)
 // Password reset / one-off: very short (e.g. 10m)
 
-const ACCESS_TOKEN_TTL = process.env.JWT_ACCESS_EXPIRES_IN || '15m';
-const PASSWORD_RESET_TTL = process.env.JWT_PASSWORD_RESET_EXPIRES_IN || '10m';
+const ACCESS_TOKEN_TTL = '15m';
+const PASSWORD_RESET_TTL = '10m';
 
 if (!process.env.JWT_ACCESS_SECRET) {
   console.warn('[jwtUtils] Missing JWT_ACCESS_SECRET env var. Using insecure fallback for development.');

@@ -105,6 +105,7 @@ app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/vendor', require('./routes/client/vendors'));
 app.use('/api/items', require('./routes/client/Items'));
 app.use('/api/client/purchases', require('./routes/client/purchases'));
+app.use('/api/faqs', require('./routes/client/faqs'));
 
 // Vendor routes
 app.use('/api/vendor/dashboard', require('./routes/vendor/dashboard'));
@@ -133,6 +134,7 @@ app.use('/api/admin/employees', require('./routes/admin/adminEmployees'));
 app.use('/api/admin/support', require('./routes/admin/support'));
 app.use('/api/admin/settings', require('./routes/admin/settings'));
 app.use('/api/admin/blogs', require('./routes/admin/blog'));
+app.use('/api/admin/faqs', require('./routes/admin/faqs'));
 
 // Chat routes
 app.use('/api/messages', require('./routes/messageRoutes'));
