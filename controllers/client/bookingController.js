@@ -54,7 +54,6 @@ const createBookingPaymentIntent = asyncHandler(async (req, res) => {
   }
 });
 
-
 // @desc    Leave a review and rating for a booking
 // @route   POST /api/booking/:id/review
 // @access  Private (Client)

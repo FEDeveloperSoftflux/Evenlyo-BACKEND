@@ -32,7 +32,7 @@ const getVendorBookings = async (req, res) => {
 				name: b.userId?.firstName + ' ' + b.userId?.lastName,
 				profileImage: b.userId?.profileImage,
 			},
-			listingName: b.listingId?.title?.en || b.listingId?.title,
+			title: b.listingDetails?.title|| '',
 			deliveryDate: b.details?.endDate,
 			location: b.details?.eventLocation || b.userId?.address?.city,
 			status: b.status,

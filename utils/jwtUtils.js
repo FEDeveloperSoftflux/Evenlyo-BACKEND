@@ -1,11 +1,7 @@
 const jwt = require('jsonwebtoken');
 
-// Access & Refresh token helpers
-// Access tokens: short lived (e.g. 15m)
-// Refresh tokens: longer lived (e.g. 7d)
-// Password reset / one-off: very short (e.g. 10m)
-
-const ACCESS_TOKEN_TTL = '15m';
+// 30 days access token lifetime (ISO-ish shorthand accepted by jsonwebtoken: '30d')
+const ACCESS_TOKEN_TTL = '30d';
 const PASSWORD_RESET_TTL = '10m';
 
 if (!process.env.JWT_ACCESS_SECRET) {
