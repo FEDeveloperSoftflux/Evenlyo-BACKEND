@@ -119,8 +119,44 @@ const toggleSubCategoryStatus = async (req, res) => {
   }
 };
 
+// Create new subcategory
+const createSubCategory = async (req, res) => {
+  try {
+    const { name, icon, mainCategoryId, description } = req.body;
+    if (!name || !mainCategoryId) {
+      return res.status(400).json({ error: 'Name and mainCategoryId are required' });
+    }
+    // Build subcategory object
+    const subCategoryData = {
+      name: typeof name === 'object' ? name : { en: name, nl: name },
+      icon: icon || '',
+      mainCategory: mainCategoryId,
+      description: typeof description === 'object' ? description : { en: description || '', nl: description || '' }
+    };
+    const subcategory = new SubCategory(subCategoryData);
+    await subcategory.save();
+    res.status(201).json({
+      id: subcategory._id,
+      name: subcategory.name,
+      icon: subcategory.icon,
+      mainCategory: subcategory.mainCategory,
+      description: subcategory.description,
+      status: subcategory.isActive ? 'active' : 'deactive',
+      message: 'SubCategory created successfully'
+    });
+  } catch (err) {
+    // Handle duplicate key error for unique name/mainCategory
+    if (err.code === 11000) {
+      return res.status(409).json({ error: 'SubCategory name already exists for this main category' });
+    }
+    res.status(500).json({ error: err.message });
+  }
+};
+
 module.exports = {
   getAllListingManagementData,
   getSubCategoriesByMainCategory,
-  toggleSubCategoryStatus
+  toggleSubCategoryStatus,
+  createSubCategory
 };
+

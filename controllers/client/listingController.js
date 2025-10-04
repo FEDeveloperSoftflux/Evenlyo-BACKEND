@@ -71,7 +71,7 @@ const getListingCalendar = async (req, res) => {
 // @desc    Get available listings with filters
 // @route   GET /api/listings
 // @access  Public
-const getAvailableListings = async (req, res) => {
+const getListings = async (req, res) => {
   try {
     const {
       page = 1,
@@ -180,7 +180,7 @@ const getAvailableListings = async (req, res) => {
 
     // Get listings with populated vendor and category information
     const listings = await Listing.find(query)
-      .populate('vendor', '_id businessName businessLocation userId')
+      .populate('vendor', '_id businessName businessLocation userId businessLogo')
       .populate('category', 'name icon')
       .populate('subCategory', 'name icon')
       .sort(sortOptions)
@@ -1085,7 +1085,7 @@ const getListingsAndVendorsByCategory = async (req, res) => {
 };
 
 module.exports = {
-  getAvailableListings,
+  getListings,
   getListingById,
   getFeaturedListings,
   getPopularListings,

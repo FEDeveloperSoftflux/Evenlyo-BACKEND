@@ -4,8 +4,6 @@ const i18next = require('i18next');
 const Backend = require('i18next-fs-backend');
 const i18nextMiddleware = require('i18next-http-middleware');
 const cookieParser = require('cookie-parser');
-const session = require('express-session');
-const MongoStore = require('connect-mongo');
 const mongoose = require('mongoose');
 const connectDB = require('./config/db'); 
 const cors = require('cors');
@@ -87,28 +85,7 @@ app.use(i18nextMiddleware.handle(i18next));
 
 
 
-// ==========================
-// Session Middleware
-// ==========================
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'evenlyo_default_secret',
-  resave: false,
-  saveUninitialized: false,
-  store: MongoStore.create({
-    client: mongoose.connection.getClient(),   
-    collectionName: 'sessions',
-    ttl: 24 * 60 * 60 // 1 day
-  }),
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    // domain is optional — only set if you really need cross-subdomain cookies
-  },
-  name: 'evenlyo.sid'
-}));
-
+// Session middleware removed: JWT stateless auth in use.
 
 
 // ==========================
@@ -166,16 +143,6 @@ app.get('/', (req, res) => {
   res.send(req.t('ok'));
 });
 
-// Debug
-app.get('/api/debug/session', (req, res) => {
-  res.json({
-    sessionExists: !!req.session,
-    sessionID: req.sessionID,
-    sessionData: req.session,
-    cookies: req.cookies,
-    user: req.session?.user || null
-  });
-});
 
 // Error handler
 app.use((err, req, res, next) => {

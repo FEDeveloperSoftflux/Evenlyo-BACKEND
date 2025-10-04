@@ -10,6 +10,6 @@ router.post('/create-payment-intent', requireAuth, requireClient, createItemPaym
 router.post('/buy', requireAuth, requireClient, buyItem);
 
 // GET /api/client/items/list - Get items by category
-router.get('/list', requireAuth, getItemsByCategory);
+router.get('/list',getItemsByCategory);
 
 module.exports = router;

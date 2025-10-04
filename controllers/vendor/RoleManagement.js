@@ -19,7 +19,7 @@ const getAllDesignations = async (req, res) => {
 			id: d._id,
 			name: d.name,
 			permissions: d.permissions,
-			status: d.status,
+			isActive: d.isActive,
 			createdAt: d.createdAt
 		}));
 
@@ -153,11 +153,13 @@ const editDesignation = async (req, res) => {
 
 		const { designationId } = req.params;
 		const { name, permissions } = req.body;
+		const {isActive} = req.body;
 		if (!designationId) return res.status(400).json({ error: 'designationId is required' });
 
 		const update = {};
 		if (name) update.name = name;
 		if (permissions) update.permissions = permissions;
+		if (isActive) update.isActive = isActive;
 
 		const designation = await Designation.findOneAndUpdate(
 			{ _id: designationId, vendor: vendorId },
@@ -180,7 +182,7 @@ const editRoleUser = async (req, res) => {
 		if (!vendorId) return res.status(401).json({ error: 'Unauthorized: vendor authentication required' });
 
 		const { employeeId } = req.params;
-		const { firstName, lastName, email, contactNumber, password, designationId } = req.body;
+		const { firstName, lastName, email, contactNumber, password, designationId, status } = req.body;
 		if (!employeeId) return res.status(400).json({ error: 'employeeId is required' });
 
 		const update = {};
@@ -189,6 +191,7 @@ const editRoleUser = async (req, res) => {
 		if (email) update.email = email;
 		if (contactNumber) update.contactNumber = contactNumber;
 		if (designationId) update.designation = designationId;
+		if (status) update.status = status;
 
 		if (password) {
 			const hashedPassword = await bcrypt.hash(password, 10);

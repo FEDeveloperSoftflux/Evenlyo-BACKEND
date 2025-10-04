@@ -1,77 +1,79 @@
 const User = require('../models/User');
 const Vendor = require('../models/Vendor');
 const Admin = require('../models/Admin');
+const { verifyAccessToken } = require('../utils/jwtUtils');
 
-// --- Session Configuration Middleware ---
-const configureSession = (req, res, next) => {
-  // Ensure session is configured
-  if (!req.session) {
-    return res.status(500).json({
-      success: false,
-      message: 'Session not configured'
-    });
-  }
-  next();
-};
+// Session removed: configuration middleware no longer needed
 
-// --- Authentication Middleware ---
+// --- Authentication Middleware (supports JWT and legacy session) ---
 const requireAuth = async (req, res, next) => {
   try {
-    // Check if user is authenticated via session
-    if (!req.session.user || !req.session.user.id) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required'
-      });
+    let tokenUser = null;
+
+    // 1. Try Authorization Bearer token first
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      try {
+        const decoded = verifyAccessToken(token);
+        tokenUser = decoded; // should contain id, userType, etc.
+      } catch (err) {
+        return res.status(401).json({ success: false, message: 'Invalid or expired token' });
+      }
     }
 
-    // Skip database verification for super admin (env-based login)
-    if (req.session.user.id === 'superadmin') {
+    // If no token user -> unauthorized (sessions removed)
+    if (!tokenUser) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+    const baseUser = tokenUser;
+
+    // Super admin shortcut (legacy env-based)
+    if (baseUser.id === 'superadmin') {
       req.user = {
         id: 'superadmin',
-        email: req.session.user.email,
-        firstName: req.session.user.firstName,
-        lastName: req.session.user.lastName,
+        email: baseUser.email,
+        firstName: baseUser.firstName,
+        lastName: baseUser.lastName,
         userType: 'admin',
         role: 'super_admin',
         permissions: ['*'],
-        department: 'Administration'
+        department: 'Administration',
+        authSource: tokenUser ? 'jwt' : 'session'
       };
       return next();
     }
 
     // Verify user still exists in database
-    const user = await User.findById(req.session.user.id);
+    const user = await User.findById(baseUser.id);
     if (!user || !user.isActive) {
-      // Clear invalid session
-      req.session.destroy();
-      return res.status(401).json({
-        success: false,
-        message: 'User not found or account deactivated'
-      });
+      return res.status(401).json({ success: false, message: 'User not found or deactivated' });
     }
 
-    // Add user data to request
+    // Build request user object
     req.user = {
       id: user._id,
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
       userType: user.userType,
-      ...req.session.user // Include any additional session data
+      ...baseUser,
+      authSource: 'jwt'
     };
-    // Ensure vendorId is set for vendor users
-    if (req.user.userType === 'vendor' && req.session.user.vendorId) {
-      req.user.vendorId = req.session.user.vendorId;
+
+    // Ensure vendorId present if vendor user
+    if (req.user.userType === 'vendor') {
+      if (!req.user.vendorId) {
+        // attempt lookup
+        const vendor = await Vendor.findOne({ userId: user._id }, '_id');
+        if (vendor) req.user.vendorId = vendor._id;
+      }
     }
 
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Authentication error'
-    });
+    res.status(500).json({ success: false, message: 'Authentication error' });
   }
 };
 
@@ -120,19 +122,10 @@ const requirePermission = (requiredPermissions) => {
         });
       }
 
-      // Get admin permissions from session or database
-      let permissions = req.user.permissions || [];
-      
-      // If permissions not in session, fetch from database
-      if (!permissions.length) {
-        const admin = await Admin.findOne({ userId: req.user.id });
-        if (admin) {
-          permissions = admin.permissions || [];
-          // Update session with permissions
-          req.session.user.permissions = permissions;
-          req.user.permissions = permissions;
-        }
-      }
+      // Fetch permissions fresh from database (no session caching)
+      let permissions = [];
+      const admin = await Admin.findOne({ userId: req.user.id });
+      if (admin) permissions = admin.permissions || [];
 
       // Check if user has required permissions
       const hasPermission = requiredPermissions.every(permission => 
@@ -215,11 +208,13 @@ const clientRoutes = [requireAuth, requireClient];
 const vendorRoutes = [requireAuth, requireVendor];
 const adminRoutes = [requireAuth, requireAdmin, requireActiveAdmin];
 
-// --- Optional Authentication Middleware ---
+// Optional auth now only attempts JWT if provided
 const optionalAuth = async (req, res, next) => {
-  try {
-    if (req.session.user && req.session.user.id) {
-      const user = await User.findById(req.session.user.id);
+  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const decoded = verifyAccessToken(authHeader.substring(7));
+      const user = await User.findById(decoded.id);
       if (user && user.isActive) {
         req.user = {
           id: user._id,
@@ -227,45 +222,13 @@ const optionalAuth = async (req, res, next) => {
           firstName: user.firstName,
           lastName: user.lastName,
           userType: user.userType,
-          ...req.session.user
+          ...decoded,
+          authSource: 'jwt'
         };
       }
-    }
-    next();
-  } catch (error) {
-    // Continue without authentication
-    next();
+    } catch (_) { /* ignore */ }
   }
-};
-
-// --- Session Validation Middleware ---
-const validateSession = async (req, res, next) => {
-  try {
-    if (!req.session.user) {
-      return res.status(401).json({
-        success: false,
-        message: 'No active session'
-      });
-    }
-
-    // Check if session is still valid
-    const user = await User.findById(req.session.user.id);
-    if (!user || !user.isActive) {
-      req.session.destroy();
-      return res.status(401).json({
-        success: false,
-        message: 'Session expired'
-      });
-    }
-
-    next();
-  } catch (error) {
-    console.error('Session validation error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Session validation error'
-    });
-  }
+  next();
 };
 
 // --- Rate Limiting Helper (Basic) ---
@@ -348,9 +311,7 @@ const csrfProtection = (req, res, next) => {
 
 module.exports = {
   // Core authentication
-  configureSession,
   requireAuth,
-  validateSession,
   optionalAuth,
 
   // Role-based access

@@ -1,4 +1,5 @@
 const Notification = require('../models/Notification');
+const { toMultilingualText } = require('../utils/textUtils');
 const User = require('../models/User');
 const Admin = require('../models/Admin');
 
@@ -18,12 +19,13 @@ const createAdminNotification = async ({ message, bookingId = null }) => {
   try {
     const admins = await getActiveAdmins();
     const notifications = [];
+    const multilingualMessage = toMultilingualText(message);
 
     for (const admin of admins) {
       const notification = new Notification({
         user: admin._id,
         bookingId,
-        message
+        message: multilingualMessage
       });
       await notification.save();
       notifications.push(notification);
@@ -39,7 +41,8 @@ const createAdminNotification = async ({ message, bookingId = null }) => {
 // Create a notification
 const createNotification = async ({ user, bookingId, message }) => {
   try {
-    const notification = new Notification({ user, bookingId, message });
+    const multilingualMessage = toMultilingualText(message);
+    const notification = new Notification({ user, bookingId, message: multilingualMessage });
     await notification.save();
     return notification;
   } 

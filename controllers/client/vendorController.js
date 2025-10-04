@@ -18,7 +18,7 @@ const getVendorFullDetails = async (req, res) => {
 
     // Fetch vendor with user details
     const vendor = await Vendor.findById(vendorId)
-      .populate('userId', 'firstName lastName')
+      .populate('userId', 'firstName lastName profileImage')
       .lean();
     if (!vendor) {
       return res.status(404).json({ success: false, message: 'Vendor not found' });
@@ -80,30 +80,16 @@ const listings = await Listing.find({ vendor: vendorId, status: 'active', isActi
   .lean();
 
 const formattedListings = listings.map(listing => {
-  let pricingPerEvent = null;
-  if (listing.pricing?.type === 'PerEvent') {
-    pricingPerEvent = `€${listing.pricing.amount}`;
-  } else if (listing.pricing?.type === 'PerDay') {
-    pricingPerEvent = `€${listing.pricing.amount}/day`;
-  } else if (listing.pricing?.type === 'PerHour') {
-    pricingPerEvent = `€${listing.pricing.amount}/hour`;
-  } else if (listing.pricing?.type === 'Fixed') {
-    pricingPerEvent = `€${listing.pricing.amount} (fixed)`;
-  } else {
-    pricingPerEvent = 'Quote on request';
-  }
   
   return {
     id: listing._id,
     title: listing.title,
     description: listing.description,
     rating: listing.ratings?.average || 0,
-    ratingCount: listing.ratings?.count || 0,
-    pricingPerEvent,
+    pricing : listing.pricing,
     location: listing.location?.fullAddress || '',
     featuredImage: listing.images?.[0] || '',
     images: listing.images || [],
-    gallery: listing.media?.gallery || [],
     category: listing.category?.name,
     subCategory: listing.subCategory?.name
   };
@@ -119,26 +105,13 @@ const popularListings = await Listing.find({ vendor: vendorId, status: 'active',
   .lean();
 
 const formattedPopularListings = popularListings.map(listing => {
-  let pricingPerEvent = null;
-  if (listing.pricing?.type === 'PerEvent') {
-    pricingPerEvent = `€${listing.pricing.amount}`;
-  } else if (listing.pricing?.type === 'PerDay') {
-    pricingPerEvent = `€${listing.pricing.amount}/day`;
-  } else if (listing.pricing?.type === 'PerHour') {
-    pricingPerEvent = `€${listing.pricing.amount}/hour`;
-  } else if (listing.pricing?.type === 'Fixed') {
-    pricingPerEvent = `€${listing.pricing.amount} (fixed)`;
-  } else {
-    pricingPerEvent = 'Quote on request';
-  }
-  
   return {
     id: listing._id,
     title: listing.title,
     description: listing.description,
     rating: listing.ratings?.average || 0,
     ratingCount: listing.ratings?.count || 0,
-    pricingPerEvent,
+    pricing : listing.pricing,
     location: listing.location?.fullAddress || '',
     featuredImage: listing.images?.[0] || '',
     images: listing.images || [],

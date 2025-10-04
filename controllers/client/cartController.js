@@ -212,7 +212,8 @@ const updateCartItem = asyncHandler(async (req, res) => {
     tempDetails.endDate = endDate || startDate;
   } else {
     // Single-day event
-    tempDetails.eventDate = startDate;
+    tempDetails.startDate = startDate;
+    tempDetails.endDate = startDate;
     tempDetails.startTime = startTime;
     tempDetails.endTime = endTime;
   }

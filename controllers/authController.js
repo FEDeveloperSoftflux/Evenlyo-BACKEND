@@ -4,6 +4,7 @@ const Vendor = require('../models/Vendor');
 const Admin = require('../models/Admin');
 const { generateAndSendOTP, verifyOTP } = require('../utils/otpUtils');
 const { auth } = require('../config/firebase');
+const { signAccessToken } = require('../utils/jwtUtils');
 
 // --- Model loading utility ---
 const getModelByUserType = (userType) => {
@@ -34,6 +35,18 @@ const performAdminLogin = async (req, res) =>
   {
   // ...existing code for performLogin with userType 'admin'...
   return performLogin(req, res, 'admin');
+};
+
+// Helper to build JWT access token only (refresh tokens disabled)
+const buildAccessToken = (userDoc, extra = {}) => {
+  return signAccessToken({
+    id: userDoc._id,
+    email: userDoc.email,
+    userType: userDoc.userType,
+    firstName: userDoc.firstName,
+    lastName: userDoc.lastName,
+    ...extra
+  });
 };
 
 const performLogin = async (req, res, userType) => {
@@ -118,33 +131,25 @@ const performLogin = async (req, res, userType) => {
       await userData.save();
     }
 
-    // Store session data
-    req.session.user = {
-      id: user._id,
-      email: user.email,
-      userType: user.userType,
-      firstName: user.firstName,
-      lastName: user.lastName
-    };
-
-    // Add role-specific data to session
+    // Determine extra props for token
+    const extraPayload = {};
     if (userType === 'admin') {
-      req.session.user.role = userData.role;
-      req.session.user.permissions = userData.permissions;
-      req.session.user.department = userData.department;
+      extraPayload.role = userData.role;
+      extraPayload.permissions = userData.permissions;
+      extraPayload.department = userData.department;
     } else if (userType === 'vendor') {
-      req.session.user.businessName = userData.businessName;
-      req.session.user.approvalStatus = userData.approvalStatus;
-      req.session.user.vendorId = userData._id; // Store vendorId for downstream use
+      extraPayload.businessName = userData.businessName;
+      extraPayload.approvalStatus = userData.approvalStatus;
+      extraPayload.vendorId = userData._id;
     }
 
-    // Debug: Log session user object
-     // console.log('Session user after login:', req.session.user);
+  const accessToken = buildAccessToken(user, extraPayload);
 
     // Return success response
     res.json({
       success: true,
       message: 'Login successful',
+      tokens: { access: accessToken },
       user: {
         id: user._id,
         email: user.email,
@@ -179,113 +184,57 @@ const adminLogin = performAdminLogin;
   
 
 
-// --- Logout---
-const logout = async (req, res) => {
-  try {
-    req.session.destroy((err) => {
-      if (err) {
-        return res.status(500).json({
-          success: false,
-          message: 'Error during logout'
-        });
-      }
-
-      res.clearCookie('evenlyo.sid', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        path: '/',
-      });
-      res.json({
-        success: true,
-        message: 'Logout successful'
-      });
-    });
-  } catch (error) {
-    console.error('Logout error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error'
-    });
-  }
+// --- Logout (stateless) ---
+const logout = async (_req, res) => {
+  // Client should discard JWT. No server state to clear.
+  res.json({ success: true, message: 'Logged out ' });
 };
 
 // --- Get Current User ---
 const getCurrentUser = async (req, res) => {
   try {
-    if (!req.session.user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Not authenticated'
-      });
+    // Prefer req.user (set by requireAuth with JWT) else fallback to legacy session
+    const base = req.user || req.session?.user;
+    if (!base) {
+      return res.status(401).json({ success: false, message: 'Not authenticated' });
     }
 
-    const { id, userType } = req.session.user;
-
-    const UserModel = getModelByUserType(userType);
-
-    let userData;
-
+    const { id, userType } = base;
     let responseUser = {
-      id: req.session.user.id,
-      email: req.session.user.email,
-      firstName: req.session.user.firstName,
-      lastName: req.session.user.lastName,
-      userType: req.session.user.userType
+      id,
+      email: base.email,
+      firstName: base.firstName,
+      lastName: base.lastName,
+      userType
     };
 
     if (userType === 'client') {
-      userData = await User.findById(id).select('-password');
-      if (!userData) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found'
-        });
-      }
+      const userData = await User.findById(id).select('-password');
+      if (!userData) return res.status(404).json({ success: false, message: 'User not found' });
     } else if (userType === 'vendor') {
-      userData = await Vendor.findOne({ userId: id }).populate('userId', '-password');
-      if (!userData) {
-        return res.status(404).json({
-          success: false,
-          message: 'Vendor profile not found'
-        });
-      }
-      responseUser.businessName = userData.businessName;
-      responseUser.approvalStatus = userData.approvalStatus;
-      responseUser.vendorId = userData._id;
-    } 
-    else if (userType === 'admin') {
-      // Handle super admin case (not stored in database)
+      const vendor = await Vendor.findOne({ userId: id }).populate('userId', '-password');
+      if (!vendor) return res.status(404).json({ success: false, message: 'Vendor profile not found' });
+      responseUser.businessName = vendor.businessName;
+      responseUser.approvalStatus = vendor.approvalStatus;
+      responseUser.vendorId = vendor._id;
+    } else if (userType === 'admin') {
       if (id === 'superadmin') {
         responseUser.role = 'super_admin';
         responseUser.permissions = ['*'];
         responseUser.department = 'Administration';
       } else {
-        // Regular admin lookup from database
-        userData = await Admin.findOne({ userId: id }).populate('userId', '-password');
-        if (!userData) {
-          return res.status(404).json({
-            success: false,
-            message: 'Admin profile not found'
-          });
-        }
-        responseUser.role = userData.role;
-        responseUser.permissions = userData.permissions;
-        responseUser.department = userData.department;
+        const admin = await Admin.findOne({ userId: id }).populate('userId', '-password');
+        if (!admin) return res.status(404).json({ success: false, message: 'Admin profile not found' });
+        responseUser.role = admin.role;
+        responseUser.permissions = admin.permissions;
+        responseUser.department = admin.department;
       }
     }
 
-    res.json({
-      success: true,
-      user: responseUser
-    });
-
+    res.json({ success: true, user: responseUser });
   } catch (error) {
     console.error('Get current user error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error'
-    });
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
@@ -490,6 +439,8 @@ const sendOtpForForgotPassword = async (req, res) => {
   }
 };
 
+const { signPasswordResetToken, verifyPasswordResetToken } = require('../utils/jwtUtils');
+
 const verifyOtpForForgotPassword = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -524,12 +475,13 @@ const verifyOtpForForgotPassword = async (req, res) => {
       });
     }
 
-    // Store verified email in session for password reset
-    req.session.verifiedEmailForReset = email;
+    // Issue short-lived password reset token
+    const resetToken = signPasswordResetToken({ email });
 
     res.json({
       success: true,
-      message: 'OTP verified. You may now reset your password.'
+      message: 'OTP verified. You may now reset your password.',
+      resetToken
     });
   } catch (err) {
     console.error('Verify OTP (forgot) error:', err);
@@ -543,63 +495,37 @@ const verifyOtpForForgotPassword = async (req, res) => {
 
 const resetPassword = async (req, res) => {
   try {
-    const { password } = req.body;
-    
-    // Get email from session (set after OTP verification)
-    const email = req.session.verifiedEmailForReset;
+    const { password, resetToken } = req.body;
 
-    console.log(email);
-    console.log(password);
-    
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: 'Session expired. Please verify OTP again before resetting password.'
-      });
+    if (!resetToken) {
+      return res.status(400).json({ success: false, message: 'Reset token is required' });
     }
-    
     if (!password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Password is required'
-      });
+      return res.status(400).json({ success: false, message: 'Password is required' });
     }
 
+    let decoded;
+    try {
+      decoded = verifyPasswordResetToken(resetToken);
+    } catch (e) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired reset token' });
+    }
+
+    const email = decoded.email;
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    // Check if user is a social login user
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     if (user.provider === 'google') {
-      return res.status(400).json({
-        success: false,
-        message: 'This account uses Google Sign-In. Password reset is not available for social login accounts. Please use Google to sign in.'
-      });
+      return res.status(400).json({ success: false, message: 'Google sign-in accounts cannot reset password this way.' });
     }
 
-    // Hash new password
     const hashedPassword = await bcrypt.hash(password, 10);
     user.password = hashedPassword;
     await user.save();
 
-    // Clear the session data after successful password reset
-    delete req.session.verifiedEmailForReset;
-
-    res.json({
-      success: true,
-      message: 'Password reset successful'
-    });
+    res.json({ success: true, message: 'Password reset successful' });
   } catch (err) {
     console.error('Reset password error:', err);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: err.message
-    });
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
 };
 
@@ -687,16 +613,11 @@ const googleAuth = async (req, res) => {
       // User is a Google user, allow login
       user.lastLogin = new Date();
       await user.save();
-      req.session.user = {
-        id: user._id,
-        email: user.email,
-        userType: user.userType,
-        firstName: user.firstName,
-        lastName: user.lastName
-      };
+  const accessToken = buildAccessToken(user);
       return res.json({
         success: true,
         message: 'Login successful',
+  tokens: { access: accessToken },
         user: {
           id: user._id,
           email: user.email,
@@ -726,18 +647,11 @@ const googleAuth = async (req, res) => {
 
       await user.save();
 
-      // Store session data
-      req.session.user = {
-        id: user._id,
-        email: user.email,
-        userType: user.userType,
-        firstName: user.firstName,
-        lastName: user.lastName
-      };
-
+  const accessToken = buildAccessToken(user);
       return res.status(201).json({
         success: true,
         message: 'Registration and login successful',
+  tokens: { access: accessToken },
         user: {
           id: user._id,
           email: user.email,

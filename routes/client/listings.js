@@ -3,7 +3,7 @@ const router = express.Router();
 const listingController = require('../../controllers/client/listingController');
 
 // Public routes (no authentication required)
-router.get('/', listingController.getAvailableListings);
+router.get('/', listingController.getListings);
 router.get('/filter', listingController.filterListings);
 router.get('/search', listingController.searchListings);
 router.get('/featured', listingController.getFeaturedListings);

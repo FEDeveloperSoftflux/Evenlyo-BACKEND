@@ -13,7 +13,7 @@ const createItemPaymentIntent = async (req, res) => {
         if (!itemId || !quantity || quantity <= 0 || !location) {
             return res.status(400).json({ 
                 success: false, 
-                message: 'Invalid itemId, quantity, or location.' 
+                message: 'Required itemId, quantity, or location.' 
             });
         }
 
@@ -36,6 +36,7 @@ const createItemPaymentIntent = async (req, res) => {
         const Settings = require('../../models/Settings');
         const settings = await Settings.findOne();
         const platformFee = settings && settings.salesItemPlatformFee ? settings.salesItemPlatformFee : 1;
+    
 
         // Calculate total price with platform fee
         const totalPrice = (quantity * item.sellingPrice) * platformFee;

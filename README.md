@@ -8,15 +8,59 @@ This is the backend for the Evenlyo project.
 
 ## Setup
 
-1. Clone the repository.
-2. Install dependencies (add instructions here).
-3. Run the backend server (add instructions here).
 
-## Features
+## JWT Authentication Migration
 
-- **User Authentication**: Email/password login and registration for clients, vendors, and admins
+The API now uses stateless JSON Web Tokens (JWT) for authentication. All session middleware has been removed.
+
+### New Endpoints / Responses
+
+1. Login (`POST /api/auth/login` or role-specific logins) now returns:
+```json
+{
+	"success": true,
+	"message": "Login successful",
+		"tokens": { "access": "<JWT>" },
+	"user": { "id": "...", "email": "...", "userType": "client" }
+}
+```
+2. Google auth returns the same structure with `tokens`.
+3. Password reset flow:
+	 - Verify OTP (`/api/auth/forgot/verify`) now returns `{ resetToken: "<short-lived JWT>" }`.
+	 - Reset password: send `{ password: "newPass", resetToken: "<received JWT>" }`.
+
+### Client Usage
+
+Store access token (preferably in memory, NOT localStorage if you can avoid XSS). Send the access token in each request:
+
+```
+Authorization: Bearer <access_token>
+```
+
+When the token expires (401), prompt the user to login again since refresh tokens are disabled by design in this deployment.
+
+### Environment Variables
+
+Add the following to your `.env` (generate strong secrets):
+
+```
+JWT_ACCESS_SECRET=replace_with_strong_random
+JWT_PASSWORD_RESET_SECRET=replace_with_strong_random
+JWT_ACCESS_EXPIRES_IN=15m
+JWT_PASSWORD_RESET_EXPIRES_IN=10m
+```
+
+### Transition Notes
+
+Stateless: No `express-session` usage. Logout is handled entirely client-side by discarding the token.
+
+### Security Recommendations
+
+- Keep access tokens short-lived (<= 15m).
+- Rotate secrets periodically.
+- Handle logout client-side by deleting stored tokens (server does not need state for JWT logout unless implementing a denylist).
 - **Google Authentication**: Social login using Firebase Authentication
-- **Session Management**: Secure session-based authentication
+<!-- Session Management feature removed after JWT migration -->
 - **Role-based Access**: Different user types (client, vendor, admin) with appropriate permissions
 - **OTP Verification**: Email-based OTP for registration and password reset
 - **Rate Limiting**: Protection against brute force attacks
