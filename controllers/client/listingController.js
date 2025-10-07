@@ -4,6 +4,7 @@ const Category = require('../../models/Category');
 const SubCategory = require('../../models/SubCategory');
 const Vendor = require('../../models/Vendor');
 const BookingRequest = require('../../models/Booking');
+const ServiceItem = require('../../models/Item');
 
 // @desc    Get calendar data (booked and available days/times) for a listing
 // @route   GET /api/listing/:id/calendar
@@ -916,7 +917,7 @@ const filterListings = async (req, res) => {
   }
 };
 
-// @desc    Get listings and vendors by category and subcategory
+// @desc    Get listings, vendors, and sale items by category and subcategory
 // @route   GET /api/listings/by-category
 // @access  Public
 const getListingsAndVendorsByCategory = async (req, res) => {
@@ -929,6 +930,7 @@ const getListingsAndVendorsByCategory = async (req, res) => {
       limit = 12,
       includeListings = true,
       includeVendors = true,
+      includeSaleItems = true,
       sortBy = 'createdAt',
       sortOrder = 'desc'
     } = req.query;
@@ -941,6 +943,14 @@ const getListingsAndVendorsByCategory = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Either categoryId or subCategoryId/subcategoryId is required'
+      });
+    }
+
+    // Validate that at least one type of data is requested
+    if (includeListings === 'false' && includeVendors === 'false' && includeSaleItems === 'false') {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one of includeListings, includeVendors, or includeSaleItems must be true'
       });
     }
 
@@ -1060,6 +1070,54 @@ const getListingsAndVendorsByCategory = async (req, res) => {
           current: parseInt(page),
           pages: Math.ceil(totalVendors / limit),
           total: totalVendors,
+          limit: parseInt(limit)
+        }
+      };
+    }
+
+    // Fetch sale items if requested
+    if (includeSaleItems === 'true' || includeSaleItems === true) {
+      // Build sale items query based on mainCategory and subCategory fields
+      const saleItemsQuery = {};
+
+      // Filter by category
+      if (categoryId) {
+        saleItemsQuery.mainCategory = categoryId;
+      }
+
+      // Filter by subcategory
+      if (finalSubCategoryId) {
+        saleItemsQuery.subCategory = finalSubCategoryId;
+      }
+
+      // Build sort options for sale items
+      const saleItemsSortOptions = {};
+      if (sortBy === 'price') {
+        saleItemsSortOptions['sellingPrice'] = sortOrder === 'desc' ? -1 : 1;
+      } else {
+        saleItemsSortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+      }
+
+      console.log('Sale Items Query:', JSON.stringify(saleItemsQuery, null, 2));
+
+      const saleItems = await ServiceItem.find(saleItemsQuery)
+        .populate('vendor', '_id businessName businessLocation businessLogo bannerImage userId')
+        .populate('linkedListing', 'title')
+        .sort(saleItemsSortOptions)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .select('-__v');
+
+      console.log('Found Sale Items:', saleItems.length);
+
+      const totalSaleItems = await ServiceItem.countDocuments(saleItemsQuery);
+
+      results.saleItems = {
+        data: saleItems,
+        pagination: {
+          current: parseInt(page),
+          pages: Math.ceil(totalSaleItems / limit),
+          total: totalSaleItems,
           limit: parseInt(limit)
         }
       };
