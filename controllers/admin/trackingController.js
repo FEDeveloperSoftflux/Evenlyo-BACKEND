@@ -1,7 +1,9 @@
 const Booking = require('../../models/Booking');
+const Purchase = require('../../models/Purchase');
 const User = require('../../models/User');
 const Vendor = require('../../models/Vendor');
 const Listing = require('../../models/Listing');
+const Item = require('../../models/Item');
 
 // Get all bookings with tracking information for admin
 const getAllBookingsTracking = async (req, res) => {
@@ -38,31 +40,55 @@ const getAllBookingsTracking = async (req, res) => {
     const sortConfig = {};
     sortConfig[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
-    // Get all bookings with population (no pagination)
-    const bookings = await Booking.find(finalFilter)
-      .populate({
-        path: 'userId',
-        select: 'firstName lastName profileImage email'
-      })
-      .populate({
-        path: 'vendorId',
-        populate: {
+    // Get all bookings and purchases in parallel
+    const [bookings, purchases] = await Promise.all([
+        Booking.find(finalFilter)
+        .populate({
           path: 'userId',
           select: 'firstName lastName profileImage email'
-        },
-        select: 'businessName businessLogo userId'
-      })
-      .populate({
-        path: 'listingId',
-        select: 'title subtitle location'
-      })
-      .sort(sortConfig)
-      .lean();
+        })
+        .populate({
+          path: 'vendorId',
+          populate: {
+            path: 'userId',
+            select: 'firstName lastName profileImage email'
+          },
+          select: 'businessName businessLogo userId'
+        })
+        .populate({
+          path: 'listingId',
+          select: 'title subtitle location'
+        })
+        .sort(sortConfig)
+        .lean(),
 
-    // Get total count
+      // Get all purchases with population
+      Purchase.find(finalFilter)
+        .populate({
+          path: 'user',
+          select: 'firstName lastName profileImage email'
+        })
+        .populate({
+          path: 'vendor',
+          populate: {
+            path: 'userId',
+            select: 'firstName lastName profileImage email'
+          },
+          select: 'businessName businessLogo userId'
+        })
+        .populate({
+          path: 'item',
+          select: 'title mainCategory subCategory'
+        })
+        .sort(sortConfig)
+        .lean()
+    ]);
+
+    // Get total counts
     const totalBookings = bookings.length;
+    const totalPurchases = purchases.length;
 
-    // Format the tracking data
+    // Format the booking tracking data
     const trackingData = bookings.map(booking => {
       // Buyer Info
       const buyerInfo = {
@@ -114,12 +140,66 @@ const getAllBookingsTracking = async (req, res) => {
       };
     });
 
+    // Format the purchase history data
+    const purchaseHistory = purchases.map(purchase => {
+      // Buyer Info
+      const buyerInfo = {
+        name: purchase.user 
+          ? `${purchase.user.firstName || ''} ${purchase.user.lastName || ''}`.trim() 
+          : 'Unknown Buyer',
+        profilePic: purchase.user?.profileImage || '',
+        email: purchase.user?.email || ''
+      };
+
+      // Vendor Info
+      let vendorInfo = {
+        name: 'Unknown Vendor',
+        profilePic: '',
+        email: ''
+      };
+
+      if (purchase.vendor) {
+        if (purchase.vendor.businessName) {
+          // Business vendor
+          vendorInfo = {
+            name: purchase.vendor.businessName,
+            profilePic: purchase.vendor.businessLogo || '',
+            email: purchase.vendor.userId?.email || ''
+          };
+        } else if (purchase.vendor.userId) {
+          // Personal vendor
+          vendorInfo = {
+            name: `${purchase.vendor.userId.firstName || ''} ${purchase.vendor.userId.lastName || ''}`.trim(),
+            profilePic: purchase.vendor.userId.profileImage || '',
+            email: purchase.vendor.userId.email || ''
+          };
+        }
+      }
+
+      return {
+        trackingId: purchase.trackingId,
+        date: purchase.createdAt,
+        buyerInfo,
+        vendorInfo,
+        itemName: purchase.itemName || purchase.item?.title || 'Unknown Item',
+        location: purchase.location || 'Location not specified',
+        status: purchase.status,
+        purchaseId: purchase._id,
+        quantity: purchase.quantity,
+        totalPrice: purchase.totalPrice,
+        purchasedAt: purchase.purchasedAt,
+        type: 'purchase'
+      };
+    });
+
     res.status(200).json({
       success: true,
-      message: 'Booking tracking data retrieved successfully',
+      message: 'Booking and purchase tracking data retrieved successfully',
       data: {
         trackingData,
+        purchaseHistory,
         totalBookings,
+        totalPurchases,
         filters: {
           status: status || 'all',
           search,
@@ -133,7 +213,7 @@ const getAllBookingsTracking = async (req, res) => {
     console.error('Error in getAllBookingsTracking:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to retrieve booking tracking data',
+      message: 'Failed to retrieve booking and purchase tracking data',
       error: error.message
     });
   }

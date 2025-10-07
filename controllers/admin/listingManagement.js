@@ -2,6 +2,8 @@ const Category = require('../../models/Category');
 const SubCategory = require('../../models/SubCategory');
 const Listing = require('../../models/Listing');
 const Booking = require('../../models/Booking');
+const Item = require('../../models/Item');
+const Purchase = require('../../models/Purchase');
 
 const getAllListingManagementData = async (req, res) => {
   try {
@@ -9,7 +11,7 @@ const getAllListingManagementData = async (req, res) => {
     const totalCategories = await Category.countDocuments();
     const totalSubCategories = await SubCategory.countDocuments();
     const totalListings = await Listing.countDocuments();
-    const totalSaleItems = await Listing.countDocuments({ type: 'sale' });
+    const totalServiceItems = await Item.countDocuments();
 
     // Get all categories
     const categories = await Category.find();
@@ -39,11 +41,43 @@ const getAllListingManagementData = async (req, res) => {
       bookingCountMap[b._id?.toString()] = b.count;
     });
 
+    // Aggregate purchases by category via service items
+    const purchases = await Purchase.aggregate([
+      {
+        $lookup: {
+          from: 'serviceitems', // Collection name for Item model
+          localField: 'item',
+          foreignField: '_id',
+          as: 'itemInfo',
+        },
+      },
+      { $unwind: '$itemInfo' },
+      {
+        $group: {
+          _id: '$itemInfo.mainCategory',
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Map purchase category _id to count
+    const purchaseCountMap = {};
+    purchases.forEach(p => {
+      purchaseCountMap[p._id?.toString()] = p.count;
+    });
+
     // Prepare result for all categories (include id)
     const categoryBookings = categories.map(cat => ({
       id: cat._id,
       category: cat.name,
       count: bookingCountMap[cat._id.toString()] || 0
+    }));
+
+    // Prepare purchase results for all categories
+    const categoryPurchases = categories.map(cat => ({
+      id: cat._id,
+      category: cat.name,
+      count: purchaseCountMap[cat._id.toString()] || 0
     }));
 
     // Table Data (using mainCategory, include id)
@@ -65,9 +99,10 @@ const getAllListingManagementData = async (req, res) => {
         totalCategories,
         totalSubCategories,
         totalListings,
-        totalSaleItems,
+        totalServiceItems,
       },
       categoryBookings,
+      categoryPurchases,
       tableData,
     });
   } catch (err) {

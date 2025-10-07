@@ -3,6 +3,7 @@
 const Vendor = require('../../models/Vendor');
 const User = require('../../models/User');
 const Listing = require('../../models/Listing');
+const ServiceItem = require('../../models/Item');
 const mongoose = require('mongoose');
 const asyncHandler = require('express-async-handler');
 
@@ -72,64 +73,215 @@ const getVendorFullDetails = async (req, res) => {
       name: vendor.userId ? `${vendor.userId.firstName} ${vendor.userId.lastName}` : ''
     };
 
-    // All listings for this vendor (similar to filter API)
-const listings = await Listing.find({ vendor: vendorId, status: 'active', isActive: true })
-  .select('title description pricing location ratings images media category subCategory')
-  .populate('category', 'name')
-  .populate('subCategory', 'name')
-  .lean();
+    // All listings for this vendor - these are booking services
+    // First get listings without population to avoid ObjectId cast errors
+    const rawListings = await Listing.find({ vendor: vendorId, status: 'active', isActive: true })
+      .select('title description pricing location ratings images media category subCategory serviceDetails')
+      .lean();
 
-const formattedListings = listings.map(listing => {
-  
-  return {
-    id: listing._id,
-    title: listing.title,
-    description: listing.description,
-    rating: listing.ratings?.average || 0,
-    pricing : listing.pricing,
-    location: listing.location?.fullAddress || '',
-    featuredImage: listing.images?.[0] || '',
-    images: listing.images || [],
-    category: listing.category?.name,
-    subCategory: listing.subCategory?.name
-  };
-});
+    // Filter out listings with invalid category/subCategory references and populate valid ones
+    const validListings = [];
+    for (const listing of rawListings) {
+      try {
+        // Only populate if category/subCategory are valid ObjectIds
+        const populateOptions = [];
+        if (listing.category && mongoose.Types.ObjectId.isValid(listing.category)) {
+          populateOptions.push({ path: 'category', select: 'name' });
+        }
+        if (listing.subCategory && mongoose.Types.ObjectId.isValid(listing.subCategory)) {
+          populateOptions.push({ path: 'subCategory', select: 'name' });
+        }
 
-// Popular listings for this vendor
-const popularListings = await Listing.find({ vendor: vendorId, status: 'active', isActive: true })
-  .sort({ 'bookings.completed': -1, 'ratings.average': -1 })
-  .limit(5)
-  .select('title description pricing location ratings images media category subCategory')
-  .populate('category', 'name')
-  .populate('subCategory', 'name')
-  .lean();
+        if (populateOptions.length > 0) {
+          const populatedListing = await Listing.populate(listing, populateOptions);
+          validListings.push(populatedListing);
+        } else {
+          validListings.push(listing);
+        }
+      } catch (error) {
+        console.warn(`Skipping listing ${listing._id} due to invalid references:`, error.message);
+        // Add listing without population
+        validListings.push(listing);
+      }
+    }
 
-const formattedPopularListings = popularListings.map(listing => {
-  return {
-    id: listing._id,
-    title: listing.title,
-    description: listing.description,
-    rating: listing.ratings?.average || 0,
-    ratingCount: listing.ratings?.count || 0,
-    pricing : listing.pricing,
-    location: listing.location?.fullAddress || '',
-    featuredImage: listing.images?.[0] || '',
-    images: listing.images || [],
-    gallery: listing.media?.gallery || [],
-    category: listing.category?.name,
-    subCategory: listing.subCategory?.name
-  };
-});
+    // Separate bookings (listing services) and format them
+    const formattedBookings = validListings.map(listing => {
+      return {
+        id: listing._id,
+        title: listing.title,
+        description: listing.description,
+        rating: listing.ratings?.average || 0,
+        pricing: listing.pricing,
+        location: listing.location?.fullAddress || '',
+        featuredImage: listing.images?.[0] || '',
+        images: listing.images || [],
+        category: listing.category?.name || 'Others',
+        subCategory: listing.subCategory?.name || 'Others',
+        serviceType: listing.serviceDetails?.serviceType || 'human',
+        type: 'booking'
+      };
+    });
+
+    // Get service items/sale items for this vendor
+    const rawServiceItems = await ServiceItem.find({ vendor: vendorId })
+      .select('title purchasePrice sellingPrice stockQuantity image mainCategory subCategory linkedListing')
+      .lean();
+
+    // Filter and populate service items safely
+    const validServiceItems = [];
+    for (const item of rawServiceItems) {
+      try {
+        const populateOptions = [];
+        if (item.mainCategory && mongoose.Types.ObjectId.isValid(item.mainCategory)) {
+          populateOptions.push({ path: 'mainCategory', select: 'name' });
+        }
+        if (item.subCategory && mongoose.Types.ObjectId.isValid(item.subCategory)) {
+          populateOptions.push({ path: 'subCategory', select: 'name' });
+        }
+
+        if (populateOptions.length > 0) {
+          const populatedItem = await ServiceItem.populate(item, populateOptions);
+          validServiceItems.push(populatedItem);
+        } else {
+          validServiceItems.push(item);
+        }
+      } catch (error) {
+        console.warn(`Skipping service item ${item._id} due to invalid references:`, error.message);
+        validServiceItems.push(item);
+      }
+    }
+
+    // Format service items
+    const formattedServiceItems = validServiceItems.map(item => {
+      return {
+        id: item._id,
+        title: item.title,
+        purchasePrice: item.purchasePrice,
+        sellingPrice: item.sellingPrice,
+        stockQuantity: item.stockQuantity,
+        image: item.image,
+        category: item.mainCategory?.name || 'Others',
+        subCategory: item.subCategory?.name || 'Others',
+        linkedListing: item.linkedListing,
+        type: 'sale_item'
+      };
+    });
+
+    // Popular bookings for this vendor - use similar safe approach
+    const rawPopularBookings = await Listing.find({ vendor: vendorId, status: 'active', isActive: true })
+      .sort({ 'bookings.completed': -1, 'ratings.average': -1 })
+      .limit(5)
+      .select('title description pricing location ratings images media category subCategory serviceDetails')
+      .lean();
+
+    const validPopularBookings = [];
+    for (const listing of rawPopularBookings) {
+      try {
+        const populateOptions = [];
+        if (listing.category && mongoose.Types.ObjectId.isValid(listing.category)) {
+          populateOptions.push({ path: 'category', select: 'name' });
+        }
+        if (listing.subCategory && mongoose.Types.ObjectId.isValid(listing.subCategory)) {
+          populateOptions.push({ path: 'subCategory', select: 'name' });
+        }
+
+        if (populateOptions.length > 0) {
+          const populatedListing = await Listing.populate(listing, populateOptions);
+          validPopularBookings.push(populatedListing);
+        } else {
+          validPopularBookings.push(listing);
+        }
+      } catch (error) {
+        console.warn(`Skipping popular listing ${listing._id} due to invalid references:`, error.message);
+        validPopularBookings.push(listing);
+      }
+    }
+
+    const formattedPopularBookings = validPopularBookings.map(listing => {
+      return {
+        id: listing._id,
+        title: listing.title,
+        description: listing.description,
+        rating: listing.ratings?.average || 0,
+        ratingCount: listing.ratings?.count || 0,
+        pricing: listing.pricing,
+        location: listing.location?.fullAddress || '',
+        featuredImage: listing.images?.[0] || '',
+        images: listing.images || [],
+        gallery: listing.media?.gallery || [],
+        category: listing.category?.name || 'Others',
+        subCategory: listing.subCategory?.name || 'Others',
+        serviceType: listing.serviceDetails?.serviceType || 'human',
+        type: 'booking'
+      };
+    });
+
+    // Popular service items for this vendor - use similar safe approach
+    const rawPopularServiceItems = await ServiceItem.find({ vendor: vendorId })
+      .sort({ stockQuantity: -1, sellingPrice: 1 })
+      .limit(5)
+      .select('title purchasePrice sellingPrice stockQuantity image mainCategory subCategory linkedListing')
+      .lean();
+
+    const validPopularServiceItems = [];
+    for (const item of rawPopularServiceItems) {
+      try {
+        const populateOptions = [];
+        if (item.mainCategory && mongoose.Types.ObjectId.isValid(item.mainCategory)) {
+          populateOptions.push({ path: 'mainCategory', select: 'name' });
+        }
+        if (item.subCategory && mongoose.Types.ObjectId.isValid(item.subCategory)) {
+          populateOptions.push({ path: 'subCategory', select: 'name' });
+        }
+
+        if (populateOptions.length > 0) {
+          const populatedItem = await ServiceItem.populate(item, populateOptions);
+          validPopularServiceItems.push(populatedItem);
+        } else {
+          validPopularServiceItems.push(item);
+        }
+      } catch (error) {
+        console.warn(`Skipping popular service item ${item._id} due to invalid references:`, error.message);
+        validPopularServiceItems.push(item);
+      }
+    }
+
+    const formattedPopularServiceItems = validPopularServiceItems.map(item => {
+      return {
+        id: item._id,
+        title: item.title,
+        purchasePrice: item.purchasePrice,
+        sellingPrice: item.sellingPrice,
+        stockQuantity: item.stockQuantity,
+        image: item.image,
+        category: item.mainCategory?.name || 'Others',
+        subCategory: item.subCategory?.name || 'Others',
+        linkedListing: item.linkedListing,
+        type: 'sale_item'
+      };
+    });
 
     res.json({
       success: true,
       data: {
         businessDetails,
         userDetails,
-        listings: formattedListings,
-        popularListings: formattedPopularListings,
+        listings: {
+          bookings: formattedBookings,
+          serviceItems: formattedServiceItems
+        },
+        popularListings: {
+          bookings: formattedPopularBookings,
+          serviceItems: formattedPopularServiceItems
+        },
         reviews: vendorReviews,
-        rating: vendor.rating || {}
+        rating: vendor.rating || {},
+        stats: {
+          totalBookings: formattedBookings.length,
+          totalServiceItems: formattedServiceItems.length,
+          totalListings: formattedBookings.length + formattedServiceItems.length
+        }
       }
     });
   } catch (error) {

@@ -1,21 +1,28 @@
 const Booking = require('../../models/Booking');
+const Purchase = require('../../models/Purchase');
 const User = require('../../models/User');
 const Vendor = require('../../models/Vendor');
 const Listing = require('../../models/Listing');
+const Item = require('../../models/Item');
 
 // @desc    Get admin booking analytics
 // @route   GET /api/admin/bookings/analytics
 // @access  Private (Admin)
 const getAdminBookingAnalytics = async (req, res) => {
   try {
-    // Get stats card data
+    // Get stats card data for both bookings and purchases
     const [
       totalBookings,
       completedBookings,
       requestBookings,
       inProcessBookings,
-      allBookings
+      allBookings,
+      totalPurchases,
+      completedPurchases,
+      onTheWayPurchases,
+      allPurchases
     ] = await Promise.all([
+      // Booking Stats
       // Total Bookings
       Booking.countDocuments(),
       
@@ -37,11 +44,29 @@ const getAdminBookingAnalytics = async (req, res) => {
         .populate('listingId', 'title')
         .populate('statusHistory.updatedBy.userId', 'firstName lastName')
         .sort({ createdAt: -1 })
-        .select('trackingId details status userId vendorId listingId statusHistory createdAt')
+        .select('trackingId details status userId vendorId listingId statusHistory createdAt'),
+
+      // Purchase Stats
+      // Total Purchases
+      Purchase.countDocuments(),
+      
+      // Complete Purchases (status: complete)
+      Purchase.countDocuments({ status: 'complete' }),
+      
+      // On The Way Purchases (status: on the way)
+      Purchase.countDocuments({ status: 'on the way' }),
+      
+      // All purchases with populated data
+      Purchase.find()
+        .populate('user', 'firstName lastName')
+        .populate('vendor', 'businessName')
+        .populate('item', 'title')
+        .sort({ createdAt: -1 })
+        .select('trackingId itemName userName vendorName quantity location totalPrice status user vendor item purchasedAt createdAt')
     ]);
 
-    // Format stats cards
-    const statsCard = [
+    // Format stats cards for bookings
+    const bookingStatsCard = [
       {
         label: "Total Bookings",
         value: totalBookings
@@ -57,6 +82,26 @@ const getAdminBookingAnalytics = async (req, res) => {
       {
         label: "In Process",
         value: inProcessBookings
+      }
+    ];
+
+    // Format stats cards for purchases
+    const purchaseStatsCard = [
+      {
+        label: "Total Purchases",
+        value: totalPurchases
+      },
+      {
+        label: "Complete Purchases",
+        value: completedPurchases
+      },
+      {
+        label: "On The Way",
+        value: onTheWayPurchases
+      },
+      {
+        label: "Total Revenue",
+        value: allPurchases.reduce((sum, purchase) => sum + (purchase.totalPrice || 0), 0)
       }
     ];
 
@@ -109,11 +154,55 @@ const getAdminBookingAnalytics = async (req, res) => {
       };
     });
 
+    // Format purchases list
+    const purchases = allPurchases.map(purchase => {
+      // Get customer name
+      let customerName = 'Unknown Customer';
+      if (purchase.user) {
+        customerName = `${purchase.user.firstName || ''} ${purchase.user.lastName || ''}`.trim();
+      } else if (purchase.userName) {
+        customerName = purchase.userName;
+      }
+
+      // Get vendor name
+      let vendorName = 'Unknown Vendor';
+      if (purchase.vendor) {
+        vendorName = purchase.vendor.businessName || 'Unknown Vendor';
+      } else if (purchase.vendorName) {
+        vendorName = purchase.vendorName;
+      }
+
+      // Get item title
+      let title = 'Unknown Item';
+      if (purchase.item && purchase.item.title) {
+        title = purchase.item.title.en || purchase.item.title || 'Unknown Item';
+      } else if (purchase.itemName) {
+        title = purchase.itemName;
+      }
+
+      return {
+        id: purchase._id,
+        date: purchase.purchasedAt || purchase.createdAt,
+        status: purchase.status,
+        title: title,
+        quantity: purchase.quantity,
+        customer: customerName,
+        description: `Quantity: ${purchase.quantity} | Price: $${purchase.totalPrice}`,
+        Vendor: vendorName,
+        location: purchase.location || '',
+        trackingId: purchase.trackingId,
+        totalPrice: purchase.totalPrice,
+        type: 'purchase' // To distinguish from bookings
+      };
+    });
+
     res.json({
       success: true,
       data: {
-        statsCard,
-        bookings
+        bookingStats: bookingStatsCard,
+        purchaseStats: purchaseStatsCard,
+        bookings,
+        purchases
       }
     });
 
@@ -132,46 +221,81 @@ const getAdminBookingAnalytics = async (req, res) => {
 // @access  Private (Admin)
 const getFilteredBookingAnalytics = async (req, res) => {
   try {
-    const { status, dateFrom, dateTo, vendorId, page = 1, limit = 10 } = req.query;
+    const { status, dateFrom, dateTo, vendorId, type = 'both', page = 1, limit = 10 } = req.query;
     
-    // Build filter object
-    let filter = {};
+    // Build filter objects for bookings and purchases
+    let bookingFilter = {};
+    let purchaseFilter = {};
     
+    // Apply status filter
     if (status) {
-      filter.status = status;
+      bookingFilter.status = status;
+      purchaseFilter.status = status;
     }
     
+    // Apply date filter
     if (dateFrom || dateTo) {
-      filter.createdAt = {};
+      const dateFilter = {};
       if (dateFrom) {
-        filter.createdAt.$gte = new Date(dateFrom);
+        dateFilter.$gte = new Date(dateFrom);
       }
       if (dateTo) {
-        filter.createdAt.$lte = new Date(dateTo);
+        dateFilter.$lte = new Date(dateTo);
       }
+      bookingFilter.createdAt = dateFilter;
+      purchaseFilter.createdAt = dateFilter;
     }
     
+    // Apply vendor filter
     if (vendorId) {
-      filter.vendorId = vendorId;
+      bookingFilter.vendorId = vendorId;
+      purchaseFilter.vendor = vendorId;
     }
 
     // Calculate pagination
     const skip = (page - 1) * limit;
     
-    // Get filtered bookings and total count
-    const [bookings, totalCount] = await Promise.all([
-      Booking.find(filter)
-        .populate('userId', 'firstName lastName')
-        .populate('vendorId', 'businessName')
-        .populate('listingId', 'title')
-        .populate('statusHistory.updatedBy.userId', 'firstName lastName')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit))
-        .select('trackingId details status userId vendorId listingId statusHistory createdAt'),
+    let bookings = [];
+    let purchases = [];
+    let totalCount = 0;
+
+    // Fetch data based on type filter
+    if (type === 'bookings' || type === 'both') {
+      const [bookingData, bookingCount] = await Promise.all([
+        Booking.find(bookingFilter)
+          .populate('userId', 'firstName lastName')
+          .populate('vendorId', 'businessName')
+          .populate('listingId', 'title')
+          .populate('statusHistory.updatedBy.userId', 'firstName lastName')
+          .sort({ createdAt: -1 })
+          .skip(type === 'bookings' ? skip : 0)
+          .limit(type === 'bookings' ? parseInt(limit) : parseInt(limit / 2))
+          .select('trackingId details status userId vendorId listingId statusHistory createdAt'),
+        
+        Booking.countDocuments(bookingFilter)
+      ]);
       
-      Booking.countDocuments(filter)
-    ]);
+      bookings = bookingData;
+      totalCount += bookingCount;
+    }
+
+    if (type === 'purchases' || type === 'both') {
+      const [purchaseData, purchaseCount] = await Promise.all([
+        Purchase.find(purchaseFilter)
+          .populate('user', 'firstName lastName')
+          .populate('vendor', 'businessName')
+          .populate('item', 'title')
+          .sort({ createdAt: -1 })
+          .skip(type === 'purchases' ? skip : 0)
+          .limit(type === 'purchases' ? parseInt(limit) : parseInt(limit / 2))
+          .select('trackingId itemName userName vendorName quantity location totalPrice status user vendor item purchasedAt createdAt'),
+        
+        Purchase.countDocuments(purchaseFilter)
+      ]);
+      
+      purchases = purchaseData;
+      totalCount += purchaseCount;
+    }
 
     // Format bookings
     const formattedBookings = bookings.map(booking => {
@@ -204,6 +328,7 @@ const getFilteredBookingAnalytics = async (req, res) => {
         Vendor: vendorName,
         location: booking.details?.eventLocation || '',
         trackingId: booking.trackingId,
+        type: 'booking',
         statusHistory: booking.statusHistory?.map(history => ({
           status: history.status,
           timestamp: history.timestamp,
@@ -219,10 +344,63 @@ const getFilteredBookingAnalytics = async (req, res) => {
       };
     });
 
+    // Format purchases
+    const formattedPurchases = purchases.map(purchase => {
+      let customerName = 'Unknown Customer';
+      if (purchase.user) {
+        customerName = `${purchase.user.firstName || ''} ${purchase.user.lastName || ''}`.trim();
+      } else if (purchase.userName) {
+        customerName = purchase.userName;
+      }
+
+      let vendorName = 'Unknown Vendor';
+      if (purchase.vendor) {
+        vendorName = purchase.vendor.businessName || 'Unknown Vendor';
+      } else if (purchase.vendorName) {
+        vendorName = purchase.vendorName;
+      }
+
+      let title = 'Unknown Item';
+      if (purchase.item && purchase.item.title) {
+        title = purchase.item.title.en || purchase.item.title || 'Unknown Item';
+      } else if (purchase.itemName) {
+        title = purchase.itemName;
+      }
+
+      return {
+        id: purchase._id,
+        date: purchase.purchasedAt || purchase.createdAt,
+        status: purchase.status,
+        title: title,
+        quantity: purchase.quantity,
+        customer: customerName,
+        description: `Quantity: ${purchase.quantity} | Price: $${purchase.totalPrice}`,
+        Vendor: vendorName,
+        location: purchase.location || '',
+        trackingId: purchase.trackingId,
+        totalPrice: purchase.totalPrice,
+        type: 'purchase'
+      };
+    });
+
+    // Combine and sort all data by date if showing both
+    let combinedData = [];
+    if (type === 'both') {
+      combinedData = [...formattedBookings, ...formattedPurchases]
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(skip, skip + parseInt(limit));
+    } else if (type === 'bookings') {
+      combinedData = formattedBookings;
+    } else if (type === 'purchases') {
+      combinedData = formattedPurchases;
+    }
+
     res.json({
       success: true,
       data: {
-        bookings: formattedBookings,
+        bookings: type === 'bookings' || type === 'both' ? formattedBookings : [],
+        purchases: type === 'purchases' || type === 'both' ? formattedPurchases : [],
+        combinedData: type === 'both' ? combinedData : [],
         pagination: {
           currentPage: parseInt(page),
           totalPages: Math.ceil(totalCount / limit),
@@ -238,6 +416,83 @@ const getFilteredBookingAnalytics = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error while fetching filtered booking analytics',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get detailed purchase information
+// @route   GET /api/admin/purchases/:id/details
+// @access  Private (Admin)
+const getPurchaseDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const purchase = await Purchase.findById(id)
+      .populate('user', 'firstName lastName email phone')
+      .populate('vendor', 'businessName email phone')
+      .populate('item', 'title purchasePrice sellingPrice stockQuantity image');
+
+    if (!purchase) {
+      return res.status(404).json({
+        success: false,
+        message: 'Purchase not found'
+      });
+    }
+
+    // Format the detailed purchase information
+    const detailedPurchase = {
+      id: purchase._id,
+      trackingId: purchase.trackingId,
+      
+      // Customer Information
+      customer: {
+        id: purchase.user?._id,
+        name: purchase.user ? `${purchase.user.firstName || ''} ${purchase.user.lastName || ''}`.trim() : purchase.userName || 'Unknown Customer',
+        email: purchase.user?.email,
+        phone: purchase.user?.phone
+      },
+
+      // Vendor Information
+      vendor: {
+        id: purchase.vendor?._id,
+        businessName: purchase.vendor?.businessName || purchase.vendorName || 'Unknown Vendor',
+        email: purchase.vendor?.email,
+        phone: purchase.vendor?.phone
+      },
+
+      // Item Information
+      item: {
+        id: purchase.item?._id,
+        title: purchase.item?.title?.en || purchase.item?.title || purchase.itemName || 'Unknown Item',
+        purchasePrice: purchase.item?.purchasePrice,
+        sellingPrice: purchase.item?.sellingPrice,
+        stockQuantity: purchase.item?.stockQuantity,
+        image: purchase.item?.image
+      },
+
+      // Purchase Details
+      quantity: purchase.quantity,
+      location: purchase.location,
+      totalPrice: purchase.totalPrice,
+      status: purchase.status,
+
+      // Timestamps
+      purchasedAt: purchase.purchasedAt,
+      createdAt: purchase.createdAt,
+      updatedAt: purchase.updatedAt
+    };
+
+    res.json({
+      success: true,
+      data: detailedPurchase
+    });
+
+  } catch (error) {
+    console.error('Get purchase details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching purchase details',
       error: error.message
     });
   }
@@ -355,5 +610,6 @@ const getBookingDetails = async (req, res) => {
 module.exports = {
   getAdminBookingAnalytics,
   getFilteredBookingAnalytics,
-  getBookingDetails
+  getBookingDetails,
+  getPurchaseDetails
 };

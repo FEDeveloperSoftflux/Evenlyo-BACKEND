@@ -2,6 +2,8 @@ const User = require('../../models/User');
 const Vendor = require('../../models/Vendor');
 const Listing = require('../../models/Listing');
 const Booking = require('../../models/Booking');
+const Purchase = require('../../models/Purchase');
+const Item = require('../../models/Item');
 
 // --- Admin Dashboard Stats ---
 const getDashboardStats = async (req, res) => {
@@ -12,8 +14,10 @@ const getDashboardStats = async (req, res) => {
       totalVendors,
       totalItems,
       totalBookings,
-      monthlyBookingData,
+      totalPurchases,
+      monthlyData,
       recentBookings,
+      recentPurchases,
       recentClients,
       recentVendors
     ] = await Promise.all([
@@ -21,10 +25,12 @@ const getDashboardStats = async (req, res) => {
       User.countDocuments({ userType: 'client', isActive: true }),
       User.countDocuments({ userType: 'vendor', isActive: true }),
       Listing.countDocuments(),
+      Item.countDocuments(),
       Booking.countDocuments(),
+      Purchase.countDocuments(),
       
-      // Monthly booking data (last 12 months)
-      getMonthlyBookingData(),
+      // Monthly booking and purchase data (last 12 months)
+      getMonthlyData(),
       
       // Recent bookings (last 3)
       Booking.find()
@@ -32,6 +38,13 @@ const getDashboardStats = async (req, res) => {
         .sort({ createdAt: -1 })
         .limit(3)
         .select('trackingId userId details.eventLocation status createdAt'),
+      
+      // Recent purchases (last 3)
+      Purchase.find()
+        .populate('user', 'firstName lastName')
+        .sort({ createdAt: -1 })
+        .limit(3)
+        .select('trackingId user itemName location status createdAt totalPrice'),
       
       // Recent clients (last 3)
       User.find({ userType: 'client', isActive: true })
@@ -51,7 +64,8 @@ const getDashboardStats = async (req, res) => {
       "All Client": totalClients,
       "All Vendor": totalVendors,
       "Total Items": totalItems,
-      "Total Booking": totalBookings
+      "Total Booking": totalBookings,
+      "Total Purchases": totalPurchases
     };
 
     // Format recent bookings
@@ -70,10 +84,31 @@ const getDashboardStats = async (req, res) => {
           clientName,
           location,
           status: booking.status,
-          createdAt: booking.createdAt
+          createdAt: booking.createdAt,
+          type: 'booking'
         };
       })
     );
+
+    // Format recent purchases
+    const formattedRecentPurchases = recentPurchases.map((purchase) => {
+      let clientName = 'Unknown Client';
+      
+      if (purchase.user) {
+        clientName = `${purchase.user.firstName || ''} ${purchase.user.lastName || ''}`.trim();
+      }
+
+      return {
+        trackingId: purchase.trackingId,
+        clientName,
+        itemName: purchase.itemName,
+        location: purchase.location,
+        status: purchase.status,
+        totalPrice: purchase.totalPrice,
+        createdAt: purchase.createdAt,
+        type: 'purchase'
+      };
+    });
 
     // Format recent clients with their last booking
     const formattedRecentClients = await Promise.all(
@@ -119,8 +154,10 @@ const getDashboardStats = async (req, res) => {
       success: true,
       data: {
         statsCard,
-        monthlyBookingData,
+        monthlyBookingData: monthlyData.bookings,
+        monthlyPurchaseData: monthlyData.purchases,
         recentBookings: formattedRecentBookings,
+        recentPurchases: formattedRecentPurchases,
         recentClients: formattedRecentClients,
         recentVendors: formattedRecentVendors
       }
@@ -136,14 +173,15 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
-// Helper function to get monthly booking data for the last 12 months
-const getMonthlyBookingData = async () => {
+// Helper function to get monthly booking and purchase data for the last 12 months
+const getMonthlyData = async () => {
   try {
     const currentYear = new Date().getFullYear();
     const startDate = new Date(currentYear, 0, 1); // January 1st of current year
     const endDate = new Date(currentYear, 11, 31, 23, 59, 59); // December 31st of current year
 
-    const result = await Booking.aggregate([
+    // Get booking data
+    const bookingResult = await Booking.aggregate([
       {
         $match: {
           createdAt: {
@@ -162,36 +200,84 @@ const getMonthlyBookingData = async () => {
       }
     ]);
 
-    // Create a map for quick lookup
+    // Get purchase data
+    const purchaseResult = await Purchase.aggregate([
+      {
+        $match: {
+          createdAt: {
+            $gte: startDate,
+            $lte: endDate
+          }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            month: { $month: "$createdAt" }
+          },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Create maps for quick lookup
     const bookingMap = {};
-    result.forEach(item => {
+    const purchaseMap = {};
+    
+    bookingResult.forEach(item => {
       bookingMap[item._id.month] = item.count;
+    });
+    
+    purchaseResult.forEach(item => {
+      purchaseMap[item._id.month] = item.count;
     });
 
     // Generate data for all 12 months with numeric month values
-    const monthlyData = [];
+    const monthlyBookingData = [];
+    const monthlyPurchaseData = [];
+    
     for (let month = 1; month <= 12; month++) {
-      monthlyData.push({
+      monthlyBookingData.push({
         month: month,
         count: bookingMap[month] || 0
       });
+      
+      monthlyPurchaseData.push({
+        month: month,
+        count: purchaseMap[month] || 0
+      });
     }
 
-    return monthlyData;
+    return {
+      bookings: monthlyBookingData,
+      purchases: monthlyPurchaseData
+    };
 
   } catch (error) {
-    console.error('Monthly booking data error:', error);
+    console.error('Monthly data error:', error);
     // Return 12 months with zero data as fallback
-    const fallbackData = [];
+    const fallbackBookingData = [];
+    const fallbackPurchaseData = [];
+    
     for (let month = 1; month <= 12; month++) {
-      fallbackData.push({
+      fallbackBookingData.push({
+        month: month,
+        count: 0
+      });
+      fallbackPurchaseData.push({
         month: month,
         count: 0
       });
     }
-    return fallbackData;
+    
+    return {
+      bookings: fallbackBookingData,
+      purchases: fallbackPurchaseData
+    };
   }
 };
+
+
 
 module.exports = {
   getDashboardStats
