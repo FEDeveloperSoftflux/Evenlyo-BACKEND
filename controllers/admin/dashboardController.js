@@ -25,7 +25,6 @@ const getDashboardStats = async (req, res) => {
       User.countDocuments({ userType: 'client', isActive: true }),
       User.countDocuments({ userType: 'vendor', isActive: true }),
       Listing.countDocuments(),
-      Item.countDocuments(),
       Booking.countDocuments(),
       Purchase.countDocuments(),
       
@@ -70,7 +69,7 @@ const getDashboardStats = async (req, res) => {
 
     // Format recent bookings
     const formattedRecentBookings = await Promise.all(
-      recentBookings.map(async (booking) => {
+      (recentBookings || []).map(async (booking) => {
         let clientName = 'Unknown Client';
         let location = 'Unknown Location';
         
@@ -91,7 +90,7 @@ const getDashboardStats = async (req, res) => {
     );
 
     // Format recent purchases
-    const formattedRecentPurchases = recentPurchases.map((purchase) => {
+    const formattedRecentPurchases = (recentPurchases || []).map((purchase) => {
       let clientName = 'Unknown Client';
       
       if (purchase.user) {
@@ -112,7 +111,7 @@ const getDashboardStats = async (req, res) => {
 
     // Format recent clients with their last booking
     const formattedRecentClients = await Promise.all(
-      recentClients.map(async (client) => {
+      (recentClients || []).map(async (client) => {
         const lastBooking = await Booking.findOne({ userId: client._id })
           .sort({ createdAt: -1 })
           .select('createdAt');
@@ -128,7 +127,7 @@ const getDashboardStats = async (req, res) => {
 
     // Format recent vendors with their last booking
     const formattedRecentVendors = await Promise.all(
-      recentVendors.map(async (vendorUser) => {
+      (recentVendors || []).map(async (vendorUser) => {
         // Find vendor profile to get vendorId
         const vendorProfile = await Vendor.findOne({ userId: vendorUser._id });
         let lastBooking = null;
