@@ -2,9 +2,14 @@ const mongoose = require('mongoose');
 
 
 const purchaseSchema = new mongoose.Schema({
+    trackingId: {
+        type: String,
+        unique: true,
+        required: true
+    },
     item: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Item',
+        ref: 'ServiceItem',
         required: true
     },
     itemName: {
@@ -51,5 +56,15 @@ const purchaseSchema = new mongoose.Schema({
         default: Date.now
     }
 }, { timestamps: true });
+
+// Generate tracking ID before saving
+purchaseSchema.pre('save', async function(next) {
+    if (!this.trackingId) {
+        const timestamp = Date.now().toString();
+        const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        this.trackingId = `PUR${timestamp.slice(-6)}${randomNum}`;
+    }
+    next();
+});
 
 module.exports = mongoose.model('Purchase', purchaseSchema);

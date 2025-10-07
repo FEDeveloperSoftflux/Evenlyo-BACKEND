@@ -4,6 +4,8 @@ const BookingRequest = require('../../models/Booking');
 const User = require('../../models/User');
 const Listing = require('../../models/Listing');
 const Vendor = require('../../models/Vendor');
+const Purchase = require('../../models/Purchase');
+const ServiceItem = require('../../models/Item');
 const notificationController = require('../notificationController');
 
 // GET /api/vendor/tracking
@@ -340,8 +342,47 @@ const markAsReceivedBack = asyncHandler(async (req, res) => {
 	}
   });
 });
+
+// GET /api/vendor/tracking/purchases
+const getVendorPurchases = async (req, res) => {
+	try {
+		// Find the vendor profile for the logged-in user
+		const vendor = await Vendor.findOne({ userId: req.user.id });
+		if (!vendor) {
+			return res.status(404).json({ purchases: [], message: 'Vendor profile not found' });
+		}
+
+		// Find all purchases for this vendor
+		const purchases = await Purchase.find({ vendor: vendor._id })
+			.populate({
+				path: 'user',
+				select: 'firstName lastName profileImage address',
+			})
+			.populate({
+				path: 'item',
+				select: 'title',
+			})
+			.sort({ createdAt: -1 });
+
+		const result = purchases.map(purchase => ({
+			trackingId: purchase.trackingId || '',
+			date: purchase.purchasedAt,
+			userName: purchase.userName,
+			itemName: purchase.itemName,
+			location: purchase.location,
+			status: purchase.status,
+			_id: purchase._id,
+		}));
+
+		res.json({ purchases: result });
+	} catch (err) {
+		res.status(500).json({ error: err.message });
+	}
+};
+
 module.exports = {
 		getVendorBookings,
+		getVendorPurchases,
 		markBookingOnTheWay,
 		markBookingPickedUp,
 		markAsReceivedBack,

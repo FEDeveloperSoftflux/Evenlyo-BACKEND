@@ -1,4 +1,5 @@
 const BookingRequest = require('../models/Booking');
+const Listing = require('../models/Listing');
 
 /**
  * Check if a listing is available for the given date range
@@ -169,6 +170,72 @@ const formatPrice = (price, currency = 'EUR') => {
 };
 
 /**
+ * Check if requested time slot is within available time slots
+ * @param {Array} availableTimeSlots - Array of available time slots with startTime and endTime
+ * @param {string} requestedStartTime - Requested start time (HH:MM format)
+ * @param {string} requestedEndTime - Requested end time (HH:MM format)
+ * @returns {boolean} - True if time slot is available
+ */
+const checkTimeSlotAvailability = (availableTimeSlots, requestedStartTime, requestedEndTime) => {
+  if (!availableTimeSlots || availableTimeSlots.length === 0) {
+    return true; // No time restrictions
+  }
+
+  const requestedStart = timeToMinutes(requestedStartTime);
+  const requestedEnd = timeToMinutes(requestedEndTime);
+
+  // Check if requested time falls within any available slot
+  return availableTimeSlots.some(slot => {
+    const slotStart = timeToMinutes(slot.startTime);
+    const slotEnd = timeToMinutes(slot.endTime);
+    
+    return requestedStart >= slotStart && requestedEnd <= slotEnd;
+  });
+};
+
+/**
+ * Check if two time ranges overlap
+ * @param {string} start1 - Start time of first range (HH:MM)
+ * @param {string} end1 - End time of first range (HH:MM)
+ * @param {string} start2 - Start time of second range (HH:MM)
+ * @param {string} end2 - End time of second range (HH:MM)
+ * @returns {boolean} - True if times overlap
+ */
+const checkTimeOverlap = (start1, end1, start2, end2) => {
+  const start1Minutes = timeToMinutes(start1);
+  const end1Minutes = timeToMinutes(end1);
+  const start2Minutes = timeToMinutes(start2);
+  const end2Minutes = timeToMinutes(end2);
+
+  // Check if ranges overlap
+  return start1Minutes < end2Minutes && end1Minutes > start2Minutes;
+};
+
+/**
+ * Convert time string (HH:MM) to minutes since midnight
+ * @param {string} timeString - Time in HH:MM format
+ * @returns {number} - Minutes since midnight
+ */
+const timeToMinutes = (timeString) => {
+  if (!timeString || typeof timeString !== 'string') {
+    return 0;
+  }
+  
+  const [hours, minutes] = timeString.split(':').map(Number);
+  return (hours || 0) * 60 + (minutes || 0);
+};
+
+/**
+ * Get day of week abbreviation
+ * @param {Date} date - Date object
+ * @returns {string} - Day abbreviation (mon, tue, wed, etc.)
+ */
+const getDayOfWeek = (date) => {
+  const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  return days[date.getDay()];
+};
+
+/**
  * Calculate full booking pricing details (booking price, fees, km charge, totals)
  * @param {Object} listing - Listing document
  * @param {Object} opts - { startDate, endDate, startTime, endTime, numberOfEvents, distanceKm }
@@ -270,8 +337,8 @@ console.log('Pricing Type:', pricingType);
 };
 
 // Helper function to get detailed availability information
-const getAvailabilityDetails = async (listingId, startDate, endDate, excludeBookingId = null) => {
-  const isAvailable = await checkAvailability(listingId, startDate, endDate, excludeBookingId);
+const getAvailabilityDetails = async (listingId, startDate, endDate, excludeBookingId = null, startTime = null, endTime = null) => {
+  const isAvailable = await checkAvailability(listingId, startDate, endDate, excludeBookingId, startTime, endTime);
   
   if (!isAvailable) {
     // Get conflicting bookings for detailed response
@@ -291,7 +358,7 @@ const getAvailabilityDetails = async (listingId, startDate, endDate, excludeBook
     }
 
     const conflictingBookings = await BookingRequest.find(query)
-      .select('details.startDate details.endDate status trackingId')
+      .select('details.startDate details.endDate details.startTime details.endTime status trackingId')
       .lean();
 
     return {
@@ -300,6 +367,8 @@ const getAvailabilityDetails = async (listingId, startDate, endDate, excludeBook
         trackingId: booking.trackingId,
         startDate: booking.details.startDate,
         endDate: booking.details.endDate,
+        startTime: booking.details.startTime,
+        endTime: booking.details.endTime,
         status: booking.status
       }))
     };
@@ -308,47 +377,119 @@ const getAvailabilityDetails = async (listingId, startDate, endDate, excludeBook
   return { isAvailable: true, conflictingBookings: [] };
 };
 
-// Helper function to check listing availability for multi-day bookings
-const checkAvailability = async (listingId, startDate, endDate, excludeBookingId = null) => {
-  // Normalize dates to start of day for accurate comparison
-  const checkStart = new Date(startDate);
-  checkStart.setHours(0, 0, 0, 0);
-  
-  const checkEnd = new Date(endDate);
-  checkEnd.setHours(23, 59, 59, 999);
-  
-  // Build query to check for overlapping bookings
-  const query = {
-    listingId,
-    status: { $nin: ['rejected', 'cancelled'] },
-    $or: [
-      {
-        // Booking starts before our period ends and ends after our period starts
-        'details.startDate': { $lte: checkEnd },
-        'details.endDate': { $gte: checkStart }
+// Helper function to check listing availability for multi-day bookings and time slots
+const checkAvailability = async (listingId, startDate, endDate, excludeBookingId = null, startTime = null, endTime = null) => {
+  try {
+    // Get listing details to check time slots
+    const listing = await Listing.findById(listingId).select('availability');
+    if (!listing) {
+      throw new Error('Listing not found');
+    }
+
+    // Check if listing is available
+    if (!listing.availability?.isAvailable) {
+      console.log(`Listing ${listingId} is marked as unavailable`);
+      return false;
+    }
+
+    // Normalize dates to start of day for accurate comparison
+    const checkStart = new Date(startDate);
+    checkStart.setHours(0, 0, 0, 0);
+    
+    const checkEnd = new Date(endDate);
+    checkEnd.setHours(23, 59, 59, 999);
+    
+    // Check if it's a single day booking
+    const isSingleDay = checkStart.getTime() === checkEnd.setHours(0, 0, 0, 0);
+    
+    // For single day bookings, check time availability
+    if (isSingleDay && startTime && endTime && listing.availability?.availableTimeSlots?.length > 0) {
+      const isTimeAvailable = checkTimeSlotAvailability(
+        listing.availability.availableTimeSlots,
+        startTime,
+        endTime
+      );
+      
+      if (!isTimeAvailable) {
+        console.log(`Time slot ${startTime}-${endTime} is not available for listing ${listingId}`);
+        return false;
       }
-    ]
-  };
+    }
 
-  // Exclude current booking if specified (when checking during acceptance)
-  if (excludeBookingId) {
-    query._id = { $ne: excludeBookingId };
+    // Check day of week availability
+    if (listing.availability?.availableDays?.length > 0) {
+      const dayOfWeek = getDayOfWeek(checkStart);
+      if (!listing.availability.availableDays.includes(dayOfWeek)) {
+        console.log(`Day ${dayOfWeek} is not available for listing ${listingId}`);
+        return false;
+      }
+    }
+    
+    // Build query to check for overlapping bookings
+    const query = {
+      listingId,
+      status: { $nin: ['rejected', 'cancelled'] },
+      $or: [
+        {
+          // Booking starts before our period ends and ends after our period starts
+          'details.startDate': { $lte: checkEnd },
+          'details.endDate': { $gte: checkStart }
+        }
+      ]
+    };
+
+    // Exclude current booking if specified (when checking during acceptance)
+    if (excludeBookingId) {
+      query._id = { $ne: excludeBookingId };
+    }
+    
+    // Check for overlapping bookings that are not rejected or cancelled
+    const overlappingBookings = await BookingRequest.find(query)
+      .select('details.startDate details.endDate details.startTime details.endTime status trackingId');
+
+    // For single day bookings, also check time overlaps
+    if (isSingleDay && startTime && endTime && overlappingBookings.length > 0) {
+      const timeConflicts = overlappingBookings.filter(booking => {
+        // Check if the booking is on the same date
+        const bookingStart = new Date(booking.details.startDate);
+        const bookingEnd = new Date(booking.details.endDate);
+        bookingStart.setHours(0, 0, 0, 0);
+        bookingEnd.setHours(0, 0, 0, 0);
+        
+        const isSameDay = bookingStart.getTime() === checkStart.getTime() || 
+                         bookingEnd.getTime() === checkStart.getTime();
+        
+        if (isSameDay && booking.details.startTime && booking.details.endTime) {
+          return checkTimeOverlap(
+            startTime, endTime,
+            booking.details.startTime, booking.details.endTime
+          );
+        }
+        return true; // If no time info, assume conflict
+      });
+      
+      if (timeConflicts.length > 0) {
+        console.log('Time conflicts found for listing', listingId + ':');
+        timeConflicts.forEach(booking => {
+          console.log(`- Booking ${booking.trackingId}: ${booking.details.startTime}-${booking.details.endTime} (${booking.status})`);
+        });
+        return false;
+      }
+    } else if (overlappingBookings.length > 0) {
+      // For multi-day bookings or bookings without time info, any overlap is a conflict
+      console.log('Conflicting bookings found for listing', listingId + ':');
+      overlappingBookings.forEach(booking => {
+        console.log(`- Booking ${booking.trackingId}: ${booking.details.startDate} to ${booking.details.endDate} (${booking.status})`);
+      });
+      console.log(`Checking availability for: ${checkStart} to ${checkEnd}${excludeBookingId ? ` (excluding ${excludeBookingId})` : ''}`);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error checking availability:', error);
+    throw error;
   }
-  
-  // Check for overlapping bookings that are not rejected or cancelled
-  const overlappingBookings = await BookingRequest.find(query)
-    .select('details.startDate details.endDate status trackingId');
-
-  // If any overlapping bookings found, list them for debugging
-  if (overlappingBookings.length > 0) {
-    console.log('Conflicting bookings found for listing', listingId + ':');
-    overlappingBookings.forEach(booking => {
-      console.log(`- Booking ${booking.trackingId}: ${booking.details.startDate} to ${booking.details.endDate} (${booking.status})`);
-    });
-    console.log(`Checking availability for: ${checkStart} to ${checkEnd}${excludeBookingId ? ` (excluding ${excludeBookingId})` : ''}`);
-  }
-
-  return overlappingBookings.length === 0;
 };
 
 module.exports = {
@@ -361,5 +502,9 @@ module.exports = {
   generateTrackingId,
   formatPrice,
   getAvailabilityDetails,
-  checkAvailability
+  checkAvailability,
+  checkTimeSlotAvailability,
+  checkTimeOverlap,
+  timeToMinutes,
+  getDayOfWeek
 };

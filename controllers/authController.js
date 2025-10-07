@@ -860,9 +860,11 @@ const checkRegisteredUser = async (req, res) => {
 
 const registerVendor2 = async (req, res) => {
   try {
+    // Lazy import of multilingual helper to avoid circular deps
+    const { toMultilingualText } = require('../utils/textUtils');
     const {
       accountType, // 'personal' or 'business'
-      email,
+      email, // personal account email
       contactNumber,
       password,
       confirmPassword,
@@ -879,6 +881,7 @@ const registerVendor2 = async (req, res) => {
       // Business account fields (stored in Vendor model)
       businessName,
       businessNumber,
+      businessEmail, // NEW: required for business accounts (used as User.email too)
       businessWebsite,
       businessDescription,
       businessLogo,
@@ -895,7 +898,7 @@ const registerVendor2 = async (req, res) => {
     }
 
     // Common validations (for both types)
-    if (!email || !contactNumber || !password || !confirmPassword || !otp) {
+    if (!contactNumber || !password || !confirmPassword || !otp) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
     if (password !== confirmPassword) {
@@ -904,6 +907,9 @@ const registerVendor2 = async (req, res) => {
 
     // Personal account validations
     if (accountType === 'personal') {
+      if (!email) {
+        return res.status(400).json({ success: false, message: 'Email is required for personal accounts' });
+      }
       if (!firstName || !lastName || !city || !postalCode || !fullAddress || !passportDetails || !mainCategories || !subCategories) {
         return res.status(400).json({ success: false, message: 'Missing required personal account fields' });
       }
@@ -911,19 +917,25 @@ const registerVendor2 = async (req, res) => {
 
     // Business account validations
     if (accountType === 'business') {
-      if (!businessName || !businessNumber || !teamSize || !teamType || !kvkNumber || !mainCategories || !subCategories) {
+      if (!businessEmail) {
+        return res.status(400).json({ success: false, message: 'businessEmail is required for business accounts' });
+      }
+      if (!businessName  || !teamSize || !teamType || !kvkNumber || !mainCategories || !subCategories) {
         return res.status(400).json({ success: false, message: 'Missing required business account fields' });
       }
     }
 
+    // Determine which email to use for registration (stored in User.email)
+    const registrationEmail = accountType === 'business' ? businessEmail : email;
+
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: registrationEmail });
     if (existingUser) {
       return res.status(409).json({ success: false, message: 'Email already registered' });
     }
 
     // OTP verification
-    const valid = await verifyOTP(email, otp);
+    const valid = await verifyOTP(registrationEmail, otp);
     if (!valid) {
       return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
     }
@@ -933,7 +945,7 @@ const registerVendor2 = async (req, res) => {
 
     // Create user (common data for both types)
     const userData = {
-      email,
+      email: registrationEmail,
       contactNumber,
       password: hashedPassword,
       userType: 'vendor',
@@ -946,8 +958,6 @@ const registerVendor2 = async (req, res) => {
       userData.firstName = firstName;
       userData.lastName = lastName;
       userData.address = fullAddress;
-      userData.city = city;
-      userData.postalCode = postalCode;
       userData.passportDetails = passportDetails;
     } 
     else {
@@ -967,28 +977,30 @@ const registerVendor2 = async (req, res) => {
     };
 
     // Handle businessName based on account type
-    if (accountType === 'personal') 
-      {
-      // Store firstName + lastName as businessName for personal accounts
-      vendorData.businessName = `${firstName} ${lastName}`;
-      vendorData.businessPhone = contactNumber; 
-      vendorData.businessLocation = `${city} ${fullAddress}`
+    if (accountType === 'personal') {
+      // Personal vendors: businessName derived from name; wrap into multilingual object
+      vendorData.businessName = toMultilingualText(`${firstName} ${lastName}`.trim());
+      vendorData.businessPhone = contactNumber;
+      vendorData.businessLocation = `${fullAddress}`;
       vendorData.accountType = accountType;
-      vendorData.businessEmail = email; 
+      vendorData.businessEmail = registrationEmail;
+      vendorData.businessLogo = businessLogo;
+      vendorData.bannerImage = bannerImage;
     } else if (accountType === 'business') {
-      // Store all business fields for business accounts
-      vendorData.businessName = businessName;
+      // Business vendors: convert multilingual-capable fields
+      vendorData.businessName = toMultilingualText(businessName);
       vendorData.businessPhone = businessNumber;
       vendorData.businessLocation = fullAddress;
       vendorData.businessWebsite = businessWebsite;
-      vendorData.businessDescription = businessDescription;
+      vendorData.businessDescription = toMultilingualText(businessDescription);
       vendorData.businessLogo = businessLogo;
       vendorData.bannerImage = bannerImage;
-      vendorData.whyChooseUs = whyChooseUs;
-      vendorData.teamType = teamType;
+      vendorData.whyChooseUs = toMultilingualText(whyChooseUs);
+      vendorData.teamType = toMultilingualText(teamType);
       vendorData.teamSize = teamSize;
       vendorData.kvkNumber = kvkNumber;
       vendorData.accountType = accountType;
+      vendorData.businessEmail = registrationEmail; // ensure stored for business too
     }
 
     const vendor = new Vendor(vendorData);
