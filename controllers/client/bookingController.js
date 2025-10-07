@@ -208,12 +208,19 @@ const createBookingRequest = asyncHandler(async (req, res) => {
     });
   }
 
-  // Check availability for all days in the range
-  const isAvailable = await checkAvailability(listingId, new Date(startDate), new Date(endDate));
+  // Check availability for all days in the range, including time slots for single-day bookings
+  const isAvailable = await checkAvailability(
+    listingId, 
+    new Date(startDate), 
+    new Date(endDate), 
+    null, // excludeBookingId
+    startTime, // pass startTime for time slot validation
+    endTime    // pass endTime for time slot validation
+  );
   if (!isAvailable) {
     return res.status(409).json({
       success: false,
-      message: 'Selected dates are not available. Some days may already be booked.'
+      message: 'Selected dates/times are not available. The time slot may be outside available hours or already booked.'
     });
   }
 
