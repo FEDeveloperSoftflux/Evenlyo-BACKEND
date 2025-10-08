@@ -35,11 +35,16 @@ const createItemPaymentIntent = async (req, res) => {
         // Get platform fee from settings
         const Settings = require('../../models/Settings');
         const settings = await Settings.findOne();
-        const platformFee = settings && settings.salesItemPlatformFee ? settings.salesItemPlatformFee : 1;
-    
+        const platformFee = (settings.salesItemPlatformFee)/100;
 
+        console.log('Platform Fee:', platformFee);
+        
         // Calculate total price with platform fee
-        const totalPrice = (quantity * item.sellingPrice) * platformFee;
+        const platformPrice = (quantity * item.sellingPrice) * platformFee;
+        const totalPrice = (quantity * item.sellingPrice) + platformPrice;
+
+        console.log('Total Price:', totalPrice);
+        console.log('Platform Price:', platformPrice);
         const amount = Math.round(totalPrice * 100); // Convert to cents for Stripe
 
         // Prepare metadata for Stripe
@@ -50,6 +55,8 @@ const createItemPaymentIntent = async (req, res) => {
             location: location,
             userId: String(req.user.id),
             userName: req.user.firstName + ' ' + req.user.lastName,
+            platformPrice: String(platformPrice.toFixed(2)),
+            totalPrice: String(totalPrice.toFixed(2)),
             vendorId: String(item.vendor),
             type: 'item_purchase'
         };
