@@ -1,30 +1,48 @@
 const bcrypt = require('bcrypt');
 const Admin = require('../../models/Admin');
+const User = require('../../models/User');
 const Settings = require('../../models/Settings');
 
 const resetPassword = async (req, res) => {
     try {
-        const adminId = req.user.id; // assuming authMiddleware sets req.user
+        // The JWT/req.user contains the user id (User document), not the Admin document id.
+        const userId = req.user && req.user.id;
         const { oldPassword, newPassword } = req.body;
 
         if (!oldPassword || !newPassword) {
             return res.status(400).json({ message: 'Old and new password required.' });
         }
 
-        const admin = await Admin.findById(adminId);
-        if (!admin) {
-            return res.status(404).json({ message: 'Admin not found.' });
+        if (typeof newPassword !== 'string' || newPassword.length < 8) {
+            return res.status(400).json({ message: 'New password must be at least 8 characters long.' });
         }
 
-        const isMatch = await bcrypt.compare(oldPassword, admin.password);
+        // Handle superadmin special case (no DB user)
+        if (userId === 'superadmin') {
+            return res.status(403).json({ message: 'Superadmin password reset is not supported via this endpoint.' });
+        }
+
+        // Find the User (password lives on User model)
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+
+        // Ensure this user is an admin (extra safety)
+        if (user.userType !== 'admin') {
+            return res.status(403).json({ message: 'Only admin users may use this endpoint.' });
+        }
+
+        // Compare old password
+        const isMatch = await bcrypt.compare(oldPassword, user.password || '');
         if (!isMatch) {
             return res.status(401).json({ message: 'Old password is incorrect.' });
         }
 
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(newPassword, salt);
-        admin.password = hashedPassword;
-        await admin.save();
+        user.password = hashedPassword;
+        await user.save();
 
         res.json({ message: 'Password updated successfully.' });
     } catch (error) {
