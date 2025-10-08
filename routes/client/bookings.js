@@ -11,8 +11,10 @@ const {
   markBookingFinished,
   createClaim,
   getBookingDetails,
+  getBookingSummary,
   reviewBooking,
-  cancelBooking
+  cancelBooking,
+  TrackBooking
 } = require('../../controllers/client/bookingController');
 
 const { createBookingPaymentIntent } = require('../../controllers/client/bookingController');
@@ -84,6 +86,9 @@ router.get('/vendor-history', requireAuth, requireVendor, getVendorBookingHistor
 // @desc    Get detailed booking information
 // @access  Private (User/Vendor)
 router.get('/:id', requireAuth, getBookingDetails);
+// Booking summary endpoint
+router.get('/:id/track', requireAuth, getBookingSummary);
+router.get('/:id/direction', requireAuth, TrackBooking);
 
 router.post('/:id/create-payment-intent', requireAuth, requireClient, createBookingPaymentIntent);
 

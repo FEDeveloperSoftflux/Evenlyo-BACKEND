@@ -1063,6 +1063,169 @@ const getBookingDetails = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Get booking summary (tracking id, client name, client phone, total price, status history)
+// @route   GET /api/booking/:id/summary
+// @access  Private (User/Vendor)
+const getBookingSummary = asyncHandler(async (req, res) => {
+  const booking = await BookingRequest.findById(req.params.id)
+    .populate('userId', 'firstName lastName contactNumber')
+    .populate('vendorId', 'businessName businessPhone')
+    .populate('listingId');
+
+  if (!booking) {
+    return res.status(404).json({
+      success: false,
+      message: 'Booking not found'
+    });
+  }
+
+  // Access control: allow client who created booking or vendor who owns it
+  const vendor = await Vendor.findOne({ userId: req.user.id });
+  const bookingUserIdStr = booking.userId && booking.userId._id ? booking.userId._id.toString() : (booking.userId ? booking.userId.toString() : '');
+  const bookingVendorIdStr = booking.vendorId && booking.vendorId._id ? booking.vendorId._id.toString() : (booking.vendorId ? booking.vendorId.toString() : '');
+  const vendorIdStr = vendor && vendor._id ? vendor._id.toString() : '';
+
+  const hasAccess = (bookingUserIdStr && bookingUserIdStr === req.user.id) || (vendorIdStr && bookingVendorIdStr && bookingVendorIdStr === vendorIdStr);
+
+  if (!hasAccess) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied'
+    });
+  }
+
+  const clientName = booking.userId ? `${booking.userId.firstName || ''} ${booking.userId.lastName || ''}`.trim() : '';
+  const clientPhone = booking.userId ? (booking.userId.contactNumber || '') : '';
+
+  // Build listing object with requested fields
+  let listingObj = null;
+  if (booking.listingId) {
+    const listing = booking.listingId;
+    // Title fallback: if title is a string, wrap into {en,nl}
+    let titleObj = listing.title;
+    if (!titleObj) {
+      titleObj = { en: '', nl: '' };
+    } else if (typeof titleObj === 'string') {
+      titleObj = { en: titleObj, nl: titleObj };
+    } else {
+      // Ensure both en and nl exist
+      titleObj = {
+        en: titleObj.en || '',
+        nl: titleObj.nl || (titleObj.en || '')
+      };
+    }
+
+    listingObj = {
+      title: titleObj,
+      location: {
+        fullAddress: listing.location && listing.location.fullAddress ? listing.location.fullAddress : '',
+        coordinates: listing.location && listing.location.coordinates ? listing.location.coordinates : { latitude: null, longitude: null }
+      },
+  images: (Array.isArray(listing.images) && listing.images.length > 0) ? listing.images[0] : (listing.images ? (typeof listing.images === 'string' ? listing.images : '') : '')
+    };
+  }
+
+  // Booking location: eventLocation (string) + coordinates if present in listing.location
+  const bookingLocation = {
+    eventLocation: booking.details && booking.details.eventLocation ? booking.details.eventLocation : '',
+  };
+
+  const summary = {
+    trackingId: booking.trackingId,
+    clientName: clientName,
+    clientPhone: clientPhone,
+    totalPrice: booking.pricing && typeof booking.pricing.totalPrice !== 'undefined' ? booking.pricing.totalPrice : booking.pricing && booking.pricing.bookingPrice ? booking.pricing.bookingPrice : (booking.pricing && booking.pricing.totalPrice ? booking.pricing.totalPrice : null),
+    statusHistory: booking.statusHistory || []
+  };
+
+  const direction = {
+    listing: listingObj,
+    bookingLocation: bookingLocation
+  };
+
+  res.json({ success: true, data: { summary, direction } });
+});
+
+const TrackBooking = asyncHandler(async (req, res) => {
+  const booking = await BookingRequest.findById(req.params.id)
+    .populate('userId', 'firstName lastName contactNumber')
+    .populate('vendorId', 'businessName businessPhone')
+    .populate('listingId');
+
+  if (!booking) {
+    return res.status(404).json({
+      success: false,
+      message: 'Booking not found'
+    });
+  }
+
+  // Access control: allow client who created booking or vendor who owns it
+  const vendor = await Vendor.findOne({ userId: req.user.id });
+  const bookingUserIdStr = booking.userId && booking.userId._id ? booking.userId._id.toString() : (booking.userId ? booking.userId.toString() : '');
+  const bookingVendorIdStr = booking.vendorId && booking.vendorId._id ? booking.vendorId._id.toString() : (booking.vendorId ? booking.vendorId.toString() : '');
+  const vendorIdStr = vendor && vendor._id ? vendor._id.toString() : '';
+
+  const hasAccess = (bookingUserIdStr && bookingUserIdStr === req.user.id) || (vendorIdStr && bookingVendorIdStr && bookingVendorIdStr === vendorIdStr);
+
+  if (!hasAccess) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied'
+    });
+  }
+
+  const clientName = booking.userId ? `${booking.userId.firstName || ''} ${booking.userId.lastName || ''}`.trim() : '';
+  const clientPhone = booking.userId ? (booking.userId.contactNumber || '') : '';
+
+  // Build listing object with requested fields
+  let listingObj = null;
+  if (booking.listingId) {
+    const listing = booking.listingId;
+    // Title fallback: if title is a string, wrap into {en,nl}
+    let titleObj = listing.title;
+    if (!titleObj) {
+      titleObj = { en: '', nl: '' };
+    } else if (typeof titleObj === 'string') {
+      titleObj = { en: titleObj, nl: titleObj };
+    } else {
+      // Ensure both en and nl exist
+      titleObj = {
+        en: titleObj.en || '',
+        nl: titleObj.nl || (titleObj.en || '')
+      };
+    }
+
+    listingObj = {
+      title: titleObj,
+      location: {
+        fullAddress: listing.location && listing.location.fullAddress ? listing.location.fullAddress : '',
+        coordinates: listing.location && listing.location.coordinates ? listing.location.coordinates : { latitude: null, longitude: null }
+      },
+  images: (Array.isArray(listing.images) && listing.images.length > 0) ? listing.images[0] : (listing.images ? (typeof listing.images === 'string' ? listing.images : '') : '')
+    };
+  }
+
+  // Booking location: eventLocation (string) + coordinates if present in listing.location
+  const bookingLocation = {
+    eventLocation: booking.details && booking.details.eventLocation ? booking.details.eventLocation : '',
+  };
+
+  // Only return direction object with listing.title, listing.location, listing.images, and bookingLocation.eventLocation
+  const directionOnly = {
+    listing: listingObj ? {
+      title: listingObj.title,
+      location: listingObj.location,
+      images: listingObj.images
+    } : null,
+    bookingLocation: {
+      eventLocation: bookingLocation.eventLocation || ''
+    }
+  };
+
+  res.json({ success: true, data: { direction: directionOnly } });
+});
+
+
 module.exports = {
   createBookingRequest,
   getPendingBookings,
@@ -1077,4 +1240,6 @@ module.exports = {
   cancelBooking,
   reviewBooking,
   createBookingPaymentIntent,
+  getBookingSummary,
+  TrackBooking,
 };
