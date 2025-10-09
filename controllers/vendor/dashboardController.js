@@ -1,7 +1,9 @@
 const Booking = require('../../models/Booking');
 const Listing = require('../../models/Listing');
+const SaleItems = require('../../models/Item.js');
 const User = require('../../models/User');
 const Vendor = require('../../models/Vendor');
+const Purchase = require('../../models/Purchase');
 
 // Vendor Dashboard Analytics Controller
 const getDashboardAnalytics = async (req, res) => {
@@ -88,6 +90,12 @@ const getDashboardAnalytics = async (req, res) => {
   // 3. Total Number of Items Listed (only 'active' listings, using Listing model)
   const totalItemsListed = await Listing.countDocuments({ vendor: vendorId, status: 'active', isActive: true });
 
+    // New: Total Service Items (listings that are services)
+    // We consider a listing a service when `serviceDetails.serviceType` exists (human/non_human)
+    const totalServiceItems = await SaleItems.countDocuments({
+      vendor: vendorId,
+    });
+
     // 4. Recent Bookings (last 5)
     const recentBookings = await Booking.find({ vendorId })
       .sort({ createdAt: -1 })
@@ -110,6 +118,25 @@ const getDashboardAnalytics = async (req, res) => {
       return { month: i + 1, totalOrders: found ? found.totalOrders : 0 };
     });
 
+        // 6. Purchase Overview by Month (sale item purchases for this vendor)
+    const purchaseAgg = await Purchase.aggregate([
+      { $match: { vendor: vendorId, purchasedAt: { $gte: startOfYear } } },
+      { $group: { _id: { month: { $month: '$purchasedAt' } }, totalPurchases: { $sum: '$quantity' } } },
+      { $sort: { '_id.month': 1 } }
+    ]);
+
+    const purchaseOverview = Array.from({ length: 12 }, (_, i) => {
+      const found = purchaseAgg.find(m => m._id.month === i + 1);
+      return { month: i + 1, totalPurchases: found ? found.totalPurchases : 0 };
+    });
+
+    // Recent Purchases (last 3)
+    const recentPurchases = await Purchase.find({ vendor: vendorId })
+      .sort({ purchasedAt: -1 })
+      .limit(3)
+      .populate('user', 'firstName lastName email')
+      .select('trackingId itemName user userName quantity totalPrice status purchasedAt');
+
     res.json({
       success: true,
       stats: {
@@ -117,6 +144,7 @@ const getDashboardAnalytics = async (req, res) => {
         totalBookings,
         monthlyRevenue, // now average of all months
         totalItemsListed,
+        totalServiceItems,
         totalClients
       },
       recentBookings: recentBookings.map(b => ({
@@ -127,6 +155,16 @@ const getDashboardAnalytics = async (req, res) => {
         createdAt: b.createdAt
       })),
       orderOverview,
+      purchaseOverview,
+      recentPurchases: recentPurchases.map(p => ({
+        trackingId: p.trackingId,
+        itemName: p.itemName,
+        buyerName: p.user ? `${p.user.firstName} ${p.user.lastName}` : p.userName || '',
+        quantity: p.quantity,
+        totalPrice: p.totalPrice,
+        status: p.status,
+        purchasedAt: p.purchasedAt
+      })),
       recentClients
     });
   } catch (err) {

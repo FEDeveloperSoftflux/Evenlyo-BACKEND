@@ -1243,3 +1243,76 @@ module.exports = {
   getBookingSummary,
   TrackBooking,
 };
+
+
+// @desc    Get simplified booking details for client/vendor
+// @route   GET /api/booking/:id/details
+// @access  Private (User/Vendor)
+const getBookingSimpleDetails = asyncHandler(async (req, res) => {
+  const booking = await BookingRequest.findById(req.params.id)
+    .populate('vendorId')
+    .populate('listingId');
+
+  if (!booking) {
+    return res.status(404).json({ success: false, message: 'Booking not found' });
+  }
+
+  // Access control: allow client who created booking or vendor who owns it
+  const vendor = await Vendor.findOne({ userId: req.user.id });
+  const bookingUserIdStr = booking.userId && booking.userId._id ? booking.userId._id.toString() : (booking.userId ? booking.userId.toString() : '');
+  const bookingVendorIdStr = booking.vendorId && booking.vendorId._id ? booking.vendorId._id.toString() : (booking.vendorId ? booking.vendorId.toString() : '');
+  const vendorIdStr = vendor && vendor._id ? vendor._id.toString() : '';
+
+  const hasAccess = (bookingUserIdStr && bookingUserIdStr === req.user.id) || (vendorIdStr && bookingVendorIdStr && bookingVendorIdStr === vendorIdStr);
+
+  if (!hasAccess) {
+    return res.status(403).json({ success: false, message: 'Access denied' });
+  }
+
+  // Vendor info
+  const vendorName = booking.vendorId ? (booking.vendorId.businessName || `${booking.vendorId.firstName || ''} ${booking.vendorId.lastName || ''}`.trim()) : '';
+  const vendorLogo = booking.vendorId ? (booking.vendorId.businessLogo || booking.vendorId.logo || '') : '';
+  const vendorDescription = booking.vendorId ? (booking.vendorId.description || booking.vendorId.businessDescription || '') : '';
+
+  // Business location: prefer vendor location, fallback to listing location
+  const businessLocation = (booking.vendorId && booking.vendorId.location) ? {
+    fullAddress: booking.vendorId.location.fullAddress || '',
+    coordinates: booking.vendorId.location.coordinates || { latitude: null, longitude: null }
+  } : (booking.listingId && booking.listingId.location ? {
+    fullAddress: booking.listingId.location.fullAddress || '',
+    coordinates: booking.listingId.location.coordinates || { latitude: null, longitude: null }
+  } : { fullAddress: '', coordinates: { latitude: null, longitude: null } });
+
+  // Listing title and location
+  let listingTitle = '';
+  if (booking.listingId) {
+    if (typeof booking.listingId.title === 'string') listingTitle = booking.listingId.title;
+    else if (booking.listingId.title && booking.listingId.title.en) listingTitle = booking.listingId.title.en;
+  }
+
+  const listingLocation = booking.listingId && booking.listingId.location ? booking.listingId.location : { fullAddress: '', coordinates: { latitude: null, longitude: null } };
+
+  // Booking pricing: try totalPrice then bookingPrice
+  const bookingTotalPrice = booking.pricing && (typeof booking.pricing.totalPrice !== 'undefined') ? booking.pricing.totalPrice : (booking.pricing && booking.pricing.bookingPrice ? booking.pricing.bookingPrice : null);
+
+  const result = {
+    startDate: booking.details && booking.details.startDate ? booking.details.startDate : null,
+    endDate: booking.details && booking.details.endDate ? booking.details.endDate : null,
+    startTime: booking.details && booking.details.startTime ? booking.details.startTime : null,
+    endTime: booking.details && booking.details.endTime ? booking.details.endTime : null,
+    vendorName,
+    vendorLogo,
+    vendorDescription,
+    businessLocation,
+    listingTitle,
+    bookingTotalPrice,
+    listingLocation,
+    // Ensure listing images is always an array
+    listingImages: booking.listingId && booking.listingId.images ? (Array.isArray(booking.listingId.images) ? booking.listingId.images : [booking.listingId.images]) : []
+  };
+
+  res.json({ success: true, data: result });
+});
+
+// add to exports
+module.exports.getBookingSimpleDetails = getBookingSimpleDetails;

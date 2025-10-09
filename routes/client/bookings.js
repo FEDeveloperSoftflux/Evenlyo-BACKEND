@@ -17,6 +17,8 @@ const {
   TrackBooking
 } = require('../../controllers/client/bookingController');
 
+  const { getBookingSimpleDetails } = require('../../controllers/client/bookingController');
+
 const { createBookingPaymentIntent } = require('../../controllers/client/bookingController');
 
 // Import authentication middleware
@@ -86,6 +88,8 @@ router.get('/vendor-history', requireAuth, requireVendor, getVendorBookingHistor
 // @desc    Get detailed booking information
 // @access  Private (User/Vendor)
 router.get('/:id', requireAuth, getBookingDetails);
+// Simplified details endpoint returning essential info (start/end, times, vendor, listing, price, locations)
+router.get('/:id/details', requireAuth, getBookingSimpleDetails);
 // Booking summary endpoint
 router.get('/:id/track', requireAuth, getBookingSummary);
 router.get('/:id/direction', requireAuth, TrackBooking);
