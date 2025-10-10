@@ -4,6 +4,7 @@ const Vendor = require('../../models/Vendor');
 const BookingRequest = require('../../models/Booking');
 const notificationController = require('../notificationController');
 const Listing = require('../../models/Listing');
+const StockLog = require('../../models/StockLog');
 const {getAvailabilityDetails , checkAvailability} = require('../../utils/bookingUtils')
 
 // GET /api/vendor/bookings/analytics
@@ -109,8 +110,58 @@ const acceptBooking = asyncHandler(async (req, res) => {
 
   console.log(`Accepting booking ${id} for vendor ${vendor._id}`);
 
-  booking.status = 'accepted';
-  await booking.save();
+	// Update stock: decrement listing quantity by 1 (or by guestCount if specified)
+	const listing = await Listing.findById(booking.listingId);
+	const decrementBy = booking.details?.guestCount || 1;
+
+	if (!listing) {
+		return res.status(404).json({ success: false, message: 'Associated listing not found' });
+	}
+
+	if (typeof listing.quantity !== 'number') listing.quantity = Number(listing.quantity) || 0;
+
+	if (listing.quantity < decrementBy) {
+		return res.status(400).json({ success: false, message: 'Not enough stock to accept this booking' });
+	}
+
+	listing.quantity -= decrementBy;
+
+	// Save listing first, then update booking. If booking save fails we attempt to roll back the listing quantity.
+	try {
+		await listing.save();
+	} catch (e) {
+		console.error('Failed to update listing quantity while accepting booking', e);
+		return res.status(500).json({ success: false, message: 'Failed to update stock' });
+	}
+
+	// Create stock log for checkout
+	try {
+		await StockLog.create({
+			listing: listing._id,
+			type: 'checkout',
+			quantity: decrementBy,
+			note: `Checked out for booking ${booking._id}`,
+			createdBy: req.user?._id
+		});
+	} catch (e) {
+		// Log failure but continue; stock quantity was already updated
+		console.error('Failed to create stock log for booking accept', e);
+	}
+
+	booking.status = 'accepted';
+	try {
+		await booking.save();
+	} catch (e) {
+		// Rollback listing quantity
+		try {
+			listing.quantity += decrementBy;
+			await listing.save();
+		} catch (rbErr) {
+			console.error('Failed to rollback listing quantity after booking save failure', rbErr);
+		}
+		console.error('Failed to save booking after stock update', e);
+		return res.status(500).json({ success: false, message: 'Failed to accept booking' });
+	}
 
   // Notify client (user) of acceptance
   try {

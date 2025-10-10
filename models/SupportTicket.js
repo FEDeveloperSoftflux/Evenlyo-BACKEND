@@ -18,8 +18,8 @@ const supportTicketSchema = new mongoose.Schema({
     required: true
   },
   issueRelatedto: {
-    en: { type: String, trim: true, required: true },
-    nl: { type: String, trim: true, required: true },
+    type: String,
+    required: true,
   },
   details: {
     en: { type: String, trim: true, required: true, maxlength: 2000 },

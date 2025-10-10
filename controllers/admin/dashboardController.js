@@ -13,6 +13,7 @@ const getDashboardStats = async (req, res) => {
       totalClients,
       totalVendors,
       totalItems,
+      totalListings,
       totalBookings,
       totalPurchases,
       monthlyData,
@@ -64,7 +65,8 @@ const getDashboardStats = async (req, res) => {
       "All Vendor": totalVendors,
       "Total Items": totalItems,
       "Total Booking": totalBookings,
-      "Total Purchases": totalPurchases
+      "Total Purchases": totalPurchases,
+      "Total Listings": totalListings
     };
 
     // Format recent bookings

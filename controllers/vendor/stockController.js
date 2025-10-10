@@ -95,3 +95,35 @@ exports.getStockTable = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// Return stock logs separated into checkins and checkouts (and others)
+exports.getStockLogs = async (req, res) => {
+  try {
+    // Optionally filter by vendor if needed in the future; for now return all logs
+    const checkins = await StockLog.find({ type: { $in: ['checkin', 'stockin'] } }).populate('listing').sort({ dateTime: -1 });
+    const checkouts = await StockLog.find({ type: 'checkout' }).populate('listing').sort({ dateTime: -1 });
+    const missing = await StockLog.find({ type: 'missing' }).populate('listing').sort({ dateTime: -1 });
+
+    // Map to a lighter object for API
+    const mapLog = (log) => ({
+      id: log._id,
+      listingId: log.listing?._id,
+      listingTitle: log.listing ? (log.listing.title?.en || log.listing.title) : '',
+      type: log.type,
+      quantity: log.quantity,
+      note: log.note,
+      dateTime: log.dateTime,
+      createdBy: log.createdBy
+    });
+
+    res.json({
+      success: true,
+      checkins: checkins.map(mapLog),
+      checkouts: checkouts.map(mapLog),
+      missing: missing.map(mapLog)
+    });
+  } catch (err) {
+    console.error('getStockLogs error', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

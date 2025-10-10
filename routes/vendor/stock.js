@@ -9,4 +9,7 @@ router.post('/event', authMiddleware.requireAuth, stockController.createStockEve
 // Get tabular data for each type
 router.get('/table/:type', authMiddleware.requireAuth, stockController.getStockTable);
 
+// Get all stock logs split into checkins and checkouts
+router.get('/logs', authMiddleware.requireAuth, stockController.getStockLogs);
+
 module.exports = router;

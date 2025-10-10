@@ -1,4 +1,5 @@
 const Listing = require('../../models/Listing');
+const StockLog = require('../../models/StockLog');
 const Booking = require('../../models/Booking');
 const { toMultilingualText } = require('../../utils/textUtils');
 
@@ -223,8 +224,23 @@ const createListing = async (req, res) => {
         }
 
         console.log("listingData", listingData);
-        const listing = new Listing(listingData);
-        await listing.save();
+		const listing = new Listing(listingData);
+		await listing.save();
+
+		// Create an initial stock log entry so listing creation is reflected in stock management
+		try {
+			const qty = typeof listing.quantity === 'number' ? listing.quantity : Number(listing.quantity) || 0;
+			await StockLog.create({
+				listing: listing._id,
+				type: 'stockin',
+				quantity: qty,
+				note: 'Initial stock recorded when listing was created',
+				createdBy: req.user?._id
+			});
+		} catch (e) {
+			// Non-fatal: log but don't fail listing creation
+			console.error('Failed to create initial stock log for listing', listing._id, e);
+		}
 
         // Populate the response
         const populatedListing = await Listing.findById(listing._id)

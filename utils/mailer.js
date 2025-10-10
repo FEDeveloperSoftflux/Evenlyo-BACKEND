@@ -115,4 +115,32 @@ async function sendPromotionalEmail(to, userName) {
   }
 }
 
-module.exports = { sendOTPEmail, sendPromotionalEmail };
+async function sendContactEmail(fromEmail, fromName, message) {
+  const to = process.env.CONTACT_EMAIL || 'info@evenlyo.nl';
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to,
+    replyTo: fromEmail,
+    subject: `Contact form message from ${fromName} <${fromEmail}>`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+        <div style="background-color: white; padding: 25px; border-radius: 8px;">
+          <h2>New contact request</h2>
+          <p><strong>From:</strong> ${fromName} &lt;${fromEmail}&gt;</p>
+          <hr />
+          <div style="white-space: pre-wrap;">${message}</div>
+        </div>
+      </div>
+    `,
+    text: `From: ${fromName} <${fromEmail}>\n\n${message}`
+  };
+
+  try {
+    return await transporter.sendMail(mailOptions);
+  } catch (err) {
+    console.error('Error sending contact email:', err);
+    throw err;
+  }
+}
+
+module.exports = { sendOTPEmail, sendPromotionalEmail, sendContactEmail };
