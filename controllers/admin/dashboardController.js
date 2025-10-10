@@ -12,10 +12,10 @@ const getDashboardStats = async (req, res) => {
     const [
       totalClients,
       totalVendors,
-      totalItems,
       totalListings,
       totalBookings,
       totalPurchases,
+      totalItems,
       monthlyData,
       recentBookings,
       recentPurchases,
@@ -28,6 +28,7 @@ const getDashboardStats = async (req, res) => {
       Listing.countDocuments(),
       Booking.countDocuments(),
       Purchase.countDocuments(),
+      Item.countDocuments(),
       
       // Monthly booking and purchase data (last 12 months)
       getMonthlyData(),
@@ -63,10 +64,10 @@ const getDashboardStats = async (req, res) => {
     const statsCard = {
       "All Client": totalClients,
       "All Vendor": totalVendors,
-      "Total Items": totalItems,
+      "Total Listings": totalListings,
       "Total Booking": totalBookings,
       "Total Purchases": totalPurchases,
-      "Total Listings": totalListings
+      "Total Items": totalItems
     };
 
     // Format recent bookings
