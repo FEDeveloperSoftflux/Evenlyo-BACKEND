@@ -92,8 +92,9 @@ const createItem = async (req, res) => {
 
 		const item = new Item({
 			title: multilingualTitle,
-			mainCategory: mainCategory || '',
-			subCategory: subCategory || '',
+			// use null instead of empty string so Mongoose doesn't try to cast '' to ObjectId
+			mainCategory: mainCategory || null,
+			subCategory: subCategory || null,
 			mainCategoryName,
 			subCategoryName,
 			purchasePrice,
@@ -433,11 +434,12 @@ const updateItem = async (req, res) => {
 			item.title = toMultilingualText(title);
 		}
 		if (mainCategory !== undefined) {
-			item.mainCategory = mainCategory || '';
+			// store null instead of empty string for unset categories
+			item.mainCategory = mainCategory || null;
 			item.mainCategoryName = mainCategoryName;
 		}
 		if (subCategory !== undefined) {
-			item.subCategory = subCategory || '';
+			item.subCategory = subCategory || null;
 			item.subCategoryName = subCategoryName;
 		}
 		if (purchasePrice !== undefined) item.purchasePrice = purchasePrice;

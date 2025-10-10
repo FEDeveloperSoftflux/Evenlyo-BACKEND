@@ -188,10 +188,56 @@ const createSubCategory = async (req, res) => {
   }
 };
 
+// Edit subcategory details by subcategory id
+const editSubCategory = async (req, res) => {
+  try {
+    const { subCategoryId } = req.params;
+    if (!subCategoryId) {
+      return res.status(400).json({ error: 'subCategoryId is required' });
+    }
+    const subcategory = await SubCategory.findById(subCategoryId);
+    if (!subcategory) {
+      return res.status(404).json({ error: 'SubCategory not found' });
+    }
+
+    const { name, icon, mainCategoryId, description, isActive } = req.body;
+
+    // Update fields only if provided
+    if (name !== undefined) {
+      subcategory.name = typeof name === 'object' ? name : { en: name, nl: name };
+    }
+    if (icon !== undefined) subcategory.icon = icon;
+    if (mainCategoryId !== undefined) subcategory.mainCategory = mainCategoryId;
+    if (description !== undefined) {
+      subcategory.description = typeof description === 'object' ? description : { en: description || '', nl: description || '' };
+    }
+    if (isActive !== undefined) subcategory.isActive = Boolean(isActive);
+
+    await subcategory.save();
+
+    res.json({
+      id: subcategory._id,
+      name: subcategory.name,
+      icon: subcategory.icon,
+      mainCategory: subcategory.mainCategory,
+      description: subcategory.description,
+      status: subcategory.isActive ? 'active' : 'deactive',
+      message: 'SubCategory updated successfully'
+    });
+  } catch (err) {
+    // Handle duplicate key error for unique name/mainCategory
+    if (err.code === 11000) {
+      return res.status(409).json({ error: 'SubCategory name already exists for this main category' });
+    }
+    res.status(500).json({ error: err.message });
+  }
+};
+
 module.exports = {
   getAllListingManagementData,
   getSubCategoriesByMainCategory,
   toggleSubCategoryStatus,
-  createSubCategory
+  createSubCategory,
+  editSubCategory
 };
 
