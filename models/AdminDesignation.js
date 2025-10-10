@@ -14,11 +14,17 @@ const adminDesignationSchema = new mongoose.Schema({
       enum: [
         'dashboard',
         'user_management',
-        'employee_management',
+        'listing_management',
+        "booking-analytics",
+        'tracking',
+        'role_management',
         'settings',
         'reports',
+        'blog_management',
         'notifications',
-        'content_moderation',
+        'faqs',
+        'customer_support',
+        'fees_and_payments',
         'system_settings'
       ]
     },

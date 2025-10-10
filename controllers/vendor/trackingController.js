@@ -76,10 +76,7 @@ const markBookingOnTheWay = asyncHandler(async (req, res) => {
 	}
 
 	booking.status = 'on_the_way';
-	// if (driverInfo) {
-	//   booking.deliveryDetails.driverInfo = driverInfo;
-	// }
-	booking.deliveryDetails.pickupTime = new Date();
+
 
 	await booking.save();
 
@@ -132,7 +129,6 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
 	}
 
 	booking.status = 'picked_up';
-	booking.deliveryDetails.returnTime = new Date();
 
 	// Store condition
 	booking.condition = condition.toLowerCase();
@@ -244,7 +240,7 @@ const markBookingCompleted = asyncHandler(async (req, res) => {
   const booking = await BookingRequest.findOne({
     _id: req.params.id,
     vendorId: vendor._id,
-    status: { $in: ['received_back'] }
+    status: { $in: ['finished'] }
   });
   console.log('markBookingCompleted - Found booking:', booking);
   if (!booking) {
@@ -254,7 +250,7 @@ const markBookingCompleted = asyncHandler(async (req, res) => {
     });
   }
 
-  booking.status = 'completed';
+  booking.status = 'received-back';
   await booking.save();
 
   // Notify client that booking is completed

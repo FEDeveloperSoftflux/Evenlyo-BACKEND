@@ -802,7 +802,6 @@ const markBookingReceived = asyncHandler(async (req, res) => {
   }
 
   booking.status = 'received';
-  booking.deliveryDetails.deliveryTime = new Date();
   await booking.save();
 
   // Notify vendor that booking is received
@@ -1274,15 +1273,6 @@ const getBookingSimpleDetails = asyncHandler(async (req, res) => {
   const vendorLogo = booking.vendorId ? (booking.vendorId.businessLogo || booking.vendorId.logo || '') : '';
   const vendorDescription = booking.vendorId ? (booking.vendorId.description || booking.vendorId.businessDescription || '') : '';
 
-  // Business location: prefer vendor location, fallback to listing location
-  const businessLocation = (booking.vendorId && booking.vendorId.location) ? {
-    fullAddress: booking.vendorId.location.fullAddress || '',
-    coordinates: booking.vendorId.location.coordinates || { latitude: null, longitude: null }
-  } : (booking.listingId && booking.listingId.location ? {
-    fullAddress: booking.listingId.location.fullAddress || '',
-    coordinates: booking.listingId.location.coordinates || { latitude: null, longitude: null }
-  } : { fullAddress: '', coordinates: { latitude: null, longitude: null } });
-
   // Listing title and location
   let listingTitle = '';
   if (booking.listingId) {
@@ -1296,14 +1286,13 @@ const getBookingSimpleDetails = asyncHandler(async (req, res) => {
   const bookingTotalPrice = booking.pricing && (typeof booking.pricing.totalPrice !== 'undefined') ? booking.pricing.totalPrice : (booking.pricing && booking.pricing.bookingPrice ? booking.pricing.bookingPrice : null);
 
   const result = {
-    startDate: booking.details && booking.details.startDate ? booking.details.startDate : null,
-    endDate: booking.details && booking.details.endDate ? booking.details.endDate : null,
-    startTime: booking.details && booking.details.startTime ? booking.details.startTime : null,
-    endTime: booking.details && booking.details.endTime ? booking.details.endTime : null,
+    startDate: booking.details && booking.details.startDate ? booking.details.startDate : '',
+    endDate: booking.details && booking.details.endDate ? booking.details.endDate : '',
+    startTime: booking.details && booking.details.startTime ? booking.details.startTime : '',
+    endTime: booking.details && booking.details.endTime ? booking.details.endTime : '',
     vendorName,
     vendorLogo,
     vendorDescription,
-    businessLocation,
     listingTitle,
     bookingTotalPrice,
     listingLocation,

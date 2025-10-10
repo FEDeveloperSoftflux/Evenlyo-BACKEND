@@ -17,6 +17,7 @@ const designationSchema = new mongoose.Schema({
 	  enum: [
 		'dashboard',
 		'listing_management',
+		'item_management',
 		'booking_analytics',
 		'tracking',
 		'stock_management',
@@ -26,7 +27,7 @@ const designationSchema = new mongoose.Schema({
 		'notifications',
 		'profile_management',
 		'settings',
-		'user_management',
+		'role_management',
 		'payment_plans',
 		'customer_support',
 		'blog_management'
