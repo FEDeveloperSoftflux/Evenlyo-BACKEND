@@ -241,23 +241,48 @@ const buyItem = async (req, res) => {
 
 // Get items by selected category and subcategory
 const getItemsByCategory = async (req, res) => {
-	try {
-		const { categoryId, subCategoryId } = req.query;
-		const filter = {};
-		if (categoryId && typeof categoryId === 'string' && categoryId.trim() !== '') {
-			filter.mainCategory = categoryId.trim();
-		}
-		if (subCategoryId && typeof subCategoryId === 'string' && subCategoryId.trim() !== '') {
-			filter.subCategory = subCategoryId.trim();
-		}
-		
-		// Fetch items from database using the filter
-		const items = await Item.find(filter);
-		
-		return res.status(200).json({ success: true, items });
-	} catch (error) {
-		return res.status(500).json({ success: false, message: error.message });
-	}
+    try {
+        const { categoryId, subCategoryId } = req.query;
+        const subCat = (subCategoryId && typeof subCategoryId === 'string') ? subCategoryId.trim() : '';
+
+        // Only query when at least one filter is provided. If neither filter is present,
+        // return empty arrays to avoid returning all items accidentally.
+        const hasCategory = categoryId && typeof categoryId === 'string' && categoryId.trim() !== '';
+        const hasSubCategory = Boolean(subCat);
+
+        if (!hasCategory && !hasSubCategory) {
+            return res.status(200).json({ success: true, items: {}, other: {} });
+        }
+
+        // Build a single filter that applies both category and subCategory (AND behavior)
+        const filteredFilter = {};
+        if (hasCategory) filteredFilter.mainCategory = categoryId.trim();
+        if (hasSubCategory) filteredFilter.subCategory = subCat;
+
+        // Fetch filtered items
+        const filteredItems = await Item.find(filteredFilter);
+
+        // Build aggregation to match 'other' items where mainCategory or subCategory is missing, null, or empty string.
+        // Use aggregation so we can safely check for empty strings without forcing Mongoose to cast to ObjectId.
+        const otherPipeline = [
+            { $match: {
+                $or: [
+                    { mainCategory: { $exists: false } },
+                    { mainCategory: null },
+                    { mainCategory: '' },
+                    { subCategory: { $exists: false } },
+                    { subCategory: null },
+                    { subCategory: '' }
+                ]
+            } },
+        ];
+
+        const data = await Item.aggregate(otherPipeline);
+
+        return res.status(200).json({ success: true, items: { data: filteredItems }, other: { data } });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
 };
 module.exports = {
     createItemPaymentIntent,

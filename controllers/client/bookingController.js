@@ -903,7 +903,7 @@ const createClaim = asyncHandler(async (req, res) => {
   if (!booking) {
     return res.status(404).json({
       success: false,
-      message: 'Booking not found or not eligible for claim'
+      message: 'Booking not eligible for claim'
     });
   }
 

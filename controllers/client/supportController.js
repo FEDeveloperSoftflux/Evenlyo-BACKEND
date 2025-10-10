@@ -1,5 +1,6 @@
 const SupportTicket = require('../../models/SupportTicket');
 const User = require('../../models/User');
+const { toMultilingualText } = require('../../utils/textUtils');
 
 
 // Create a new support ticket
@@ -14,20 +15,21 @@ const createSupportTicket = async (req, res) => {
       });
     }
     let { issueRelatedto, details } = data;
-    // Trim values
-    issueRelatedto = issueRelatedto ? issueRelatedto.trim() : '';
-    details = details ? details.trim() : '';
+
+    // Normalize to multilingual object using shared util
+    issueRelatedto = toMultilingualText(issueRelatedto);
+    details = toMultilingualText(details);
 
     // Validate required fields
-    if (!issueRelatedto || !details) {
+    if (!issueRelatedto || !issueRelatedto.en || !issueRelatedto.nl || !details || !details.en || !details.nl) {
       return res.status(400).json({
         success: false,
-        message: 'Issue category and details are required'
+        message: 'Issue category and details are required (provide en and nl or a string)'
       });
     }
 
-    // Validate details length
-    if (details.length < 10) {
+    // Validate details length (check at least English length)
+    if ((details.en || '').length < 10) {
       return res.status(400).json({
         success: false,
         message: 'Details must be at least 10 characters long'
