@@ -12,56 +12,6 @@ const getAllBlogs = asyncHandler(async (req, res) => {
 // @desc    Create new blog
 // @route   POST /api/blogs
 // @access  Admin
-const createBlog = asyncHandler(async (req, res) => {
-  try {
-    const { title, description, content, author, category, readTime, image, tags } = req.body;
-    if (!title || !description || !content || !author) {
-      return res.status(400).json({
-        success: false,
-        message: 'Title, description, content, and author are required.'
-      });
-    }
-    // Sanitize HTML content
-    const sanitizeContent = (content) => {
-      if (typeof content === 'string') {
-        return sanitizeHtml(content, {
-          allowedTags: sanitizeHtml.defaults.allowedTags.concat(['h1', 'h2', 'u']),
-          allowedAttributes: false
-        });
-      } else if (typeof content === 'object' && content !== null) {
-        return {
-          en: sanitizeHtml(content.en || '', {
-            allowedTags: sanitizeHtml.defaults.allowedTags.concat(['h1', 'h2', 'u']),
-            allowedAttributes: false
-          }),
-          nl: sanitizeHtml(content.nl || '', {
-            allowedTags: sanitizeHtml.defaults.allowedTags.concat(['h1', 'h2', 'u']),
-            allowedAttributes: false
-          })
-        };
-      }
-      return content;
-    };
-
-    const processedContent = sanitizeContent(toMultilingualText(content));
-
-    const blog = new Blog({
-      title: toMultilingualText(title),
-      description: toMultilingualText(description),
-      content: processedContent,
-      author,
-      category,
-      readTime,
-      image,
-      tags,
-      isPublished: true
-    });
-    await blog.save();
-    res.status(201).json({ success: true, data: blog });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Error creating blog', error: error.message });
-  }
-});
   try {
     const {
       page = 1,
@@ -90,7 +40,7 @@ const createBlog = asyncHandler(async (req, res) => {
 
     // Get blogs with pagination
     const blogs = await Blog.find(filter)
-      .select('title description createdAt author category readTime image isMain views')
+      .select('title description createdAt author category readTime image isMain views content')
       .sort(sortOptions)
       .limit(parseInt(limit))
       .skip(skip)
@@ -110,7 +60,8 @@ const createBlog = asyncHandler(async (req, res) => {
       readTime: blog.readTime,
       image: blog.image,
       isMain: blog.isMain,
-      views: blog.views
+      views: blog.views,
+      content: blog.content
     }));
 
     res.status(200).json({
