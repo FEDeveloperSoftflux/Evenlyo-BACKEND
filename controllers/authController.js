@@ -73,17 +73,57 @@ const performLogin = async (req, res, userType) => {
       user = await User.findOne({ email, userType: 'client', isActive: true });
       userData = user;
     } else if (userType === 'vendor') {
-      // For vendors, search in User model and get vendor details
+      // For vendors: first try Vendor user account, else try Employee (role user) login
       user = await User.findOne({ email, userType: 'vendor', isActive: true });
+      let employeeLogin = false;
+      let employee = null;
       if (user) {
         userData = await Vendor.findOne({ userId: user._id }).populate('userId');
+      } else {
+        // Try employee (role user) login
+        employee = await require('../models/Employee').findOne({ email, status: 'active' }).populate('designation');
+        if (employee) {
+          employeeLogin = true;
+          // Build a user-like object for token creation
+          user = {
+            _id: employee._id,
+            email: employee.email,
+            userType: 'vendor',
+            firstName: employee.firstName,
+            lastName: employee.lastName
+          };
+          // Load vendor profile for extra data
+          userData = await Vendor.findById(employee.vendor).populate('userId');
+        }
       }
+      // attach flags for later checks
+      user && (user._isEmployeeLogin = !!employeeLogin);
+      user && (user._employeeDoc = employee);
     } else if (userType === 'admin') {
-      // For admins, search in User model and get admin details
+      // For admins, try the normal admin user account first
       user = await User.findOne({ email, userType: 'admin', isActive: true });
+      let adminEmployeeLogin = false;
+      let adminEmployee = null;
       if (user) {
         userData = await Admin.findOne({ userId: user._id }).populate('userId');
+      } else {
+        // Try admin employee login
+        adminEmployee = await require('../models/AdminEmployee').findOne({ email, status: 'active' }).populate('designation');
+        if (adminEmployee) {
+          adminEmployeeLogin = true;
+          user = {
+            _id: adminEmployee._id,
+            email: adminEmployee.email,
+            userType: 'admin',
+            firstName: adminEmployee.firstName,
+            lastName: adminEmployee.lastName
+          };
+          // Build userData as admin root info if needed
+          userData = { role: 'admin', permissions: adminEmployee.designation ? adminEmployee.designation.permissions.map(p => p.module) : [], department: 'operations' };
+        }
       }
+      user && (user._isAdminEmployeeLogin = !!adminEmployeeLogin);
+      user && (user._adminEmployeeDoc = adminEmployee);
     }
 
     // Check if user exists
@@ -103,7 +143,24 @@ const performLogin = async (req, res, userType) => {
     }
 
     // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    let isPasswordValid = false;
+    // Determine which stored hash to use (vendor employee, admin employee, or main user)
+    let storedHash;
+    if (user._isEmployeeLogin && user._employeeDoc) {
+      storedHash = user._employeeDoc.password;
+    } else if (user._isAdminEmployeeLogin && user._adminEmployeeDoc) {
+      storedHash = user._adminEmployeeDoc.password;
+    } else {
+      storedHash = user.password;
+    }
+
+    // If stored hash is missing, fail fast with invalid credentials
+    if (!storedHash) {
+      console.warn('Login attempt with missing password hash for user:', user && user.email);
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    isPasswordValid = await bcrypt.compare(password, storedHash);
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
@@ -113,22 +170,32 @@ const performLogin = async (req, res, userType) => {
 
     // Additional checks for admin
     if (userType === 'admin') {
-      if (!userData.isActive) {
-        return res.status(403).json({
-          success: false,
-          message: 'Account is deactivated. Please contact support.'
-        });
+      // If admin employee login, check the AdminEmployee.status instead of userData
+      if (user._isAdminEmployeeLogin && user._adminEmployeeDoc) {
+        if (user._adminEmployeeDoc.status !== 'active') {
+          return res.status(403).json({ success: false, message: 'Account is deactivated. Please contact support.' });
+        }
+      } else {
+        if (userData && userData.isActive === false) {
+          return res.status(403).json({
+            success: false,
+            message: 'Account is deactivated. Please contact support.'
+          });
+        }
       }
     }
 
 
-    // Update last login
-    user.lastLogin = new Date();
-    await user.save({ validateBeforeSave: false });
-
-    if (userData && userData.lastLogin !== undefined) {
-      userData.lastLogin = new Date();
-      await userData.save();
+    // Update last login for User model if present
+    try {
+      if (!user._isEmployeeLogin && user.save) {
+        user.lastLogin = new Date();
+        await user.save({ validateBeforeSave: false });
+      }
+      // Vendor profile lastLogin not tracked consistently; skip if not present
+    } catch (e) {
+      // non-fatal
+      console.warn('Could not update lastLogin:', e.message || e);
     }
 
     // Determine extra props for token
@@ -138,35 +205,68 @@ const performLogin = async (req, res, userType) => {
       extraPayload.permissions = userData.permissions;
       extraPayload.department = userData.department;
     } else if (userType === 'vendor') {
-      extraPayload.businessName = userData.businessName;
-      extraPayload.approvalStatus = userData.approvalStatus;
-      extraPayload.vendorId = userData._id;
+      // If this was an employee login, include employee-specific payload
+      if (user._isEmployeeLogin && user._employeeDoc) {
+        const emp = user._employeeDoc;
+        extraPayload.vendorId = emp.vendor;
+        extraPayload.employeeId = emp._id;
+        extraPayload.designation = emp.designation ? emp.designation.name : undefined;
+      } else {
+        extraPayload.businessName = userData.businessName;
+        extraPayload.approvalStatus = userData.approvalStatus;
+        extraPayload.vendorId = userData._id;
+      }
     }
 
   const accessToken = buildAccessToken(user, extraPayload);
 
     // Return success response
+    // Build response user object, include pages for employee role-users
+    const responseUser = {
+      id: user._id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      userType: user.userType
+    };
+
+    if (userType === 'admin') {
+      if (user._isAdminEmployeeLogin && user._adminEmployeeDoc) {
+        const admEmp = user._adminEmployeeDoc;
+        responseUser.designation = admEmp.designation ? admEmp.designation.name : null;
+        responseUser.pages = Array.isArray(admEmp.designation?.permissions)
+          ? admEmp.designation.permissions.map(p => p.module)
+          : [];
+        responseUser.status = admEmp.status;
+      } else {
+        responseUser.role = userData.role;
+        responseUser.permissions = userData.permissions;
+        responseUser.department = userData.department;
+      }
+    }
+
+    if (userType === 'vendor') {
+      if (user._isEmployeeLogin && user._employeeDoc) {
+        const emp = user._employeeDoc;
+        responseUser.designation = emp.designation ? emp.designation.name : null;
+        // pages: array of permission module names
+        responseUser.pages = Array.isArray(emp.designation?.permissions)
+          ? emp.designation.permissions.map(p => p.module)
+          : [];
+        responseUser.vendorId = emp.vendor;
+        responseUser.employeeId = emp._id;
+      } else {
+        responseUser.businessName = userData.businessName;
+        responseUser.approvalStatus = userData.approvalStatus;
+        responseUser.vendorId = userData._id;
+      }
+    }
+
     res.json({
       success: true,
       message: 'Login successful',
       tokens: { access: accessToken },
-      user: {
-        id: user._id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        userType: user.userType,
-        ...(userType === 'admin' && {
-          role: userData.role,
-          permissions: userData.permissions,
-          department: userData.department
-        }),
-        ...(userType === 'vendor' && {
-          businessName: userData.businessName,
-          approvalStatus: userData.approvalStatus,
-          vendorId: userData._id
-        })
-      }
+      user: responseUser
     });
 
   } catch (error) {
