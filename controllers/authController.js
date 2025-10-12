@@ -312,16 +312,42 @@ const getCurrentUser = async (req, res) => {
       const userData = await User.findById(id).select('-password');
       if (!userData) return res.status(404).json({ success: false, message: 'User not found' });
     } else if (userType === 'vendor') {
-      const vendor = await Vendor.findOne({ userId: id }).populate('userId', '-password');
-      if (!vendor) return res.status(404).json({ success: false, message: 'Vendor profile not found' });
-      responseUser.businessName = vendor.businessName;
-      responseUser.approvalStatus = vendor.approvalStatus;
-      responseUser.vendorId = vendor._id;
+      // If token belongs to an Employee (vendor role-user), resolve via Employee
+      if (base._isEmployee || base._isEmployeeLogin || base._isEmployeeLogin === true) {
+        const Employee = require('../models/Employee');
+        const employee = await Employee.findById(id).populate('designation vendor');
+        if (!employee) return res.status(404).json({ success: false, message: 'Employee profile not found' });
+        responseUser.designation = employee.designation ? employee.designation.name : null;
+        responseUser.pages = Array.isArray(employee.designation?.permissions)
+          ? employee.designation.permissions.map(p => p.module)
+          : [];
+        responseUser.vendorId = employee.vendor && employee.vendor._id ? employee.vendor._id : employee.vendor;
+        responseUser.businessName = employee.vendor ? employee.vendor.businessName : undefined;
+        responseUser.approvalStatus = employee.vendor ? employee.vendor.approvalStatus : undefined;
+      } else {
+        const vendor = await Vendor.findOne({ userId: id }).populate('userId', '-password');
+        if (!vendor) return res.status(404).json({ success: false, message: 'Vendor profile not found' });
+        responseUser.businessName = vendor.businessName;
+        responseUser.approvalStatus = vendor.approvalStatus;
+        responseUser.vendorId = vendor._id;
+      }
     } else if (userType === 'admin') {
       if (id === 'superadmin') {
         responseUser.role = 'super_admin';
         responseUser.permissions = ['*'];
         responseUser.department = 'Administration';
+      } else if (base._isAdminEmployee || base._isAdminEmployeeLogin || base._isAdminEmployee === true) {
+        // Admin employee token - resolve AdminEmployee
+        const AdminEmployee = require('../models/AdminEmployee');
+        const admEmp = await AdminEmployee.findById(id).populate('designation');
+        if (!admEmp) return res.status(404).json({ success: false, message: 'Admin profile not found' });
+        responseUser.designation = admEmp.designation ? admEmp.designation.name : null;
+        responseUser.pages = Array.isArray(admEmp.designation?.permissions)
+          ? admEmp.designation.permissions.map(p => p.module)
+          : [];
+        // AdminEmployee model doesn't have role/department fields - expose as admin-level employee
+        responseUser.role = 'admin';
+        responseUser.permissions = responseUser.pages;
       } else {
         const admin = await Admin.findOne({ userId: id }).populate('userId', '-password');
         if (!admin) return res.status(404).json({ success: false, message: 'Admin profile not found' });

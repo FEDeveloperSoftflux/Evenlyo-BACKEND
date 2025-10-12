@@ -44,13 +44,62 @@ const requireAuth = async (req, res, next) => {
       return next();
     }
 
-    // Verify user still exists in database
-    const user = await User.findById(baseUser.id);
-    if (!user || !user.isActive) {
+    // Verify user still exists in database. Accept Employee/AdminEmployee tokens too.
+    let user = await User.findById(baseUser.id);
+    if (user && !user.isActive) {
       return res.status(401).json({ success: false, message: 'User not found or deactivated' });
     }
 
-    // Build request user object
+    // If User not found, try Employee or AdminEmployee depending on userType in token
+    if (!user) {
+      try {
+        if (baseUser.userType === 'vendor') {
+          const Employee = require('../models/Employee');
+          const emp = await Employee.findById(baseUser.id).populate('designation vendor');
+          if (!emp || emp.status !== 'active') {
+            return res.status(401).json({ success: false, message: 'User not found or deactivated' });
+          }
+          req.user = {
+            id: emp._id,
+            email: emp.email,
+            firstName: emp.firstName,
+            lastName: emp.lastName,
+            userType: 'vendor',
+            vendorId: emp.vendor && emp.vendor._id ? emp.vendor._id : emp.vendor,
+            designation: emp.designation ? emp.designation.name : undefined,
+            _isEmployee: true,
+            ...baseUser,
+            authSource: 'jwt'
+          };
+          return next();
+        }
+
+        if (baseUser.userType === 'admin') {
+          const AdminEmployee = require('../models/AdminEmployee');
+          const adm = await AdminEmployee.findById(baseUser.id).populate('designation');
+          if (!adm || adm.status !== 'active') {
+            return res.status(401).json({ success: false, message: 'User not found or deactivated' });
+          }
+          req.user = {
+            id: adm._id,
+            email: adm.email,
+            firstName: adm.firstName,
+            lastName: adm.lastName,
+            userType: 'admin',
+            designation: adm.designation ? adm.designation.name : undefined,
+            _isAdminEmployee: true,
+            ...baseUser,
+            authSource: 'jwt'
+          };
+          return next();
+        }
+      } catch (e) {
+        console.warn('Error while trying employee/adminemployee lookup:', e && e.message);
+        return res.status(401).json({ success: false, message: 'User not found or deactivated' });
+      }
+    }
+
+    // Build request user object for regular User
     req.user = {
       id: user._id,
       email: user.email,
@@ -175,7 +224,21 @@ const requireActiveAdmin = async (req, res, next) => {
       return next();
     }
 
-    // Check admin status for database-based admins
+    // For admin employees, check AdminEmployee record
+    if (req.user._isAdminEmployee) {
+      const AdminEmployee = require('../models/AdminEmployee');
+      const adm = await AdminEmployee.findById(req.user.id).populate('designation');
+      if (!adm) {
+        return res.status(404).json({ success: false, message: 'Admin profile not found' });
+      }
+      if (adm.status !== 'active') {
+        return res.status(403).json({ success: false, message: 'Admin account is deactivated' });
+      }
+      req.admin = adm;
+      return next();
+    }
+
+    // Check admin status for database-based admins (regular admin users)
     const admin = await Admin.findOne({ userId: req.user.id });
     if (!admin) {
       return res.status(404).json({
