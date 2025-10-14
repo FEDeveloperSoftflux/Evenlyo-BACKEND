@@ -117,6 +117,7 @@ app.use('/api/vendor/roles', require('./routes/vendor/role'));
 app.use('/api/vendor/earnings', require('./routes/vendor/earnings'));
 app.use('/api/vendor/stock', require('./routes/vendor/stock'));
 app.use('/api/vendor/items', require('./routes/vendor/items'));
+app.use('/api/vendor/itemstock', require('./routes/vendor/itemStock'));
 // Payments
 app.use('/api/payments', require('./routes/payments'));
 

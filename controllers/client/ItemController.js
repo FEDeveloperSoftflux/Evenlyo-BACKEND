@@ -3,6 +3,7 @@ const Item = require('../../models/Item');
 const Purchase = require('../../models/Purchase');
 const stripe = require('../../config/stripe');
 const PaymentIntent = require('../../models/PaymentIntent');
+const ServiceItemStockLog = require('../../models/ServiceItemStockLog');
 
 // Create payment intent for item purchase
 const createItemPaymentIntent = async (req, res) => {
@@ -185,6 +186,19 @@ const buyItem = async (req, res) => {
         // Reduce stock
         item.stockQuantity -= quantity;
         await item.save();
+
+        // Log checkout for the purchased quantity
+        try {
+            await ServiceItemStockLog.create({
+                item: item._id,
+                type: 'checkout',
+                quantity,
+                note: 'Stock decreased due to purchase',
+                createdBy: req.user?._id
+            });
+        } catch (e) {
+            console.warn('Failed to log service item checkout:', e.message);
+        }
 
         // Get vendor info
         const vendorId = item.vendor;

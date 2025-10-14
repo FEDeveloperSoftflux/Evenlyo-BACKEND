@@ -4,6 +4,7 @@ const Category = require('../../models/Category');
 const SubCategory = require('../../models/SubCategory');
 const Listing = require('../../models/Listing');
 const Purchase = require('../../models/Purchase');
+const ServiceItemStockLog = require('../../models/ServiceItemStockLog');
 const { toMultilingualText } = require('../../utils/textUtils');
 
 // Create a new item
@@ -106,6 +107,19 @@ const createItem = async (req, res) => {
 		});
 
 		await item.save();
+
+		// Log initial check-in for the created item's stock
+		try {
+			await ServiceItemStockLog.create({
+				item: item._id,
+				type: 'checkin',
+				quantity: Number(stockQuantity) || 0,
+				note: 'Initial stock on item creation',
+				createdBy: req.user?._id
+			});
+		} catch (e) {
+			console.warn('Failed to log initial service item stock checkin:', e.message);
+		}
 		return res.status(201).json({ 
 			success: true, 
 			item,
