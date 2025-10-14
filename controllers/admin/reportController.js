@@ -111,7 +111,8 @@ exports.getStatsCard = async (req, res) => {
         ]);
         const planEarning = planEarningAgg[0]?.total || 0;
 
-        const totalRevenue = bookingEarning + saleItemEarning + planEarning;
+    // Round total revenue to 3 decimal places
+    const totalRevenue = Number((bookingEarning + saleItemEarning + planEarning).toFixed(3));
 
         // Monthly revenue calculation for current year
         const currentYear = new Date().getFullYear();
