@@ -6,6 +6,7 @@ const Listing = require('../../models/Listing');
 const Vendor = require('../../models/Vendor');
 const Purchase = require('../../models/Purchase');
 const ServiceItem = require('../../models/Item');
+const StockLog = require('../../models/StockLog');
 const notificationController = require('../notificationController');
 
 // GET /api/vendor/tracking
@@ -251,7 +252,35 @@ const markBookingCompleted = asyncHandler(async (req, res) => {
   }
 
   booking.status = 'completed';
-  await booking.save();
+
+	// Atomically increment listing quantity by 1 (item returned to stock)
+	try {
+		const updatedListing = await Listing.findOneAndUpdate(
+			{ _id: booking.listingId, vendor: vendor._id },
+			{ $inc: { quantity: 1 } },
+			{ new: true }
+		);
+		if (updatedListing) {
+			// Log check-in
+			try {
+				await StockLog.create({
+					listing: updatedListing._id,
+					type: 'checkin',
+					quantity: 1,
+					note: `Returned after booking ${booking._id}`,
+					createdBy: req.user?._id
+				});
+			} catch (logErr) {
+				console.error('Failed to create stock log on booking completion', logErr);
+			}
+		} else {
+			console.warn('Listing not found for increment on booking completion', booking.listingId?.toString());
+		}
+	} catch (incErr) {
+		console.error('Failed to increment listing quantity on booking completion', incErr);
+	}
+
+	await booking.save();
 
   // Notify client that booking is completed
   try {

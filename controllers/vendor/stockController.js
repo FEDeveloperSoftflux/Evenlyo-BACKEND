@@ -1,9 +1,14 @@
 const Listing = require('../../models/Listing');
 const StockLog = require('../../models/StockLog');
+const Booking = require('../../models/Booking');
 
-// Helper to get listing name
+// Helper to get listing name (null-safe and supports string/object title)
 function getListingName(listing) {
-  return listing.title?.en || listing.title?.nl || listing.title || '';
+  if (!listing) return '';
+  const title = listing.title;
+  if (!title) return '';
+  if (typeof title === 'string') return title;
+  return title.en || title.nl || '';
 }
 
 exports.createStockEvent = async (req, res) => {
@@ -53,44 +58,119 @@ exports.getStockTable = async (req, res) => {
     if (!['checkin', 'checkout', 'missing', 'stockin'].includes(type)) {
       return res.status(400).json({ error: 'Invalid stock event type.' });
     }
-    const logs = await StockLog.find({ type }).populate('listing');
+    const vendorId = req.user?.vendorId || null;
+
+    // For 'stockin', list all listings of this vendor with current quantity
+    if (type === 'stockin' && vendorId) {
+      const listings = await Listing.find({ vendor: vendorId }).select('_id title quantity');
+      const table = listings.map((l, idx) => ({
+        SNo: idx + 1,
+        ListingID: l._id,
+        Name: getListingName(l) || '(Unknown)',
+        'In Stock (Quantity)': l.quantity || 0
+      }));
+      return res.json({ table });
+    }
+
+    let logs = await StockLog.find({ type }).populate('listing');
+    // If vendor context, keep only logs for this vendor's listings
+    if (vendorId) {
+      logs = logs.filter((log) => log.listing && String(log.listing.vendor) === String(vendorId));
+    }
     const table = logs.map((log, idx) => {
       const listing = log.listing;
-      const name = getListingName(listing);
-      if (type === 'checkin') {
+      const name = getListingName(listing) || '(Unknown)';
+      const listingId = listing?._id || null;
+      if (type === 'checkin') 
+      {
         return {
           SNo: idx + 1,
-          ListingID: listing._id,
+          ListingID: listingId,
           Name: name,
           'Check In (Quantity)': log.quantity,
           'Stock In (Date Time)': log.dateTime
         };
-      } else if (type === 'checkout') {
+      } 
+      else if (type === 'checkout') 
+      {
         return {
           SNo: idx + 1,
-          ListingID: listing._id,
+          ListingID: listingId,
           Name: name,
           'Reserved for booking': log.quantity,
           'Stock In (Date Time)': log.dateTime
         };
-      } else if (type === 'missing') {
+      } 
+      else if (type === 'missing') 
+      {
         return {
           SNo: idx + 1,
-          ListingID: listing._id,
+          ListingID: listingId,
           Name: name,
           'Missing Items': log.quantity,
           'Stock Out': log.dateTime
         };
-      } else if (type === 'stockin') {
+      } 
+      else if (type === 'stockin') 
+      {
         return {
           SNo: idx + 1,
-          ListingID: listing._id,
+          ListingID: listingId,
           Name: name,
           'In Stock (Quantity)': log.quantity
         };
       }
     });
+    // For 'missing' type, also include bookings with status 'claim' for this vendor
+    if (type === 'missing') {
+      const vId = vendorId || req.user?.id;
+      if (vId) {
+        const claimBookings = await Booking.find({ status: 'claim', vendorId: vId })
+          .populate('listingId')
+          .sort({ updatedAt: -1 });
+        const startIndex = table.length;
+        const claimRows = claimBookings.map((b, i) => ({
+          SNo: startIndex + i + 1,
+          ListingID: b.listingId?._id || null,
+          Name: getListingName(b.listingId) || b.listingDetails?.title.en || '',
+          'Stock Out': b.claimDetails?.claimedAt || b.updatedAt
+        }));
+        // Append claim rows to table
+        table.push(...claimRows);
+      }
+    }
     res.json({ table });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Vendor: update listing quantity directly (and log as stockin)
+exports.updateListingQuantity = async (req, res) => {
+  try {
+    const vendorId = req.user?.vendorId;
+    if (!vendorId) return res.status(403).json({ error: 'Vendor access required' });
+
+    const { listingId, quantity, note } = req.body;
+    if (!listingId || typeof quantity !== 'number' || quantity < 0) {
+      return res.status(400).json({ error: 'listingId and non-negative numeric quantity are required' });
+    }
+
+    const listing = await Listing.findOne({ _id: listingId, vendor: vendorId });
+    if (!listing) return res.status(404).json({ error: 'Listing not found for this vendor' });
+
+    listing.quantity = quantity;
+    await listing.save();
+
+    await StockLog.create({
+      listing: listing._id,
+      type: 'stockin',
+      quantity,
+      note: note || 'Manual quantity update',
+      createdBy: req.user?._id
+    });
+
+    res.json({ success: true, listingId: listing._id, quantity: listing.quantity });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -107,8 +187,8 @@ exports.getStockLogs = async (req, res) => {
     // Map to a lighter object for API
     const mapLog = (log) => ({
       id: log._id,
-      listingId: log.listing?._id,
-      listingTitle: log.listing ? (log.listing.title?.en || log.listing.title) : '',
+      listingId: log.listing?._id || null,
+      listingTitle: getListingName(log.listing),
       type: log.type,
       quantity: log.quantity,
       note: log.note,

@@ -5,7 +5,7 @@ const Listing = require('../../models/Listing');
 const User = require('../../models/User');
 const Vendor = require('../../models/Vendor');
 const Settings = require('../../models/Settings');
-const {checkAvailability,calculateFullBookingPrice} = require('../../utils/bookingUtils');
+const {checkAvailability,calculateFullBookingPrice, checkListingStock} = require('../../utils/bookingUtils');
 const {toMultilingualText} = require('../../utils/textUtils');
 const stripe = require('../../config/stripe');
 
@@ -190,6 +190,13 @@ const createBookingRequest = asyncHandler(async (req, res) => {
       success: false,
       message: 'Listing not found or not available'
     });
+  }
+
+  // Check stock before proceeding (default required quantity = 1, allow override from body.quantity)
+  const requestedQty = 1;
+  const stock = await checkListingStock(listingId, requestedQty);
+  if (!stock.ok) {
+    return res.status(400).json({ success: false, message: stock.message, availableQty: stock.availableQty });
   }
 
   // If listing charges per km, require distanceKm in request details
@@ -897,7 +904,7 @@ const createClaim = asyncHandler(async (req, res) => {
   const booking = await BookingRequest.findOne({
     _id: req.params.id,
     userId: req.user.id,
-    status: { $in: ['received', 'picked_up', 'completed'] }
+    status: { $in: ['received', 'finished'] }
   });
 
   if (!booking) {

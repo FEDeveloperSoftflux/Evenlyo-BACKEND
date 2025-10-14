@@ -507,3 +507,31 @@ module.exports = {
   timeToMinutes,
   getDayOfWeek
 };
+
+/**
+ * Check that a listing has enough stock before booking
+ * @param {string} listingId - Listing ObjectId string
+ * @param {number} requiredQty - Quantity required (default 1)
+ * @returns {Promise<{ ok: boolean, message?: string, availableQty?: number }>} stock check result
+ */
+async function checkListingStock(listingId, requiredQty = 1) {
+  try {
+    if (!listingId) return { ok: false, message: 'Listing ID is required' };
+    const qtyNeeded = Number(requiredQty) > 0 ? Number(requiredQty) : 1;
+    const listing = await Listing.findById(listingId).select('_id title quantity');
+    if (!listing) return { ok: false, message: 'Listing not found' };
+    const available = Number(listing.quantity) || 0;
+    if (available <= 0) {
+      return { ok: false, message: 'Out of stock', availableQty: 0 };
+    }
+    if (available < qtyNeeded) {
+      return { ok: false, message: `Only ${available} in stock`, availableQty: available };
+    }
+    return { ok: true, availableQty: available };
+  } catch (err) {
+    console.error('Error checking listing stock:', err);
+    return { ok: false, message: 'Failed to check stock' };
+  }
+}
+
+module.exports.checkListingStock = checkListingStock;
