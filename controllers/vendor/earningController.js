@@ -5,6 +5,9 @@ const Listing = require('../../models/Listing');
 const Item = require('../../models/Item');
 const Category = require('../../models/Category');
 
+// Helper to round numeric values to 3 decimal places (and ensure number type)
+const round3 = (n) => Number(Number(n || 0).toFixed(3));
+
 // GET /api/vendor/earnings/analytics
 // Returns earning stats and monthly breakdown for a vendor
 const getVendorEarningsAnalytics = async (req, res) => {
@@ -121,9 +124,9 @@ const getVendorEarningsAnalytics = async (req, res) => {
     res.json({
       success: true,
       stats: {
-        todayEarnings: todayEarnings[0]?.total || 0,
-        lastWeekEarnings: lastWeekEarnings[0]?.total || 0,
-        totalEarnings: totalEarnings[0]?.total || 0
+        todayEarnings: round3(todayEarnings[0]?.total || 0),
+        lastWeekEarnings: round3(lastWeekEarnings[0]?.total || 0),
+        totalEarnings: round3(totalEarnings[0]?.total || 0)
       },
       monthlyEarnings,
       earningsByCategory,
@@ -257,9 +260,9 @@ const getServiceItemEarningsAnalytics = async (req, res) => {
     res.json({
       success: true,
       stats: {
-        todayEarnings: todayEarnings[0]?.total || 0,
-        lastWeekEarnings: lastWeekEarnings[0]?.total || 0,
-        totalEarnings: totalEarnings[0]?.total || 0
+        todayEarnings: round3(todayEarnings[0]?.total || 0),
+        lastWeekEarnings: round3(lastWeekEarnings[0]?.total || 0),
+        totalEarnings: round3(totalEarnings[0]?.total || 0)
       },
       monthlyEarnings,
       earningsByCategory,
