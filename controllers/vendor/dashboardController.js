@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Booking = require('../../models/Booking');
 const Listing = require('../../models/Listing');
 const SaleItems = require('../../models/Item.js');
@@ -31,6 +32,11 @@ const getDashboardAnalytics = async (req, res) => {
       vendorId = vendor._id;
     }
 
+    // Ensure vendorId is an ObjectId for aggregation match stages
+    const vendorObjectId = typeof vendorId === 'string' && mongoose.Types.ObjectId.isValid(vendorId)
+      ? new mongoose.Types.ObjectId(vendorId)
+      : vendorId;
+
     // 6. Recent Clients (last 5 unique clients who booked with vendor)
     const recentClientBookings = await Booking.find({ vendorId })
       .sort({ createdAt: -1 })
@@ -53,7 +59,7 @@ const getDashboardAnalytics = async (req, res) => {
 
     // 7. Total unique clients who gave booking to this vendor
     const totalClientsAgg = await Booking.aggregate([
-      { $match: { vendorId } },
+      { $match: { vendorId: vendorObjectId } },
       { $group: { _id: '$userId' } },
       { $count: 'total' }
     ]);
@@ -71,7 +77,7 @@ const getDashboardAnalytics = async (req, res) => {
     // All months in current year
     const startOfYear = new Date(now.getFullYear(), 0, 1);
     const monthlyRevenueAggAll = await Booking.aggregate([
-      { $match: { vendorId, status: 'completed', createdAt: { $gte: startOfYear } } },
+      { $match: { vendorId: vendorObjectId, status: 'completed', createdAt: { $gte: startOfYear } } },
       { $group: {
         _id: { month: { $month: '$createdAt' } },
         revenue: { $sum: '$pricing.totalPrice' }
@@ -105,7 +111,7 @@ const getDashboardAnalytics = async (req, res) => {
 
     // 5. Order Overview by Month (just number of bookings per month)
     const orderOverviewAgg = await Booking.aggregate([
-      { $match: { vendorId, createdAt: { $gte: startOfYear } } },
+      { $match: { vendorId: vendorObjectId, createdAt: { $gte: startOfYear } } },
       { $group: {
         _id: { month: { $month: '$createdAt' } },
         totalOrders: { $sum: 1 }
@@ -120,7 +126,7 @@ const getDashboardAnalytics = async (req, res) => {
 
         // 6. Purchase Overview by Month (sale item purchases for this vendor)
     const purchaseAgg = await Purchase.aggregate([
-      { $match: { vendor: vendorId, purchasedAt: { $gte: startOfYear } } },
+      { $match: { vendor: vendorObjectId, purchasedAt: { $gte: startOfYear } } },
       { $group: { _id: { month: { $month: '$purchasedAt' } }, totalPurchases: { $sum: '$quantity' } } },
       { $sort: { '_id.month': 1 } }
     ]);
