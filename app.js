@@ -24,7 +24,7 @@ app.set('trust proxy', 1); // Trust proxy (needed for Heroku + secure cookies)
 
 
 // ==========================
-// i18next config
+// i18next config // not required
 // ==========================
 i18next
   .use(Backend)
@@ -85,8 +85,7 @@ app.use(i18nextMiddleware.handle(i18next));
 
 
 
-// Session middleware removed: JWT stateless auth in use.
-
+// All API Routes
 
 // ==========================
 // API Routes

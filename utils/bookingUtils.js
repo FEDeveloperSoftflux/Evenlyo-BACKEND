@@ -151,9 +151,8 @@ const validateBookingDetails = (details) => {
  * @returns {string} - Unique tracking ID
  */
 const generateTrackingId = () => {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substr(2, 9).toUpperCase();
-  return `TRK${timestamp}${random}`;
+  const random = Math.random().toString(36).substr(2, 5).toUpperCase();
+  return `TRK${random}`;
 };
 
 /**

@@ -240,7 +240,7 @@ const markBookingCompleted = asyncHandler(async (req, res) => {
   const booking = await BookingRequest.findOne({
     _id: req.params.id,
     vendorId: vendor._id,
-    status: { $in: ['finished'] }
+    status: { $in: ['received_back'] }
   });
   console.log('markBookingCompleted - Found booking:', booking);
   if (!booking) {
@@ -250,7 +250,7 @@ const markBookingCompleted = asyncHandler(async (req, res) => {
     });
   }
 
-  booking.status = 'received-back';
+  booking.status = 'completed';
   await booking.save();
 
   // Notify client that booking is completed
