@@ -3,6 +3,7 @@ const Vendor = require('../../models/Vendor');
 const User = require('../../models/User');
 const Category = require('../../models/Category');
 const SubCategory = require('../../models/SubCategory');
+const { toMultilingualText } = require('../../utils/textUtils');
 
 // Get vendor profile (fields depend on account type)
 const getProfile = async (req, res) => {
@@ -17,7 +18,7 @@ const getProfile = async (req, res) => {
     // Assume account type is determined by businessName: if present, business; else, personal
     const isBusiness = !!vendor.businessName;
     let profile = {};
-    if (isBusiness) {
+  if (isBusiness) {
       // Map categories into a cleaner shape
       const mappedMainCategories = (vendor.mainCategories || []).map(c => ({
         _id: c._id,
@@ -71,6 +72,10 @@ const updateProfile = async (req, res) => {
     if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
 
     const isBusiness = !!vendor.businessName;
+    const requestedAccountType = req.body.accountType;
+    const desiredAccountType = (requestedAccountType === 'business' || requestedAccountType === 'personal')
+      ? requestedAccountType
+      : (vendor?.userId?.accountType || (isBusiness ? 'business' : 'personal'));
 
     // Shared helper to update categories / subcategories if supplied
     const updateCategoriesIfProvided = async () => {
@@ -132,18 +137,32 @@ const updateProfile = async (req, res) => {
 
     if (isBusiness) {
       // Update business fields
-      const fields = [
-        'businessName', 'businessEmail', 'businessPhone', 'businessAddress',
+      const scalarFields = [
+        'businessEmail', 'businessPhone', 'businessAddress',
         'businessWebsite', 'businessLocation', 'businessLogo', 'bannerImage',
-        'businessDescription', 'teamType', 'teamSize'
+        'teamSize'
       ];
-      fields.forEach(field => {
+      scalarFields.forEach(field => {
         if (req.body[field] !== undefined) vendor[field] = req.body[field];
       });
-      // Update KVK number in User model if provided
+
+      // Normalize multilingual fields using utility
+      const multilingualFields = ['businessName', 'businessDescription', 'teamType', 'whyChooseUs'];
+      multilingualFields.forEach(field => {
+        if (req.body[field] !== undefined) {
+          vendor[field] = toMultilingualText(req.body[field]);
+        }
+      });
+      // Update User model fields without triggering validators (accountType/kvkNumber)
+      const userUpdates = {};
+      if (requestedAccountType === 'business' || requestedAccountType === 'personal' || !vendor.userId.accountType) {
+        userUpdates.accountType = desiredAccountType;
+      }
       if (req.body.kvkNumber !== undefined) {
-        vendor.userId.kvkNumber = req.body.kvkNumber;
-        await vendor.userId.save();
+        userUpdates.kvkNumber = req.body.kvkNumber;
+      }
+      if (Object.keys(userUpdates).length > 0) {
+        await User.findByIdAndUpdate(vendor.userId._id, { $set: userUpdates }, { new: true, runValidators: false });
       }
       // Handle gallery update if provided
       if (req.body.gallery !== undefined) {
@@ -167,18 +186,24 @@ const updateProfile = async (req, res) => {
       await vendor.save();
       return res.json({ message: 'Business profile updated successfully' });
     } else {
-      // Update personal fields in User model
-      const user = vendor.userId;
+      // Update personal fields in User model (without validators) and save vendor
+      const personalUserUpdates = {};
       const fields = ['firstName', 'lastName', 'email', 'contactNumber', 'address', 'profileImage'];
       fields.forEach(field => {
-        if (req.body[field] !== undefined) user[field] = req.body[field];
+        if (req.body[field] !== undefined) personalUserUpdates[field] = req.body[field];
       });
+      if (requestedAccountType === 'business' || requestedAccountType === 'personal' || !vendor.userId.accountType) {
+        personalUserUpdates.accountType = desiredAccountType;
+      }
       if (req.body.passportNumber !== undefined) {
-        user.passportNumber = req.body.passportNumber;
+        personalUserUpdates.passportNumber = req.body.passportNumber;
       }
       // Allow personal vendors also to manage categories if needed
       await updateCategoriesIfProvided();
-      await Promise.all([user.save(), vendor.save()]);
+      if (Object.keys(personalUserUpdates).length > 0) {
+        await User.findByIdAndUpdate(vendor.userId._id, { $set: personalUserUpdates }, { new: true, runValidators: false });
+      }
+      await vendor.save();
       return res.json({ message: 'Personal profile updated successfully' });
     }
   } catch (err) {

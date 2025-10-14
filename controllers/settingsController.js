@@ -61,7 +61,6 @@ const updatePersonalInfo = async (req, res) => {
     const userType = req.user.userType;
     const { contactNumber, address, language, profileImage } = req.body;
     // Validate input
-    const allowedUpdates = ['contactNumber', 'address', 'language', 'profileImage'];
     const updates = {};
 
     if (contactNumber !== undefined) {
