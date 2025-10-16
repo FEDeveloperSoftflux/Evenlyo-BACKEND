@@ -7,14 +7,17 @@ const vendorSchema = new mongoose.Schema({
     required: true
   },
   businessName: {
-    en: { type: String, trim: true },
-    nl: { type: String, trim: true }
+    type: String,
+    required: true,
+    trim: true
   },
   businessEmail: {
-    type: String
+    type: String,
+    trim: true
   },
   businessPhone: {
-    type: String
+    type: String,
+    trim: true
   },
   businessWebsite: {
     type: String

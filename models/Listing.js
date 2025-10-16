@@ -194,6 +194,11 @@ const listingSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
     description: 'Indicates if the listing is popular based on certain criteria (e.g., high bookings, high ratings, etc.)'
+  },
+  isFavorite: {
+    type: Boolean,
+    default: false,
+    description: 'Indicates if the listing is marked as favorite by the user.'
   }
 },
 { 

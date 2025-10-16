@@ -1089,6 +1089,7 @@ const registerVendor2 = async (req, res) => {
     else {
       // For business, store minimal info in User
       userData.firstName = businessName;
+      userData.kvkNumber = kvkNumber;
     }
 
     const user = new User(userData);
@@ -1105,7 +1106,7 @@ const registerVendor2 = async (req, res) => {
     // Handle businessName based on account type
     if (accountType === 'personal') {
       // Personal vendors: businessName derived from name; wrap into multilingual object
-      vendorData.businessName = toMultilingualText(`${firstName} ${lastName}`.trim());
+      vendorData.businessName = `${firstName} ${lastName}`.trim();
       vendorData.businessPhone = contactNumber;
       vendorData.businessLocation = `${fullAddress}`;
       vendorData.accountType = accountType;
@@ -1114,7 +1115,8 @@ const registerVendor2 = async (req, res) => {
       vendorData.bannerImage = bannerImage;
     } else if (accountType === 'business') {
       // Business vendors: convert multilingual-capable fields
-      vendorData.businessName = toMultilingualText(businessName);
+      vendorData.businessName = businessName;
+      console.log('Debug: businessName assigned as:', businessName); // Debug log
       vendorData.businessPhone = businessNumber;
       vendorData.businessLocation = fullAddress;
       vendorData.businessWebsite = businessWebsite;
@@ -1122,7 +1124,7 @@ const registerVendor2 = async (req, res) => {
       vendorData.businessLogo = businessLogo;
       vendorData.bannerImage = bannerImage;
       vendorData.whyChooseUs = toMultilingualText(whyChooseUs);
-      vendorData.teamType = toMultilingualText(teamType);
+      vendorData.teamType = teamType;
       vendorData.teamSize = teamSize;
       vendorData.kvkNumber = kvkNumber;
       vendorData.accountType = accountType;
@@ -1130,6 +1132,7 @@ const registerVendor2 = async (req, res) => {
     }
 
     const vendor = new Vendor(vendorData);
+    console.log('Debug: vendorData before saving:', vendorData); // Debug log
     await vendor.save();
 
     console.log("Vendor data:", vendorData);

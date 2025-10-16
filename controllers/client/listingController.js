@@ -998,15 +998,23 @@ const getListingsAndVendorsByCategory = async (req, res) => {
 
       const totalListings = await Listing.countDocuments(listingQuery);
 
-      results.listings = {
-        data: listings,
-        pagination: {
-          current: parseInt(page),
-          pages: Math.ceil(totalListings / limit),
-          total: totalListings,
-          limit: parseInt(limit)
-        }
-      };
+        // Add isFavourite field to each listing
+        const listingsWithFavourite = listings.map(listing => {
+          // If listing is a Mongoose document, convert to plain object
+          const obj = typeof listing.toObject === 'function' ? listing.toObject() : listing;
+          obj.isFavourite = obj.isFavourite || false; // Default to false if not present
+          return obj;
+        });
+
+        results.listings = {
+          data: listingsWithFavourite,
+          pagination: {
+            current: parseInt(page),
+            pages: Math.ceil(totalListings / limit),
+            total: totalListings,
+            limit: parseInt(limit)
+          }
+        };
     }
 
     // Fetch vendors if requested
@@ -1100,27 +1108,34 @@ const getListingsAndVendorsByCategory = async (req, res) => {
 
       console.log('Sale Items Query:', JSON.stringify(saleItemsQuery, null, 2));
 
-      const saleItems = await ServiceItem.find(saleItemsQuery)
-        .populate('vendor', '_id businessName businessLocation businessLogo bannerImage userId')
-        .populate('linkedListing', 'title')
-        .sort(saleItemsSortOptions)
-        .skip(skip)
-        .limit(parseInt(limit))
-        .select('-__v');
+        const saleItems = await ServiceItem.find(saleItemsQuery)
+          .populate('vendor', '_id businessName businessLocation businessLogo bannerImage userId')
+          .populate('linkedListing', 'title')
+          .sort(saleItemsSortOptions)
+          .skip(skip)
+          .limit(parseInt(limit))
+          .select('-__v');
 
-      console.log('Found Sale Items:', saleItems.length);
+        console.log('Found Sale Items:', saleItems.length);
 
-      const totalSaleItems = await ServiceItem.countDocuments(saleItemsQuery);
+        // Add isFavourite field to each sale item
+        const saleItemsWithFavourite = saleItems.map(item => {
+          const obj = typeof item.toObject === 'function' ? item.toObject() : item;
+          obj.isFavourite = obj.isFavourite || false;
+          return obj;
+        });
 
-      results.saleItems = {
-        data: saleItems,
-        pagination: {
-          current: parseInt(page),
-          pages: Math.ceil(totalSaleItems / limit),
-          total: totalSaleItems,
-          limit: parseInt(limit)
-        }
-      };
+        const totalSaleItems = await ServiceItem.countDocuments(saleItemsQuery);
+
+        results.saleItems = {
+          data: saleItemsWithFavourite,
+          pagination: {
+            current: parseInt(page),
+            pages: Math.ceil(totalSaleItems / limit),
+            total: totalSaleItems,
+            limit: parseInt(limit)
+          }
+        };
     }
 
     // Get category and subcategory info for context

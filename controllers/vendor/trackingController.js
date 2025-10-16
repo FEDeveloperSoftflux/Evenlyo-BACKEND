@@ -158,7 +158,7 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
 			amount: securityFee
 		};
 	} else if (condition.toLowerCase() === 'claim') {
-		if (!securityFee || !claimAmount || isNaN(securityFee) || isNaN(claimAmount) || securityFee < 0 || claimAmount <= 0) {
+		if (!claimAmount || isNaN(securityFee) || isNaN(claimAmount) || securityFee < 0 || claimAmount <= 0) {
 			return res.status(400).json({
 				success: false,
 				message: 'Security fee and claim amount are required for claim condition.'

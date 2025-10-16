@@ -64,6 +64,12 @@ const addToCart = asyncHandler(async (req, res) => {
     });
   }
 
+    // Set isFavourite to true for this listing
+    if (!listing.isFavourite) {
+      listing.isFavourite = true;
+      await listing.save();
+    }
+
   // Get or create user's cart
   let cart = await Cart.findOne({ userId: req.user.id });
   if (!cart) {
@@ -95,7 +101,7 @@ const getCart = asyncHandler(async (req, res) => {
   let cart = await Cart.findOne({ userId: req.user.id })
     .populate({
       path: 'items.listingId',
-      select: 'title featuredImage pricing vendor isActive status',
+      select: 'title pricing vendor isActive status',
       populate: {
         path: 'vendor',
         select: 'businessName'
