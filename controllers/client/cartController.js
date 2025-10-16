@@ -64,16 +64,22 @@ const addToCart = asyncHandler(async (req, res) => {
     });
   }
 
-    // Set isFavourite to true for this listing
-    if (!listing.isFavourite) {
-      listing.isFavourite = true;
-      await listing.save();
-    }
 
   // Get or create user's cart
   let cart = await Cart.findOne({ userId: req.user.id });
   if (!cart) {
     cart = new Cart({ userId: req.user.id, items: [] });
+  }
+
+  // Check if item is already in cart
+  const alreadyInCart = cart.items.some(item => item.listingId.toString() === listingId);
+  if (alreadyInCart) {
+    await cart.populate('items.listingId', 'title featuredImage pricing vendor');
+    return res.status(200).json({
+      success: false,
+      message: 'Item is already in cart',
+      data: cart.items
+    });
   }
 
   // Create listing snapshot
@@ -88,9 +94,7 @@ const addToCart = asyncHandler(async (req, res) => {
   res.status(201).json({
     success: true,
     message: 'Item added to cart successfully',
-    data: {
-      cart
-    }
+    data: cart.items
   });
 });
 
@@ -126,12 +130,10 @@ const getCart = asyncHandler(async (req, res) => {
     await cart.save();
   }
 
-  res.json({
-    success: true,
-    data: {
-      cart
-    }
-  });
+    res.json({
+      success: true,
+      data: cart.items
+    });
 });
 
 // @desc    Remove item from cart

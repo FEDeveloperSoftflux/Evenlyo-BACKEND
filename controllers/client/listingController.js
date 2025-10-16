@@ -5,6 +5,8 @@ const SubCategory = require('../../models/SubCategory');
 const Vendor = require('../../models/Vendor');
 const BookingRequest = require('../../models/Booking');
 const ServiceItem = require('../../models/Item');
+const Cart = require('../../models/Cart');
+const { verifyAccessToken } = require('../../utils/jwtUtils');
 
 // @desc    Get calendar data (booked and available days/times) for a listing
 // @route   GET /api/listing/:id/calendar
@@ -983,7 +985,59 @@ const getListingsAndVendorsByCategory = async (req, res) => {
       sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
     }
 
-    const results = {};
+  const results = {};
+
+      // Resolve current user id (public route: optionally from req.user or Bearer token)
+      let currentUserId = null;
+      if (req.user && (req.user.id || req.user._id)) {
+        currentUserId = req.user.id || req.user._id;
+      } else if (req.userId) {
+        currentUserId = req.userId;
+      } else {
+        const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+          try {
+            const token = authHeader.substring(7);
+            const decoded = verifyAccessToken(token);
+            if (decoded && decoded.id) currentUserId = decoded.id;
+          } catch (e) {
+            // ignore invalid token on public route
+          }
+        }
+      }
+
+      // Fetch cart for logged-in user (if any)
+      let cartItems = [];
+      if (currentUserId) {
+        const cartDoc = await Cart.findOne({ userId: currentUserId }).select('items');
+        if (cartDoc && Array.isArray(cartDoc.items)) {
+          cartItems = [cartDoc];
+        }
+      }
+
+      // Flatten cart items for easier consumption
+  let cartItemList = [];
+  let cartListingIdSet = new Set();
+      if (cartItems && cartItems.length > 0) {
+        cartItems.forEach(cart => {
+          if (Array.isArray(cart.items)) {
+            cart.items.forEach(item => {
+              // Use raw listingId for matching
+              if (item.listingId) {
+                cartListingIdSet.add(String(item.listingId));
+              }
+              cartItemList.push({
+                listingId: item.listingId?._id || item.listingId || null,
+                serviceItemId: item.serviceItemId?._id || item.serviceItemId || null,
+                quantity: item.quantity || 1,
+                title: item.listingId?.title || item.serviceItemId?.title || '',
+                image: item.listingId?.images?.[0] || item.serviceItemId?.images?.[0] || '',
+                price: item.listingId?.pricing?.perEvent || item.serviceItemId?.sellingPrice || '',
+              });
+            });
+          }
+        });
+      }
 
     // Fetch listings if requested
     if (includeListings === 'true' || includeListings === true) {
@@ -996,25 +1050,36 @@ const getListingsAndVendorsByCategory = async (req, res) => {
         .limit(parseInt(limit))
         .select('-seo -__v -contact.email -contact.phone');
 
+      // Use cartListingIdSet for quick lookup
+      console.log('Cart listing IDs:', Array.from(cartListingIdSet));
+      console.log('Listings returned:', listings.map(l => String(l._id)));
+
+      // Add isFavourite boolean to each listing (compare as strings)
+      const listingsWithCartFlag = listings.map(listing => {
+        const obj = listing.toObject();
+        obj.isFavourite = cartListingIdSet.has(String(listing._id));
+        if ('isFavorite' in obj) {
+          delete obj.isFavorite;
+        }
+        if (!obj.isFavourite) {
+          console.log(`Listing ${obj._id} is NOT in cart.`);
+        } else {
+          console.log(`Listing ${obj._id} is in cart.`);
+        }
+        return obj;
+      });
+
       const totalListings = await Listing.countDocuments(listingQuery);
 
-        // Add isFavourite field to each listing
-        const listingsWithFavourite = listings.map(listing => {
-          // If listing is a Mongoose document, convert to plain object
-          const obj = typeof listing.toObject === 'function' ? listing.toObject() : listing;
-          obj.isFavourite = obj.isFavourite || false; // Default to false if not present
-          return obj;
-        });
-
-        results.listings = {
-          data: listingsWithFavourite,
-          pagination: {
-            current: parseInt(page),
-            pages: Math.ceil(totalListings / limit),
-            total: totalListings,
-            limit: parseInt(limit)
-          }
-        };
+      results.listings = {
+        data: listingsWithCartFlag,
+        pagination: {
+          current: parseInt(page),
+          pages: Math.ceil(totalListings / limit),
+          total: totalListings,
+          limit: parseInt(limit)
+        }
+      };
     }
 
     // Fetch vendors if requested
@@ -1118,17 +1183,12 @@ const getListingsAndVendorsByCategory = async (req, res) => {
 
         console.log('Found Sale Items:', saleItems.length);
 
-        // Add isFavourite field to each sale item
-        const saleItemsWithFavourite = saleItems.map(item => {
-          const obj = typeof item.toObject === 'function' ? item.toObject() : item;
-          obj.isFavourite = obj.isFavourite || false;
-          return obj;
-        });
+
 
         const totalSaleItems = await ServiceItem.countDocuments(saleItemsQuery);
 
         results.saleItems = {
-          data: saleItemsWithFavourite,
+          data: saleItems,
           pagination: {
             current: parseInt(page),
             pages: Math.ceil(totalSaleItems / limit),
@@ -1145,6 +1205,9 @@ const getListingsAndVendorsByCategory = async (req, res) => {
     res.json({
       success: true,
       data: results,
+      cartItems: cartItemList,
+      categoryInfo,
+      subCategoryInfo
     });
 
   } catch (error) {

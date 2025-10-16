@@ -28,11 +28,6 @@ const serviceItemStockLogSchema = new mongoose.Schema({
     ref: 'User',
     required: false
   },
-  isFavorite: {
-    type: Boolean,
-    default: false,
-    description: 'Indicates if the log entry is marked as favorite by the user.'
-  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('ServiceItemStockLog', serviceItemStockLogSchema);
