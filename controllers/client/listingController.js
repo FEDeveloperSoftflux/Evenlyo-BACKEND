@@ -182,14 +182,24 @@ const getListings = async (req, res) => {
     }
 
     // Get listings with populated vendor and category information
-    const listings = await Listing.find(query)
+    const listingsDocs = await Listing.find(query)
       .populate('vendor', '_id businessName businessLocation userId businessLogo')
       .populate('category', 'name icon')
-      .populate('subCategory', 'name icon')
+      .populate('subCategory', 'name icon escrowEnabled upfrontFeePercent upfrontHour evenlyoProtectFeePercent')
       .sort(sortOptions)
       .skip(skip)
       .limit(parseInt(limit))
       .select('-seo -__v -contact.email -contact.phone'); // Hide contact info in list view
+
+    // Attach payment policy (from subcategory) to each listing
+    const listings = listingsDocs.map(doc => {
+      const obj = doc.toObject();
+      const sc = obj.subCategory || {};
+      obj.paymentPolicy = {
+        escrowEnabled: !!sc.escrowEnabled,
+      };
+      return obj;
+    });
 
     // Get total count for pagination
     const total = await Listing.countDocuments(query);
@@ -222,7 +232,7 @@ const getListingById = async (req, res) => {
     const listing = await Listing.findById(req.params.id)
       .populate('vendor', '_id businessName  businessDescription businessEmail businessPhone businessWebsite userId businessLogo')
       .populate('category', 'name icon description')
-      .populate('subCategory', 'name icon description')
+      .populate('subCategory', 'name icon description escrowEnabled upfrontFeePercent upfrontHour evenlyoProtectFeePercent')
       .populate('reviews.clientId', 'firstName lastName profileImage');
 
     if (!listing || !listing.isActive || listing.status !== 'active') {
@@ -236,10 +246,19 @@ const getListingById = async (req, res) => {
     listing.views += 1;
     await listing.save();
 
-    // Include contact information for detailed view
+    // Include contact information for detailed view and attach payment policy from subcategory
+    const data = listing.toObject();
+    const sc = data.subCategory || {};
+    data.paymentPolicy = {
+      escrowEnabled: !!sc.escrowEnabled,
+      upfrontFeePercent: Number(sc.upfrontFeePercent || 0),
+      upfrontHour: Number(sc.upfrontHour || 0),
+      evenlyoProtectFeePercent: Number(sc.evenlyoProtectFeePercent || 0)
+    };
+
     res.json({
       success: true,
-      data: listing
+      data
     });
   } catch (error) {
     console.error('Error fetching listing:', error);

@@ -5,7 +5,7 @@ const Listing = require('../../models/Listing');
 const User = require('../../models/User');
 const Vendor = require('../../models/Vendor');
 const Settings = require('../../models/Settings');
-const {checkAvailability,calculateFullBookingPrice, checkListingStock} = require('../../utils/bookingUtils');
+const {checkAvailability,calculateFullBookingPrice, checkListingStock, getListingPaymentPolicy} = require('../../utils/bookingUtils');
 const {toMultilingualText} = require('../../utils/textUtils');
 const stripe = require('../../config/stripe');
 
@@ -413,11 +413,26 @@ const createBookingRequest = asyncHandler(async (req, res) => {
     { path: 'vendorId', select: 'businessName businessEmail businessPhone' }
   ]);
 
+  // Determine subcategory payment policy (escrow/upfront)
+  const policy = await getListingPaymentPolicy(listing);
+  const upfrontAmount = policy.escrowEnabled && policy.upfrontFeePercent > 0
+    ? Math.round((totalPrice * policy.upfrontFeePercent / 100) * 100) / 100
+    : 0;
+  const remainingAmount = Math.max(Math.round((totalPrice - upfrontAmount) * 100) / 100, 0);
+
   res.status(201).json({
     success: true,
     message: 'Booking request created successfully',
     data: {
-      bookingRequest
+      bookingRequest,
+      paymentPolicy: {
+        escrowEnabled: policy.escrowEnabled,
+        upfrontFeePercent: policy.upfrontFeePercent,
+        upfrontHour: policy.upfrontHour,
+        evenlyoProtectFeePercent: policy.evenlyoProtectFeePercent,
+        upfrontAmount,
+        remainingAmount
+      }
     }
   });
 });

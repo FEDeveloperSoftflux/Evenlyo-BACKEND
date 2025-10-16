@@ -1,5 +1,6 @@
 const BookingRequest = require('../models/Booking');
 const Listing = require('../models/Listing');
+const SubCategory = require('../models/SubCategory');
 
 /**
  * Check if a listing is available for the given date range
@@ -535,3 +536,36 @@ async function checkListingStock(listingId, requiredQty = 1) {
 }
 
 module.exports.checkListingStock = checkListingStock;
+
+/**
+ * Retrieve escrow/upfront payment policy for a listing's subcategory
+ * @param {string|object} listing - Listing id or Listing document
+ * @returns {Promise<{escrowEnabled:boolean, upfrontFeePercent:number, upfrontHour:number, evenlyoProtectFeePercent:number}>}
+ */
+async function getListingPaymentPolicy(listing) {
+  try {
+    let listingDoc = listing;
+    if (!listingDoc || (typeof listingDoc === 'string')) {
+      listingDoc = await Listing.findById(listing).select('subCategory');
+    }
+    const subCatId = listingDoc && (listingDoc.subCategory && listingDoc.subCategory._id ? listingDoc.subCategory._id : listingDoc.subCategory);
+    if (!subCatId) {
+      return { escrowEnabled: false, upfrontFeePercent: 0, upfrontHour: 0, evenlyoProtectFeePercent: 0 };
+    }
+    const subCat = await SubCategory.findById(subCatId).select('escrowEnabled upfrontFeePercent upfrontHour evenlyoProtectFeePercent');
+    if (!subCat) {
+      return { escrowEnabled: false, upfrontFeePercent: 0, upfrontHour: 0, evenlyoProtectFeePercent: 0 };
+    }
+    return {
+      escrowEnabled: !!subCat.escrowEnabled,
+      upfrontFeePercent: Number(subCat.upfrontFeePercent || 0),
+      upfrontHour: Number(subCat.upfrontHour || 0),
+      evenlyoProtectFeePercent: Number(subCat.evenlyoProtectFeePercent || 0)
+    };
+  } catch (err) {
+    console.error('Error fetching listing payment policy:', err);
+    return { escrowEnabled: false, upfrontFeePercent: 0, upfrontHour: 0, evenlyoProtectFeePercent: 0 };
+  }
+}
+
+module.exports.getListingPaymentPolicy = getListingPaymentPolicy;
