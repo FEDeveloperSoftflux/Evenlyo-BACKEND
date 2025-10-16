@@ -157,7 +157,7 @@ const toggleSubCategoryStatus = async (req, res) => {
 // Create new subcategory
 const createSubCategory = async (req, res) => {
   try {
-    const { name, icon, mainCategoryId, description } = req.body;
+    const { name, icon, mainCategoryId, description, escrowEnabled, upfrontFeePercent, upfrontHour, evenlyoProtectFeePercent } = req.body;
     if (!name || !mainCategoryId) {
       return res.status(400).json({ error: 'Name and mainCategoryId are required' });
     }
@@ -168,6 +168,38 @@ const createSubCategory = async (req, res) => {
       mainCategory: mainCategoryId,
       description: typeof description === 'object' ? description : { en: description || '', nl: description || '' }
     };
+
+    // Optional payment fields with validation and defaults
+  if (escrowEnabled !== undefined) subCategoryData.escrowEnabled = Boolean(escrowEnabled);
+    if (upfrontFeePercent !== undefined) {
+      const v = Number(upfrontFeePercent);
+      if (Number.isNaN(v) || v < 0 || v > 100) return res.status(400).json({ error: 'upfrontFeePercent must be between 0 and 100' });
+      subCategoryData.upfrontFeePercent = v;
+    }
+    if (upfrontHour !== undefined) {
+      const v = Number(upfrontHour);
+      if (Number.isNaN(v) || v < 0) return res.status(400).json({ error: 'upfrontHour must be a non-negative number' });
+      subCategoryData.upfrontHour = v;
+    }
+    if (evenlyoProtectFeePercent !== undefined) {
+      const v = Number(evenlyoProtectFeePercent);
+      if (Number.isNaN(v) || v < 0 || v > 100) return res.status(400).json({ error: 'evenlyoProtectFeePercent must be between 0 and 100' });
+      subCategoryData.evenlyoProtectFeePercent = v;
+    }
+    // If escrow is enabled, ensure upfront fields are valid/present
+    if (subCategoryData.escrowEnabled) {
+      const effUpfrontPercent =
+        subCategoryData.upfrontFeePercent !== undefined ? subCategoryData.upfrontFeePercent : 0;
+      const effUpfrontHour =
+        subCategoryData.upfrontHour !== undefined ? subCategoryData.upfrontHour : 0;
+      if (effUpfrontPercent <= 0 || effUpfrontPercent > 100) {
+        return res.status(400).json({ error: 'When escrowEnabled is true, upfrontFeePercent must be between 1 and 100' });
+      }
+      if (effUpfrontHour <= 0) {
+        return res.status(400).json({ error: 'When escrowEnabled is true, upfrontHour must be greater than 0' });
+      }
+    }
+
     const subcategory = new SubCategory(subCategoryData);
     await subcategory.save();
     res.status(201).json({
@@ -176,6 +208,10 @@ const createSubCategory = async (req, res) => {
       icon: subcategory.icon,
       mainCategory: subcategory.mainCategory,
       description: subcategory.description,
+      escrowEnabled: subcategory.escrowEnabled,
+      upfrontFeePercent: subcategory.upfrontFeePercent,
+      upfrontHour: subcategory.upfrontHour,
+      evenlyoProtectFeePercent: subcategory.evenlyoProtectFeePercent,
       status: subcategory.isActive ? 'active' : 'deactive',
       message: 'SubCategory created successfully'
     });
@@ -200,7 +236,7 @@ const editSubCategory = async (req, res) => {
       return res.status(404).json({ error: 'SubCategory not found' });
     }
 
-    const { name, icon, mainCategoryId, description, isActive } = req.body;
+    const { name, icon, mainCategoryId, description, isActive, escrowEnabled, upfrontFeePercent, upfrontHour, evenlyoProtectFeePercent } = req.body;
 
     // Update fields only if provided
     if (name !== undefined) {
@@ -213,6 +249,24 @@ const editSubCategory = async (req, res) => {
     }
     if (isActive !== undefined) subcategory.isActive = Boolean(isActive);
 
+    // Update payment fields if provided
+    if (escrowEnabled !== undefined) subcategory.escrowEnabled = Boolean(escrowEnabled);
+    if (upfrontFeePercent !== undefined) {
+      const v = Number(upfrontFeePercent);
+      if (Number.isNaN(v) || v < 0 || v > 100) return res.status(400).json({ error: 'upfrontFeePercent must be between 0 and 100' });
+      subcategory.upfrontFeePercent = v;
+    }
+    if (upfrontHour !== undefined) {
+      const v = Number(upfrontHour);
+      if (Number.isNaN(v) || v < 0) return res.status(400).json({ error: 'upfrontHour must be a non-negative number' });
+      subcategory.upfrontHour = v;
+    }
+    if (evenlyoProtectFeePercent !== undefined) {
+      const v = Number(evenlyoProtectFeePercent);
+      if (Number.isNaN(v) || v < 0 || v > 100) return res.status(400).json({ error: 'evenlyoProtectFeePercent must be between 0 and 100' });
+      subcategory.evenlyoProtectFeePercent = v;
+    }
+
     await subcategory.save();
 
     res.json({
@@ -221,6 +275,10 @@ const editSubCategory = async (req, res) => {
       icon: subcategory.icon,
       mainCategory: subcategory.mainCategory,
       description: subcategory.description,
+      escrowEnabled: subcategory.escrowEnabled,
+      upfrontFeePercent: subcategory.upfrontFeePercent,
+      upfrontHour: subcategory.upfrontHour,
+      evenlyoProtectFeePercent: subcategory.evenlyoProtectFeePercent,
       status: subcategory.isActive ? 'active' : 'deactive',
       message: 'SubCategory updated successfully'
     });

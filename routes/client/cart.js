@@ -6,7 +6,8 @@ const {
   removeFromCart,
   updateCartItem,
   submitCart,
-  clearCart
+  clearCart,
+  addToCart2
 } = require('../../controllers/client/cartController');
 const { requireAuth, requireClient } = require('../../middleware/authMiddleware');
 
@@ -14,6 +15,7 @@ const { requireAuth, requireClient } = require('../../middleware/authMiddleware'
 // @desc    Add item to user cart
 // @access  Private (User)
 router.post('/add', requireAuth, requireClient, addToCart);
+router.post('/wishlist', requireAuth, requireClient, addToCart2); // Duplicate route for testing
 
 // @route   GET /api/cart
 // @desc    Get user's cart

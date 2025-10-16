@@ -87,3 +87,34 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 ## License
 
 Add license information here.
+
+## Subcategory Payment Settings
+
+Admin can configure payment-related controls per subcategory:
+
+- escrowEnabled: boolean. If true, client pays an upfront percent of total before confirmation; remaining amount is held and released after a configured number of hours.
+- upfrontFeePercent: number 0-100. Percent of total price to be paid upfront when escrow is enabled.
+- upfrontHour: number >= 0. Hours after which the remaining escrow is released.
+- evenlyoProtectFeePercent: number 0-100. Platform (Evenlyo Protect) fee percent at subcategory level.
+
+Create subcategory
+
+POST /api/admin/listings/create/subcategories
+
+Body example:
+
+{
+	"name": { "en": "Hair Styling", "nl": "Haarstyling" },
+	"icon": "scissors",
+	"mainCategoryId": "<categoryId>",
+	"description": { "en": "desc", "nl": "desc" },
+	"escrowEnabled": true,
+	"upfrontFeePercent": 30,
+	"upfrontHour": 48,
+	"evenlyoProtectFeePercent": 5
+}
+
+Validation rules:
+
+- If escrowEnabled is true, upfrontFeePercent must be 1-100 and upfrontHour must be > 0.
+- Percent values must be between 0 and 100 inclusive. Hours must be non-negative.

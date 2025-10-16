@@ -38,6 +38,31 @@ const subCategorySchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  // Payment and protection settings (admin configurable)
+  escrowEnabled: {
+    type: Boolean,
+    default: false
+  },
+  // Percent of total price client must pay upfront when escrow is enabled
+  upfrontFeePercent: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0
+  },
+  // Hours after which remaining escrow is released
+  upfrontHour: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
+  // Evenlyo Protect fee percent (platform fee) set by admin at subcategory level
+  evenlyoProtectFeePercent: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0
+  }
 }, { timestamps: true });
 
 // Pre-save middleware

@@ -447,11 +447,73 @@ const clearCart = asyncHandler(async (req, res) => {
   });
 });
 
+
+const addToCart2 = asyncHandler(async (req, res) => {
+  const { listingId, tempDetails } = req.body;
+
+  if (!listingId) {
+    return res.status(400).json({
+      success: false,
+      message: 'Listing ID is required'
+    });
+  }
+
+  // Get or create user's cart
+  let cart = await Cart.findOne({ userId: req.user.id });
+  if (!cart) {
+    cart = new Cart({ userId: req.user.id, items: [] });
+  }
+
+  // Toggle: if item exists -> remove, else -> add
+  const alreadyInCart = cart.items.some(item => item.listingId.toString() === listingId);
+
+  if (alreadyInCart) {
+    // Remove item without requiring listing to still be active
+    await cart.removeItem(listingId);
+    await cart.populate('items.listingId', 'title featuredImage pricing vendor');
+    return res.status(200).json({
+      success: true,
+      message: 'Item removed from cart successfully',
+      data: cart.items
+    });
+  }
+
+  // Otherwise, validate listing is available before adding
+  const listing = await Listing.findOne({
+    _id: listingId,
+    isActive: true,
+    status: 'active'
+  }).populate('vendor');
+
+  if (!listing) {
+    return res.status(404).json({
+      success: false,
+      message: 'Listing not found or not available'
+    });
+  }
+
+  // Create listing snapshot
+  const listingSnapshot = createListingSnapshot(listing);
+
+  // Add item to cart
+  await cart.addItem(listingId, listingSnapshot, tempDetails);
+
+  // Populate cart for response
+  await cart.populate('items.listingId', 'title featuredImage pricing vendor');
+
+  return res.status(201).json({
+    success: true,
+    message: 'Item added to cart successfully',
+    data: cart.items
+  });
+});
+
 module.exports = {
   addToCart,
   getCart,
   removeFromCart,
   updateCartItem,
   submitCart,
-  clearCart
+  clearCart,
+  addToCart2
 };
