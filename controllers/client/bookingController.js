@@ -904,13 +904,13 @@ const createClaim = asyncHandler(async (req, res) => {
   const booking = await BookingRequest.findOne({
     _id: req.params.id,
     userId: req.user.id,
-    status: { $in: ['received', 'finished'] }
+    status: { $in: ['received', 'finished', 'paid'] }
   });
 
   if (!booking) {
     return res.status(404).json({
       success: false,
-      message: 'Booking not eligible for claim'
+      message: 'Booking not eligible for Complaint'
     });
   }
 

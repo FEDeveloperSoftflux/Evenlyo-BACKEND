@@ -85,7 +85,7 @@ const markBookingOnTheWay = asyncHandler(async (req, res) => {
 	try {
 		await notificationController.createNotification({
 			user: booking.userId,
-			booking: booking._id,
+			bookingId: booking._id,
 			message: `Your booking is on the way.`
 		});
 	} catch (e) {
@@ -129,22 +129,26 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
 		});
 	}
 
-	booking.status = 'picked_up';
+	// Store condition and set status based on condition
+	booking.condition = (condition || '').toLowerCase();
+	if (booking.condition === 'claim') {
+		booking.status = 'claim';
+	} else {
+		booking.status = 'picked_up';
+	}
 
-	// Store condition
-	booking.condition = condition.toLowerCase();
-
-	if (condition.toLowerCase() === 'good') {
+	if (booking.condition === 'good') {
 		booking.pricing.securityFee = 0;
 		booking.pricing.claimAmount = 0;
-	} else if (condition.toLowerCase() === 'fair') {
-		if (!securityFee || isNaN(securityFee) || securityFee <= 0) {
+	} else if (booking.condition === 'fair') {
+		const parsedSecurityFee = Number(securityFee);
+		if (!Number.isFinite(parsedSecurityFee) || parsedSecurityFee <= 0) {
 			return res.status(400).json({
 				success: false,
 				message: 'Security fee is required for fair condition.'
 			});
 		}
-		booking.pricing.securityFee = securityFee;
+		booking.pricing.securityFee = parsedSecurityFee;
 		booking.pricing.claimAmount = 0;
 		// Store in claimDetails for admin review
 		booking.claimDetails = {
@@ -155,17 +159,21 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
 			claimedBy: 'vendor',
 			claimedAt: new Date(),
 			status: 'pending',
-			amount: securityFee
+			amount: parsedSecurityFee
 		};
-	} else if (condition.toLowerCase() === 'claim') {
-		if (!claimAmount || isNaN(securityFee) || isNaN(claimAmount) || securityFee < 0 || claimAmount <= 0) {
+	} else if (booking.condition === 'claim') {
+		const parsedClaimAmount = Number(claimAmount);
+		if (!Number.isFinite(parsedClaimAmount) || parsedClaimAmount <= 0) {
 			return res.status(400).json({
 				success: false,
-				message: 'Security fee and claim amount are required for claim condition.'
+				message: 'Claim amount is required for claim condition.'
 			});
 		}
-		booking.pricing.securityFee = securityFee;
-		booking.pricing.claimAmount = claimAmount;
+		// securityFee can be optional for claim; default to 0 if not provided
+		const parsedSecurityFee = Number(securityFee);
+		const safeSecurityFee = Number.isFinite(parsedSecurityFee) && parsedSecurityFee >= 0 ? parsedSecurityFee : 0;
+		booking.pricing.securityFee = safeSecurityFee;
+		booking.pricing.claimAmount = parsedClaimAmount;
 		booking.claimDetails = {
 			reason: {
 				en: 'Claim requested by vendor',
@@ -174,14 +182,13 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
 			claimedBy: 'vendor',
 			claimedAt: new Date(),
 			status: 'pending',
-			amount: securityFee + claimAmount
+			amount: safeSecurityFee + parsedClaimAmount
 		};
 		// Send request/notification to admin for claim approval
 		try {
-			await notificationController.createNotification({
-				user: null, // or admin userId if available
-				booking: booking._id,
-				message: `Claim request submitted by vendor for booking. Security Fee: ${securityFee}, Claim Amount: ${claimAmount}, Total: ${securityFee + claimAmount}`
+			await notificationController.createAdminNotification({
+				bookingId: booking._id,
+				message: `Claim request submitted by vendor for booking. Security Fee: ${safeSecurityFee}, Claim Amount: ${parsedClaimAmount}, Total: ${safeSecurityFee + parsedClaimAmount}`
 			});
 		} catch (e) {
 			console.error('Failed to notify admin for claim request:', e);
@@ -201,7 +208,7 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
 		if (vendor && vendor.userId) {
 			await notificationController.createNotification({
 				user: vendor.userId,
-				booking: booking._id,
+				bookingId: booking._id,
 				message: `A booking has been marked as picked up.`
 			});
 		}
@@ -286,7 +293,7 @@ const markBookingCompleted = asyncHandler(async (req, res) => {
   try {
     await notificationController.createNotification({
       user: booking.userId,
-      bookingId: booking._id,
+			bookingId: booking._id,
       message: `Your booking has been marked as completed.`
     });
   } catch (e) {
@@ -325,16 +332,16 @@ const markAsReceivedBack = asyncHandler(async (req, res) => {
 	});
   }
 
-  const booking = await BookingRequest.findOne({
-	_id: id,
-	vendorId: vendor._id,
-	status: 'picked_up'
-  });
+	const booking = await BookingRequest.findOne({
+		_id: id,
+		vendorId: vendor._id,
+		status: { $in: ['picked_up', 'claim'] }
+	});
 
   if (!booking) {
 	return res.status(404).json({
 	  success: false,
-	  message: 'Booking not found or not in picked_up status'
+	  message: 'Booking not found or not in picked_up/claim status'
 	});
   }
 
