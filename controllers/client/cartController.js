@@ -105,7 +105,7 @@ const getCart = asyncHandler(async (req, res) => {
   let cart = await Cart.findOne({ userId: req.user.id })
     .populate({
       path: 'items.listingId',
-      select: 'title pricing vendor isActive status',
+      select: 'title pricing images vendor isActive status',
       populate: {
         path: 'vendor',
         select: 'businessName'
