@@ -2,6 +2,7 @@ const app = require('./app');
 const http = require('http');
 const { Server } = require('socket.io');
 const chatSocket = require('./sockets/chatSockets');
+const logger = require('./utils/logger');
 
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
@@ -29,10 +30,12 @@ const io = new Server(server, {
 chatSocket(io);
 
 server.listen(PORT, () => {
-  console.log(`Server started on port ${PORT}`);
+  logger.info(`🚀 Server started on port ${PORT}`);
+  logger.info(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`📝 Logging level: ${process.env.LOG_LEVEL || 'info'}`);
 });
 
 // Optional: catch server errors
 server.on('error', (err) => {
-  console.error('Server error:', err);
+  logger.error('Server error:', err);
 });

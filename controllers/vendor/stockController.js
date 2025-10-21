@@ -59,10 +59,10 @@ exports.getStockTable = async (req, res) => {
       return res.status(400).json({ error: 'Invalid stock event type.' });
     }
     const vendorId = req.user?.vendorId || null;
-
+    console.log(vendorId, type, "vendorIdvendorIdvendorId");
     // For 'stockin', list all listings of this vendor with current quantity
     if (type === 'stockin' && vendorId) {
-      const listings = await Listing.find({ vendor: vendorId }).select('_id title quantity');
+      const listings = await Listing.find({ vendor: vendorId }).select('_id title quantity').sort({ createdAt: -1 })
       const table = listings.map((l, idx) => ({
         SNo: idx + 1,
         ListingID: l._id,
@@ -81,8 +81,7 @@ exports.getStockTable = async (req, res) => {
       const listing = log.listing;
       const name = getListingName(listing) || '(Unknown)';
       const listingId = listing?._id || null;
-      if (type === 'checkin') 
-      {
+      if (type === 'checkin') {
         return {
           SNo: idx + 1,
           ListingID: listingId,
@@ -90,9 +89,8 @@ exports.getStockTable = async (req, res) => {
           'Check In (Quantity)': log.quantity,
           'Stock In (Date Time)': log.dateTime
         };
-      } 
-      else if (type === 'checkout') 
-      {
+      }
+      else if (type === 'checkout') {
         return {
           SNo: idx + 1,
           ListingID: listingId,
@@ -100,9 +98,8 @@ exports.getStockTable = async (req, res) => {
           'Reserved for booking': log.quantity,
           'Stock In (Date Time)': log.dateTime
         };
-      } 
-      else if (type === 'missing') 
-      {
+      }
+      else if (type === 'missing') {
         return {
           SNo: idx + 1,
           ListingID: listingId,
@@ -110,9 +107,8 @@ exports.getStockTable = async (req, res) => {
           'Missing Items': log.quantity,
           'Stock Out': log.dateTime
         };
-      } 
-      else if (type === 'stockin') 
-      {
+      }
+      else if (type === 'stockin') {
         return {
           SNo: idx + 1,
           ListingID: listingId,

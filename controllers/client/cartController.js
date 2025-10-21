@@ -102,13 +102,15 @@ const addToCart = asyncHandler(async (req, res) => {
 // @route   GET /api/cart
 // @access  Private (User)
 const getCart = asyncHandler(async (req, res) => {
+  console.log(req.user.id,"req.user.idreq.user.idreq.user.id");
+  
   let cart = await Cart.findOne({ userId: req.user.id })
     .populate({
       path: 'items.listingId',
       select: 'title pricing images vendor isActive status',
       populate: {
         path: 'vendor',
-        select: 'businessName'
+        select: 'businessName businessLogo bannerImage'
       }
     });
 

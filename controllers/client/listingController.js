@@ -7,7 +7,7 @@ const BookingRequest = require('../../models/Booking');
 const ServiceItem = require('../../models/Item');
 const Cart = require('../../models/Cart');
 const { verifyAccessToken } = require('../../utils/jwtUtils');
-
+const Item = require('../../models/Item')
 // @desc    Get calendar data (booked and available days/times) for a listing
 // @route   GET /api/listing/:id/calendar
 // @access  Public
@@ -127,7 +127,7 @@ const getListings = async (req, res) => {
     // Filter by price range (check all pricing options)
     if (minPrice || maxPrice) {
       const priceQuery = { $or: [] };
-      
+
       if (minPrice) {
         priceQuery.$or.push(
           { 'pricing.perHour': { $gte: parseFloat(minPrice) } },
@@ -135,7 +135,7 @@ const getListings = async (req, res) => {
           { 'pricing.perEvent': { $gte: parseFloat(minPrice) } }
         );
       }
-      
+
       if (maxPrice) {
         priceQuery.$or.push(
           { 'pricing.perHour': { $lte: parseFloat(maxPrice) } },
@@ -143,7 +143,7 @@ const getListings = async (req, res) => {
           { 'pricing.perEvent': { $lte: parseFloat(maxPrice) } }
         );
       }
-      
+
       if (priceQuery.$or.length > 0) {
         query.$and = query.$and || [];
         query.$and.push(priceQuery);
@@ -262,14 +262,14 @@ const getListingById = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching listing:', error);
-    
+
     if (error.name === 'CastError') {
       return res.status(400).json({
         success: false,
         message: 'Invalid listing ID'
       });
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Error fetching listing',
@@ -345,25 +345,25 @@ const getPopularListings = async (req, res) => {
       .limit(parseInt(limit))
       .select('-seo -__v');
 
-      // Ensure fields are not null
-      const sanitizedListings = listings.map(listing => {
-        const obj = listing.toObject();
-        // If images is null or contains only null, set to []
-        if (!Array.isArray(obj.images) || obj.images.every(img => img == null)) {
-          obj.images = [];
-        }
-        // If vendor is null, set to empty object
-        if (obj.vendor == null) obj.vendor = {};
-        // If category is null, set to empty object
-        if (obj.category == null) obj.category = {};
-        // If subCategory is null, set to empty object
-        if (obj.subCategory == null) obj.subCategory = {};
-        return obj;
-      });
-      res.json({
-        success: true,
-        data: sanitizedListings
-      });
+    // Ensure fields are not null
+    const sanitizedListings = listings.map(listing => {
+      const obj = listing.toObject();
+      // If images is null or contains only null, set to []
+      if (!Array.isArray(obj.images) || obj.images.every(img => img == null)) {
+        obj.images = [];
+      }
+      // If vendor is null, set to empty object
+      if (obj.vendor == null) obj.vendor = {};
+      // If category is null, set to empty object
+      if (obj.category == null) obj.category = {};
+      // If subCategory is null, set to empty object
+      if (obj.subCategory == null) obj.subCategory = {};
+      return obj;
+    });
+    res.json({
+      success: true,
+      data: sanitizedListings
+    });
   } catch (error) {
     console.error('Error fetching popular listings:', error);
     res.status(500).json({
@@ -615,7 +615,7 @@ const getListingsByVendor = async (req, res) => {
     }
 
     const skip = (page - 1) * limit;
-    
+
     // Build sort object
     const sortOptions = {};
     if (sortBy === 'price') {
@@ -711,7 +711,7 @@ const checkListingAvailability = async (req, res) => {
     // Normalize dates for accurate comparison
     const checkStart = new Date(startDate);
     checkStart.setHours(0, 0, 0, 0);
-    
+
     const checkEnd = new Date(endDate);
     checkEnd.setHours(23, 59, 59, 999);
 
@@ -728,7 +728,7 @@ const checkListingAvailability = async (req, res) => {
     }).select('details.startDate details.endDate status trackingId details.duration');
 
     const isAvailable = overlappingBookings.length === 0;
-    
+
     // Calculate multi-day details
     const diffTime = Math.abs(checkEnd - checkStart);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
@@ -771,28 +771,28 @@ const checkListingAvailability = async (req, res) => {
     if (detailed === 'true' && isMultiDay) {
       const dailyAvailability = [];
       const currentDate = new Date(checkStart);
-      
+
       for (let i = 0; i < diffDays; i++) {
         const dayStart = new Date(currentDate);
         const dayEnd = new Date(currentDate);
         dayEnd.setHours(23, 59, 59, 999);
-        
+
         const dayConflicts = overlappingBookings.filter(booking => {
           const bookingStart = new Date(booking.details.startDate);
           const bookingEnd = new Date(booking.details.endDate);
           return bookingStart <= dayEnd && bookingEnd >= dayStart;
         });
-        
+
         dailyAvailability.push({
           date: dayStart.toISOString().split('T')[0],
           available: dayConflicts.length === 0,
           conflicts: dayConflicts.length,
           conflictingBookings: dayConflicts.map(b => b.trackingId)
         });
-        
+
         currentDate.setDate(currentDate.getDate() + 1);
       }
-      
+
       response.data.dailyAvailability = dailyAvailability;
     }
 
@@ -890,7 +890,7 @@ const filterListings = async (req, res) => {
         pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perDay}/day`;
       } else if (listing.pricing.perHour) {
         pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perHour}/hour`;
-      } 
+      }
       else {
         pricingPerEvent = 'Quote on request';
       }
@@ -1004,59 +1004,59 @@ const getListingsAndVendorsByCategory = async (req, res) => {
       sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
     }
 
-  const results = {};
+    const results = {};
 
-      // Resolve current user id (public route: optionally from req.user or Bearer token)
-      let currentUserId = null;
-      if (req.user && (req.user.id || req.user._id)) {
-        currentUserId = req.user.id || req.user._id;
-      } else if (req.userId) {
-        currentUserId = req.userId;
-      } else {
-        const authHeader = req.headers['authorization'] || req.headers['Authorization'];
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-          try {
-            const token = authHeader.substring(7);
-            const decoded = verifyAccessToken(token);
-            if (decoded && decoded.id) currentUserId = decoded.id;
-          } catch (e) {
-            // ignore invalid token on public route
-          }
+    // Resolve current user id (public route: optionally from req.user or Bearer token)
+    let currentUserId = null;
+    if (req.user && (req.user.id || req.user._id)) {
+      currentUserId = req.user.id || req.user._id;
+    } else if (req.userId) {
+      currentUserId = req.userId;
+    } else {
+      const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        try {
+          const token = authHeader.substring(7);
+          const decoded = verifyAccessToken(token);
+          if (decoded && decoded.id) currentUserId = decoded.id;
+        } catch (e) {
+          // ignore invalid token on public route
         }
       }
+    }
 
-      // Fetch cart for logged-in user (if any)
-      let cartItems = [];
-      if (currentUserId) {
-        const cartDoc = await Cart.findOne({ userId: currentUserId }).select('items');
-        if (cartDoc && Array.isArray(cartDoc.items)) {
-          cartItems = [cartDoc];
-        }
+    // Fetch cart for logged-in user (if any)
+    let cartItems = [];
+    if (currentUserId) {
+      const cartDoc = await Cart.findOne({ userId: currentUserId }).select('items');
+      if (cartDoc && Array.isArray(cartDoc.items)) {
+        cartItems = [cartDoc];
       }
+    }
 
-      // Flatten cart items for easier consumption
-  let cartItemList = [];
-  let cartListingIdSet = new Set();
-      if (cartItems && cartItems.length > 0) {
-        cartItems.forEach(cart => {
-          if (Array.isArray(cart.items)) {
-            cart.items.forEach(item => {
-              // Use raw listingId for matching
-              if (item.listingId) {
-                cartListingIdSet.add(String(item.listingId));
-              }
-              cartItemList.push({
-                listingId: item.listingId?._id || item.listingId || null,
-                serviceItemId: item.serviceItemId?._id || item.serviceItemId || null,
-                quantity: item.quantity || 1,
-                title: item.listingId?.title || item.serviceItemId?.title || '',
-                image: item.listingId?.images?.[0] || item.serviceItemId?.images?.[0] || '',
-                price: item.listingId?.pricing?.perEvent || item.serviceItemId?.sellingPrice || '',
-              });
+    // Flatten cart items for easier consumption
+    let cartItemList = [];
+    let cartListingIdSet = new Set();
+    if (cartItems && cartItems.length > 0) {
+      cartItems.forEach(cart => {
+        if (Array.isArray(cart.items)) {
+          cart.items.forEach(item => {
+            // Use raw listingId for matching
+            if (item.listingId) {
+              cartListingIdSet.add(String(item.listingId));
+            }
+            cartItemList.push({
+              listingId: item.listingId?._id || item.listingId || null,
+              serviceItemId: item.serviceItemId?._id || item.serviceItemId || null,
+              quantity: item.quantity || 1,
+              title: item.listingId?.title || item.serviceItemId?.title || '',
+              image: item.listingId?.images?.[0] || item.serviceItemId?.images?.[0] || '',
+              price: item.listingId?.pricing?.perEvent || item.serviceItemId?.sellingPrice || '',
             });
-          }
-        });
-      }
+          });
+        }
+      });
+    }
 
     // Fetch listings if requested
     if (includeListings === 'true' || includeListings === true) {
@@ -1192,41 +1192,43 @@ const getListingsAndVendorsByCategory = async (req, res) => {
 
       console.log('Sale Items Query:', JSON.stringify(saleItemsQuery, null, 2));
 
-        const saleItems = await ServiceItem.find(saleItemsQuery)
-          .populate('vendor', '_id businessName businessLocation businessLogo bannerImage userId')
-          .populate('linkedListing', 'title')
-          .sort(saleItemsSortOptions)
-          .skip(skip)
-          .limit(parseInt(limit))
-          .select('-__v');
+      const saleItems = await ServiceItem.find(saleItemsQuery)
+        .populate('vendor', '_id businessName businessLocation businessLogo bannerImage userId')
+        .populate('linkedListing', 'title')
+        .sort(saleItemsSortOptions)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .select('-__v');
 
-        console.log('Found Sale Items:', saleItems.length);
+      console.log('Found Sale Items:', saleItems.length);
 
+      const totalSaleItems = await ServiceItem.countDocuments(saleItemsQuery);
 
-
-        const totalSaleItems = await ServiceItem.countDocuments(saleItemsQuery);
-
-        results.saleItems = {
-          data: saleItems,
-          pagination: {
-            current: parseInt(page),
-            pages: Math.ceil(totalSaleItems / limit),
-            total: totalSaleItems,
-            limit: parseInt(limit)
-          }
-        };
+      results.saleItems = {
+        data: saleItems,
+        pagination: {
+          current: parseInt(page),
+          pages: Math.ceil(totalSaleItems / limit),
+          total: totalSaleItems,
+          limit: parseInt(limit)
+        }
+      };
     }
 
     // Get category and subcategory info for context
     const categoryInfo = categoryId ? await Category.findById(categoryId).select('name icon description') : '';
     const subCategoryInfo = finalSubCategoryId ? await SubCategory.findById(finalSubCategoryId).populate('mainCategory', 'name').select('name icon description mainCategory') : '';
+    const otherSaleItems = await Item.find({ mainCategory: null, subCategory: null })
+      .populate('vendor', '_id businessName businessLocation businessLogo bannerImage userId')
+    console.log(otherSaleItems, "otherSaleItemsotherSaleItems");
 
     res.json({
       success: true,
       data: results,
       cartItems: cartItemList,
       categoryInfo,
-      subCategoryInfo
+      subCategoryInfo,
+      otherSaleItems
     });
 
   } catch (error) {

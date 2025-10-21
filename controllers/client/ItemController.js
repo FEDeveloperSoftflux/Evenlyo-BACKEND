@@ -4,6 +4,7 @@ const Purchase = require('../../models/Purchase');
 const stripe = require('../../config/stripe');
 const PaymentIntent = require('../../models/PaymentIntent');
 const ServiceItemStockLog = require('../../models/ServiceItemStockLog');
+const logger = require('../../utils/logger');
 
 // Create payment intent for item purchase
 const createItemPaymentIntent = async (req, res) => {
@@ -38,14 +39,22 @@ const createItemPaymentIntent = async (req, res) => {
         const settings = await Settings.findOne();
         const platformFee = (settings.salesItemPlatformFee)/100;
 
-        console.log('Platform Fee:', platformFee);
+        logger.info('Payment intent calculation', { 
+          platformFee, 
+          itemId, 
+          quantity, 
+          sellingPrice: item.sellingPrice 
+        });
         
         // Calculate total price with platform fee
         const platformPrice = (quantity * item.sellingPrice) * platformFee;
         const totalPrice = (quantity * item.sellingPrice) + platformPrice;
 
-        console.log('Total Price:', totalPrice);
-        console.log('Platform Price:', platformPrice);
+        logger.info('Price breakdown', { 
+          totalPrice, 
+          platformPrice, 
+          itemPrice: quantity * item.sellingPrice 
+        });
         const amount = Math.round(totalPrice * 100); // Convert to cents for Stripe
 
         // Prepare metadata for Stripe
@@ -197,7 +206,7 @@ const buyItem = async (req, res) => {
                 createdBy: req.user?._id
             });
         } catch (e) {
-            console.warn('Failed to log service item checkout:', e.message);
+            logger.warn('Failed to log service item checkout', { error: e.message, itemId });
         }
 
         // Get vendor info

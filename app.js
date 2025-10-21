@@ -7,6 +7,8 @@ const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 const connectDB = require('./config/db'); 
 const cors = require('cors');
+const morgan = require('morgan');
+const logger = require('./utils/logger');
 require('dotenv').config();
 
 
@@ -15,8 +17,9 @@ require('dotenv').config();
 // ==========================
 connectDB();
 
-mongoose.connection.on('connected', () => console.log('Mongoose connected'));
-mongoose.connection.on('disconnected', () => console.log('Mongoose disconnected'));
+mongoose.connection.on('connected', () => logger.info('Mongoose connected to database'));
+mongoose.connection.on('disconnected', () => logger.warn('Mongoose disconnected from database'));
+mongoose.connection.on('error', (err) => logger.error('Mongoose connection error:', err));
 
 const app = express();
 
@@ -72,6 +75,17 @@ app.use(cors({
 // ==========================
 // Middleware
 // ==========================
+
+// Morgan HTTP request logging
+app.use(morgan('combined', {
+  stream: {
+    write: (message) => logger.info(message.trim())
+  }
+}));
+
+// Custom request logging
+app.use(logger.logRequest);
+
 app.use(express.json({
   verify: (req, res, buf) => {
     if (req.originalUrl && req.originalUrl.startsWith('/api/payments/webhook')) {
@@ -148,7 +162,11 @@ app.get('/', (req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  res.status(500).json({ error: err.message });
+  logger.logError(err, req);
+  res.status(500).json({ 
+    error: process.env.NODE_ENV === 'development' ? err.message : 'Internal Server Error',
+    timestamp: new Date().toISOString()
+  });
 });
 
 module.exports = app;

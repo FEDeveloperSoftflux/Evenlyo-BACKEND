@@ -61,6 +61,8 @@ exports.getStockTable = async (req, res) => {
       return res.status(400).json({ error: 'Invalid stock event type.' });
     }
     const vendorId = req.user?.vendorId || null;
+    console.log(vendorId,type, "vendorIdvendorIdvendorId");
+    logger.info(vendorId,type);
 
     // For 'stockin', list all items of this vendor with current quantity
     if (type === 'stockin' && vendorId) {

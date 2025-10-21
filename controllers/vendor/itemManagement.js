@@ -6,6 +6,7 @@ const Listing = require('../../models/Listing');
 const Purchase = require('../../models/Purchase');
 const ServiceItemStockLog = require('../../models/ServiceItemStockLog');
 const { toMultilingualText } = require('../../utils/textUtils');
+const SaleItem = require('../../models/Item');
 
 // Create a new item
 const createItem = async (req, res) => {
@@ -120,8 +121,8 @@ const createItem = async (req, res) => {
 		} catch (e) {
 			console.warn('Failed to log initial service item stock checkin:', e.message);
 		}
-		return res.status(201).json({ 
-			success: true, 
+		return res.status(201).json({
+			success: true,
 			item,
 			listingDetails: listingDetails
 		});
@@ -142,15 +143,15 @@ const getVendorItems = async (req, res) => {
 		}
 
 		const vendorId = req.user.vendorId;
-		
+
 		const items = await Item.find({ vendor: vendorId })
 			.populate('mainCategory', 'name')
 			.populate('subCategory', 'name')
 			.populate('linkedListing', 'title')
 			.sort({ createdAt: -1 });
 
-		return res.status(200).json({ 
-			success: true, 
+		return res.status(200).json({
+			success: true,
 			items,
 			count: items.length
 		});
@@ -284,9 +285,9 @@ const getVendorItemsOverview = async (req, res) => {
 		const vendorId = req.vendor?._id || req.user?._id || req.user?.vendorId || req.user?.id;
 
 		if (!vendorId) {
-			return res.status(400).json({ 
-				success: false, 
-				message: 'Vendor not found in request.' 
+			return res.status(400).json({
+				success: false,
+				message: 'Vendor not found in request.'
 			});
 		}
 
@@ -339,10 +340,16 @@ const getVendorItemsOverview = async (req, res) => {
 			status: item.status,
 		}));
 
+
+		const totalMain = await SaleItem.find({
+			vendor: vendorId,
+			mainCategory: { $ne: null }
+		});
+		console.log(totalMain, "totalMaintotalMaintotalMain");
 		res.json({
 			success: true,
 			stats: {
-				totalMainCategories: mainCategorySet.size,
+				totalMainCategories: totalMain.length,
 				totalSubCategories: subCategorySet.size,
 				totalItems: totalItems
 			},
@@ -471,9 +478,9 @@ const updateItem = async (req, res) => {
 			listingDetails: listingDetails
 		});
 	} catch (error) {
-		return res.status(500).json({ 
-			success: false, 
-			message: error.message 
+		return res.status(500).json({
+			success: false,
+			message: error.message
 		});
 	}
 };
@@ -509,7 +516,7 @@ const deleteItem = async (req, res) => {
 		}
 
 		// Check if item is linked to any active purchases
-		const activePurchases = await Purchase.find({ 
+		const activePurchases = await Purchase.find({
 			itemId: itemId,
 			status: { $in: ['pending', 'confirmed', 'in_progress'] }
 		});
@@ -531,9 +538,9 @@ const deleteItem = async (req, res) => {
 			deletedItemId: itemId
 		});
 	} catch (error) {
-		return res.status(500).json({ 
-			success: false, 
-			message: error.message 
+		return res.status(500).json({
+			success: false,
+			message: error.message
 		});
 	}
 };

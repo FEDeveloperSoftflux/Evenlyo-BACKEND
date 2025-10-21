@@ -5,6 +5,7 @@ const Admin = require('../models/Admin');
 const { generateAndSendOTP, verifyOTP } = require('../utils/otpUtils');
 const { auth } = require('../config/firebase');
 const { signAccessToken } = require('../utils/jwtUtils');
+const logger = require('../utils/logger');
 
 // --- Model loading utility ---
 const getModelByUserType = (userType) => {
@@ -156,7 +157,7 @@ const performLogin = async (req, res, userType) => {
 
     // If stored hash is missing, fail fast with invalid credentials
     if (!storedHash) {
-      console.warn('Login attempt with missing password hash for user:', user && user.email);
+      logger.warn('Login attempt with missing password hash', { email: user && user.email });
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
@@ -195,7 +196,7 @@ const performLogin = async (req, res, userType) => {
       // Vendor profile lastLogin not tracked consistently; skip if not present
     } catch (e) {
       // non-fatal
-      console.warn('Could not update lastLogin:', e.message || e);
+      logger.warn('Could not update lastLogin', { error: e.message || e });
     }
 
     // Determine extra props for token
@@ -270,7 +271,7 @@ const performLogin = async (req, res, userType) => {
     });
 
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error('Login error', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'Internal server error',
