@@ -1,5 +1,6 @@
 const winston = require('winston');
 const path = require('path');
+console.log("OK");
 
 // Create logs directory if it doesn't exist
 const logDir = path.join(__dirname, '../logs');
