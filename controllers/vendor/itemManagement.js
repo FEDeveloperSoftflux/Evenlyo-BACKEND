@@ -8,6 +8,7 @@ const ServiceItemStockLog = require('../../models/ServiceItemStockLog');
 const { toMultilingualText } = require('../../utils/textUtils');
 const SaleItem = require('../../models/Item');
 const ActivityLog = require("../../models/ActivityLog")
+const {createActivityLog} = require("../../utils/activityLogger")
 
 const createItem = async (req, res) => {
 	try {
@@ -112,10 +113,10 @@ const createItem = async (req, res) => {
 		} catch (e) {
 			console.warn('Failed to log initial service item stock checkin:', e.message);
 		}
-
+        let awaitingActivityLog = null
 		try {
 			const itemTitle = multilingualTitle?.en || title;
-			await createActivityLog({
+		      awaitingActivityLog = await createActivityLog({
 				heading: 'New Sale Item Added',
 				type: 'sale_item_added',
 				description: `Added new sale item: "${itemTitle}" with stock quantity of ${stockQuantity}`,
@@ -124,11 +125,15 @@ const createItem = async (req, res) => {
 		} catch (error) {
 			console.warn('Failed to create activity log:', error.message);
 		}
+         console.log(awaitingActivityLog, "LOGLOGLOGLOGLOGLOGLOG")
+		
 
 		return res.status(201).json({
 			success: true,
 			item,
-			listingDetails: listingDetails
+			listingDetails: listingDetails,
+			awaitingActivityLog
+		
 		});
 	} catch (error) {
 		return res.status(500).json({ success: false, message: error.message });

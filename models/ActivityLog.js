@@ -33,7 +33,7 @@ const activityLogSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-activityLogSchema.index({ vendorId: 1, createdAt: -1 });
+activityLogSchema.index({ createdAt: -1 });
 
 const ActivityLog = mongoose.model("ActivityLog", activityLogSchema);
 
