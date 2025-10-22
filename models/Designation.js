@@ -64,7 +64,7 @@ designationSchema.pre('save', function(next) {
 });
 
 // Indexes for better performance
-designationSchema.index({ name: 1 });
+// designationSchema.index({ name: 1 });
 designationSchema.index({ isActive: 1 });
 designationSchema.index({ isSystemRole: 1 });
 

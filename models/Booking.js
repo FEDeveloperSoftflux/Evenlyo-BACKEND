@@ -473,7 +473,7 @@ bookingRequestSchema.methods.calculateHoursBetween = function(startTime, endTime
 };
 
 // Indexes for better performance
-bookingRequestSchema.index({ trackingId: 1 });
+// bookingRequestSchema.index({ trackingId: 1 });
 bookingRequestSchema.index({ userId: 1, status: 1 });
 bookingRequestSchema.index({ vendorId: 1, status: 1 });
 bookingRequestSchema.index({ listingId: 1 });

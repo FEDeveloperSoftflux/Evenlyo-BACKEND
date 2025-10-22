@@ -55,8 +55,8 @@ categorySchema.pre('save', function(next) {
 });
 
 // Indexes for better performance
-categorySchema.index({ 'name.en': 1 });
-categorySchema.index({ 'name.nl': 1 });
+// categorySchema.index({ 'name.en': 1 });
+// categorySchema.index({ 'name.nl': 1 }); // Have already set "unique: true" so no need for this :)
 categorySchema.index({ isActive: 1, sortOrder: 1 });
 
 module.exports = mongoose.model('Category', categorySchema);

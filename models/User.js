@@ -72,7 +72,8 @@ const userSchema = new mongoose.Schema({
   },
   googleId: {
     type: String,
-    sparse: true // Allow multiple null values
+    sparse: true, // Allow multiple null values
+    unique: true 
   },
   accountType: {
     type: String,
@@ -156,7 +157,7 @@ userSchema.pre('save', function(next) {
 // Indexes for better performance
 // Note: email already has unique index from schema definition
 userSchema.index({ userType: 1, isActive: 1 });
-userSchema.index({ googleId: 1 }, { sparse: true });
+// userSchema.index({ googleId: 1 }, { sparse: true });
 userSchema.index({ provider: 1 });
 
 module.exports = mongoose.model('User', userSchema);

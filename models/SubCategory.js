@@ -69,7 +69,7 @@ const subCategorySchema = new mongoose.Schema({
 subCategorySchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   next();
-});
+}); 
 
 // Compound index to ensure unique subcategory names within each main category for each language
 subCategorySchema.index({ 'name.en': 1, mainCategory: 1 }, { unique: true });

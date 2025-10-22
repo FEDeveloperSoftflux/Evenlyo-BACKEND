@@ -70,7 +70,7 @@ roleSchema.pre('save', function(next) {
 });
 
 // Indexes for better performance
-roleSchema.index({ name: 1 });
+// roleSchema.index({ name: 1 });
 roleSchema.index({ isActive: 1 });
 roleSchema.index({ isSystemRole: 1 });
 

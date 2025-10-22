@@ -141,7 +141,7 @@ cartSchema.methods.updateItemDetails = function(listingId, tempDetails) {
 };
 
 // Indexes for better performance
-cartSchema.index({ userId: 1 });
+// cartSchema.index({ userId: 1 }); unique true for userId is already set above..
 cartSchema.index({ 'items.listingId': 1 });
 cartSchema.index({ lastUpdated: -1 });
 
