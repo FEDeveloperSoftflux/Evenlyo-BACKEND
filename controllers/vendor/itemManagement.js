@@ -7,8 +7,8 @@ const Purchase = require('../../models/Purchase');
 const ServiceItemStockLog = require('../../models/ServiceItemStockLog');
 const { toMultilingualText } = require('../../utils/textUtils');
 const SaleItem = require('../../models/Item');
+const ActivityLog = require("../../models/ActivityLog")
 
-// Create a new item
 const createItem = async (req, res) => {
 	try {
 		const {
@@ -22,7 +22,6 @@ const createItem = async (req, res) => {
 			linkedListing
 		} = req.body;
 
-		// Validate vendor session
 		if (!req.user || !req.user.vendorId) {
 			return res.status(401).json({
 				success: false,
@@ -30,7 +29,6 @@ const createItem = async (req, res) => {
 			});
 		}
 
-		// Validate required fields
 		if (!title || (typeof title === 'string' && !title.trim())) {
 			return res.status(400).json({
 				success: false,
@@ -39,7 +37,6 @@ const createItem = async (req, res) => {
 			});
 		}
 
-		// Validate linked listing if provided
 		let listingDetails = null;
 		if (linkedListing) {
 			try {
@@ -50,7 +47,6 @@ const createItem = async (req, res) => {
 						message: 'Linked listing not found'
 					});
 				}
-				// Check if listing belongs to the same vendor
 				const currentVendorId = req.user.vendorId;
 				if (listing.vendor.toString() !== currentVendorId) {
 					return res.status(403).json({
@@ -73,7 +69,6 @@ const createItem = async (req, res) => {
 		let mainCategoryName = 'Others';
 		let subCategoryName = 'Others';
 
-		// If mainCategory ID is provided, fetch its name
 		if (mainCategory) {
 			const category = await Category.findById(mainCategory);
 			if (category && category.name && category.name.en) {
@@ -81,7 +76,6 @@ const createItem = async (req, res) => {
 			}
 		}
 
-		// If subCategory ID is provided, fetch its name
 		if (subCategory) {
 			const subCat = await SubCategory.findById(subCategory);
 			if (subCat && subCat.name && subCat.name.en) {
@@ -89,12 +83,10 @@ const createItem = async (req, res) => {
 			}
 		}
 
-		// Convert title to multilingual format
 		const multilingualTitle = toMultilingualText(title);
 
 		const item = new Item({
 			title: multilingualTitle,
-			// use null instead of empty string so Mongoose doesn't try to cast '' to ObjectId
 			mainCategory: mainCategory || null,
 			subCategory: subCategory || null,
 			mainCategoryName,
@@ -109,7 +101,6 @@ const createItem = async (req, res) => {
 
 		await item.save();
 
-		// Log initial check-in for the created item's stock
 		try {
 			await ServiceItemStockLog.create({
 				item: item._id,
@@ -121,6 +112,19 @@ const createItem = async (req, res) => {
 		} catch (e) {
 			console.warn('Failed to log initial service item stock checkin:', e.message);
 		}
+
+		try {
+			const itemTitle = multilingualTitle?.en || title;
+			await createActivityLog({
+				heading: 'New Sale Item Added',
+				type: 'sale_item_added',
+				description: `Added new sale item: "${itemTitle}" with stock quantity of ${stockQuantity}`,
+				vendorId: req.user.vendorId
+			});
+		} catch (error) {
+			console.warn('Failed to create activity log:', error.message);
+		}
+
 		return res.status(201).json({
 			success: true,
 			item,
@@ -340,6 +344,7 @@ const getVendorItemsOverview = async (req, res) => {
 			status: item.status,
 		}));
 
+         const activityLog = await ActivityLog.find({vendorId})
 
 		const totalMain = await SaleItem.find({
 			vendor: vendorId,
@@ -353,6 +358,7 @@ const getVendorItemsOverview = async (req, res) => {
 				totalSubCategories: subCategorySet.size,
 				totalItems: totalItems
 			},
+			activityLog,
 			itemOverview,
 			itemsTable
 		});

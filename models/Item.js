@@ -43,7 +43,7 @@ const serviceItemSchema = new mongoose.Schema({
     type: String,
     required: true
   }
-}, { timestamps: true });
+}, { timestamps: true }); 
 
 // Hook to set 'Others' if category/subcategory is not selected
 serviceItemSchema.pre('save', function(next) {

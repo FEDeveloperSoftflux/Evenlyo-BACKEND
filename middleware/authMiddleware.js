@@ -126,7 +126,6 @@ const requireAuth = async (req, res, next) => {
   }
 };
 
-// --- Role-based Middleware ---
 const requireRole = (allowedRoles) => {
   return (req, res, next) => {
     if (!req.user) {

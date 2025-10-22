@@ -262,6 +262,9 @@ const createListing = async (req, res) => {
 			message: 'Listing created successfully',
 			data: populatedListing
 		});
+
+           
+
 	} catch (error) {
 		console.error('Error creating listing:', error);
 		if (error.name === 'ValidationError') {
