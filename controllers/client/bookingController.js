@@ -300,7 +300,6 @@ const createBookingRequest = asyncHandler(async (req, res) => {
       nl: specialRequests // Use same value for Dutch, can be translated later
     };
   }
-
   // Create booking request with multi-day support
   const bookingRequest = new BookingRequest({
     userId: req.user.id,

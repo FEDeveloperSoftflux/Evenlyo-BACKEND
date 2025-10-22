@@ -89,27 +89,28 @@ const getVendorListingsOverview = async (req, res) => {
 		}));
 
 		// listingTable: all listings with required details
+		// console.log(listings,"listingslistingslistings");
+		
 		const listingTable = listings.map(listing => ({
+			...listing.toObject(),
 			listingId: listing._id,
 			image: listing.images[0] || '',
 			title: listing.title?.en || listing.title,
 			description: listing.description?.en || listing.description,
 			category: listing.category?.name?.en || '',
+			subCategory: listing.subCategory?.name?.en || '',
 			pricing: listing.pricing,
 			date: listing.createdAt,
 			status: listing.status,
 		}));
-
-		const totalMain = await SaleItem.find({
-			vendor: vendorId,
-			mainCategory: { $ne: null }
-		});
-console.log(totalMain,"totalMaintotalMaintotalMain");
-
+	
+		const uniqueCategories = await Listing.distinct("category");
+		console.log(uniqueCategories,"uniqueCategoriesuniqueCategoriesuniqueCategories");
+		
 		res.json({
 			success: true,
 			stats: {
-				totalMainCategories: totalMain.length,
+				totalMainCategories: uniqueCategories.length,
 				totalSubCategories: subCategorySet.size,
 				totalListings
 			},
@@ -263,7 +264,7 @@ const createListing = async (req, res) => {
 			data: populatedListing
 		});
 
-           
+
 
 	} catch (error) {
 		console.error('Error creating listing:', error);

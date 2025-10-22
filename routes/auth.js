@@ -52,6 +52,8 @@ router.post('/verify-register-otp',
   authController.verifyOtpAndRegister
 );
 
+// router.post("/create-admin",authController)
+
 // Password reset routes
 router.post('/send-forgot-otp',
   rateLimit(10, 5 * 60 * 1000), 
