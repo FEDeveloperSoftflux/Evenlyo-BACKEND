@@ -52,6 +52,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:5173',
+  'http://localhost:5174',
   'https://evenlyo.web.app',
   'https://staging-evenlyo-vendor.web.app',
   'https://evenlyo-admin.web.app',
@@ -152,6 +153,7 @@ app.use('/api/admin/faqs', require('./routes/admin/faqs'));
 
 // Chat routes
 app.use('/api/messages', require('./routes/messageRoutes'));
+app.use('/api/conversations', require('./routes/conversationRoutes'));
 app.use('/api/chatrooms', require('./routes/chatRoomRoutes'));
 
 // Root

@@ -1,54 +1,103 @@
 const Message = require("../models/Message");
-const ChatRoom = require("../models/ChatRoom");
+const Conversation = require("../models/Conversation");
 
 function chatSocket(io) {
   io.on("connection", (socket) => {
-    console.log("🔌 User connected:", socket.id);
+    console.log("New connection:", socket.id);
 
-    // Join a specific chat room
-    socket.on("joinRoom", async (roomId) => {
-      socket.join(roomId);
-      console.log(`📥 User joined room: ${roomId}`);
+    // Join a conversation room for chatting
+    socket.on("join_conversation_room", ({ conversationId }) => {
+      socket.join(conversationId);
+      console.log(`CONVERSATION ROOM JOINED: ${conversationId}`);
     });
 
-    // Send a new message
-    socket.on("sendMessage", async ({ sender, content, chatRoom }) => {
+    // Admin Connected
+    socket.on("vendor_connected", ({ vendorId }) => {
+      const room = `vendor_${vendorId}`;
+      socket.join(room);
+      console.log(`VENDOR_CONNECTED: ${room}`);
+    });
+
+    //  User Connected
+    socket.on("user_connected", ({ userId }) => {
+      const room = `user_${userId}`;
+      socket.join(room);
+      console.log(`USER_CONNECTED: ${room}`);
+    });
+
+    socket.on("send_message", async (params) => {
+      console.log("AYA", params);
+
+      const {
+        conversationId,
+        senderId,
+        receiverId,
+        senderRole,
+        receiverRole,
+        senderRefrence,
+        receiverRefrence,
+        message,
+        conversationType,
+      } = params;
+
       try {
-        // Make sure chat room exists
-        const room = await ChatRoom.findById(chatRoom);
-        if (!room) {
-          console.error("❌ ChatRoom not found:", chatRoom);
-          return;
+        const newMessage = new Message({
+          conversationId,
+          senderId,
+          receiverId,
+          senderRole,
+          receiverRole,
+          senderRefrence,
+          receiverRefrence,
+          message,
+        });
+        await newMessage.save();
+
+        console.log("MIDD ME:", newMessage);
+
+        try {
+          const conversation = await Conversation.findOne({ conversationId });
+
+          if (conversation) {
+            conversation.lastMessage = message;
+            conversation.lastUpdated = Date.now();
+            conversation.messagesCount += 1;
+
+            const currentUnreadCount =
+              conversation.unreadMessagesCount.get(receiverId) || 0;
+            conversation.unreadMessagesCount.set(
+              receiverId,
+              currentUnreadCount + 1
+            );
+
+            await conversation.save();
+
+            const conObj = {
+              conversationId,
+              lastMessage: message,
+              lastUpdated: Date.now(),
+              unreadMessagesCount: Object.fromEntries(
+                conversation.unreadMessagesCount
+              ),
+            };
+
+            if (conversationType === "vender-to-user") {
+              io.to(`user_${receiverId}`).emit("new_conversation", conObj);
+              io.to(`vendor_${senderId}`).emit("new_conversation", conObj);
+            }
+            if (conversationType === "user-to-vendor") {
+              io.to(`vendor_${receiverId}`).emit("new_conversation", conObj);
+              io.to(`user_${senderId}`).emit("new_conversation", conObj);
+            }
+          }
+        } catch (error) {
+          console.error("Error updating conversation:", error.message);
         }
 
-        // Save message in DB
-        const newMessage = await Message.create({
-          sender,
-          content,
-          chatRoom,
-          readBy: [sender], // mark sender as having "read" their own message
-        });
-
-        // Broadcast message to everyone in the room
-        io.to(chatRoom).emit("receiveMessage", newMessage);
+        console.log("New message saved:", newMessage);
+        socket.broadcast.to(conversationId).emit("receive_message", newMessage);
       } catch (err) {
-        console.error("⚠️ Error sending message:", err.message);
-      }
-    });
-
-    // Mark a message as read
-    socket.on("markAsRead", async ({ messageId, userId, chatRoom }) => {
-      try {
-        const updatedMessage = await Message.findByIdAndUpdate(
-          messageId,
-          { $addToSet: { readBy: userId } }, // add only if not already there
-          { new: true }
-        );
-
-        // Broadcast updated message to the room
-        io.to(chatRoom).emit("messageRead", updatedMessage);
-      } catch (err) {
-        console.error("⚠️ Error marking message as read:", err.message);
+        console.error("Error saving message:", err.message);
       }
     });
 
@@ -60,4 +109,3 @@ function chatSocket(io) {
 }
 
 module.exports = chatSocket;
-

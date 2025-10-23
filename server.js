@@ -26,6 +26,7 @@ const io = new Server(server, {
   }
 });
 
+app.set('socketio', io);
 // Attach socket logic
 chatSocket(io);
 

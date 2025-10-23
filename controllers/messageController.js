@@ -3,11 +3,9 @@ const Message = require("../models/Message");
 // Get all messages in a chat room
 const getMessages = async (req, res) => {
   try {
-    const { chatRoomId } = req.params;
-    const messages = await Message.find({ chatRoom: chatRoomId })
-      .populate("sender", "name email")
-      .populate("readBy", "name email")
-      .sort({ createdAt: 1 });
+    const { conversationId } = req.params;
+    const messages = await Message.find({ conversationId });
+
     res.json(messages);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -41,7 +39,7 @@ const markAsRead = async (req, res) => {
 };
 
 module.exports = {
-    getMessages,
-    sendMessage,
-    markAsRead
-};  
+  getMessages,
+  sendMessage,
+  markAsRead,
+};
