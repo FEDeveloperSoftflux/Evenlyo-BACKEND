@@ -176,8 +176,7 @@ const createListing = async (req, res) => {
     }
 
     // Set vendor ID from authenticated user
-    const vendorId =
-      req.vendor?._id || req.user?._id || req.user?.vendorId || req.user?.id;
+    const vendorId = req.user?.vendorId ? req.user?.vendorId : req?.user.id
     if (!vendorId) {
       return res.status(400).json({
         success: false,
