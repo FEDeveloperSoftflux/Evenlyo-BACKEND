@@ -99,39 +99,39 @@ const getVendorListingsOverview = async (req, res) => {
       bookedCount: bookingCountMap[listing._id.toString()] || 0,
     }));
 
-		// listingTable: all listings with required details
-		// console.log(listings,"listingslistingslistings");
-		
-		const listingTable = listings.map(listing => ({
-			...listing.toObject(),
-			listingId: listing._id,
-			image: listing.images[0] || '',
-			title: listing.title?.en || listing.title,
-			description: listing.description?.en || listing.description,
-			category: listing.category?.name?.en || '',
-			subCategory: listing.subCategory?.name?.en || '',
-			pricing: listing.pricing,
-			date: listing.createdAt,
-			status: listing.status,
-		}));
-	
-		const uniqueCategories = await Listing.distinct("category");
-		console.log(uniqueCategories,"uniqueCategoriesuniqueCategoriesuniqueCategories");
-		
-		res.json({
-			success: true,
-			stats: {
-				totalMainCategories: uniqueCategories.length,
-				totalSubCategories: subCategorySet.size,
-				totalListings
-			},
-			listingOverview,
-			listingTable
-		});
-	} catch (err) {
-		console.error('Vendor listing overview error:', err);
-		res.status(500).json({ success: false, message: 'Server error', error: err.message });
-	}
+    // listingTable: all listings with required details
+    // console.log(listings,"listingslistingslistings");
+
+    const listingTable = listings.map(listing => ({
+      ...listing.toObject(),
+      listingId: listing._id,
+      image: listing.images[0] || '',
+      title: listing.title?.en || listing.title,
+      description: listing.description?.en || listing.description,
+      category: listing.category?.name?.en || '',
+      subCategory: listing.subCategory?.name?.en || '',
+      pricing: listing.pricing,
+      date: listing.createdAt,
+      status: listing.status,
+    }));
+
+    const uniqueCategories = await Listing.distinct("category");
+    console.log(uniqueCategories, "uniqueCategoriesuniqueCategoriesuniqueCategories");
+
+    res.json({
+      success: true,
+      stats: {
+        totalMainCategories: uniqueCategories.length,
+        totalSubCategories: subCategorySet.size,
+        totalListings
+      },
+      listingOverview,
+      listingTable
+    });
+  } catch (err) {
+    console.error('Vendor listing overview error:', err);
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
 };
 
 // @desc    Create a new listing
@@ -302,30 +302,34 @@ const createListing = async (req, res) => {
       .populate("category", "name icon description")
       .populate("subCategory", "name icon description");
 
-    activityLog = await createActivityLog({
+    let activityLog = await createActivityLog({
       heading: "New Listing Created",
       type: "booking_created",
-      description: `Created a new listing: "${
-        listingData?.title?.en || listingData?.title
-      }"`,
+      description: `Created a new listing: "${listingData?.title?.en || listingData?.title
+        }"`,
       vendorId,
     });
-	} catch (error) {
-		console.error('Error creating listing:', error);
-		if (error.name === 'ValidationError') {
-			const errors = Object.values(error.errors).map(err => err.message);
-			return res.status(400).json({
-				success: false,
-				message: 'Validation error',
-				errors
-			});
-		}
-		res.status(500).json({
-			success: false,
-			message: 'Error creating listing',
-			error: error.message
-		});
-	}
+    res.status(201).json({
+      success: true,
+      message: 'Listing created successfully',
+      data: populatedListing
+    });
+  } catch (error) {
+    console.error('Error creating listing:', error);
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: 'Error creating listing',
+      error: error.message
+    });
+  }
 };
 // ...existing code...
 

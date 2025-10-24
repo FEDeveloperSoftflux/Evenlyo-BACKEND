@@ -5,6 +5,7 @@ const SaleItems = require('../../models/Item.js');
 const User = require('../../models/User');
 const Vendor = require('../../models/Vendor');
 const Purchase = require('../../models/Purchase');
+const ActivityLog = require('../../models/ActivityLog.js');
 
 // Vendor Dashboard Analytics Controller
 const getDashboardAnalytics = async (req, res) => {
@@ -19,7 +20,7 @@ const getDashboardAnalytics = async (req, res) => {
 
     // Get vendor ID from session or find vendor by user ID
     let vendorId = req.user.vendorId;
-    
+
     if (!vendorId) {
       // Fallback: find vendor by user ID
       const vendor = await Vendor.findOne({ userId: req.user.id });
@@ -78,10 +79,12 @@ const getDashboardAnalytics = async (req, res) => {
     const startOfYear = new Date(now.getFullYear(), 0, 1);
     const monthlyRevenueAggAll = await Booking.aggregate([
       { $match: { vendorId: vendorObjectId, status: 'completed', createdAt: { $gte: startOfYear } } },
-      { $group: {
-        _id: { month: { $month: '$createdAt' } },
-        revenue: { $sum: '$pricing.totalPrice' }
-      } },
+      {
+        $group: {
+          _id: { month: { $month: '$createdAt' } },
+          revenue: { $sum: '$pricing.totalPrice' }
+        }
+      },
       { $sort: { '_id.month': 1 } }
     ]);
     // Array of 12 months, fill missing with 0
@@ -93,8 +96,8 @@ const getDashboardAnalytics = async (req, res) => {
     const monthlyRevenue =
       Number((monthlyRevenueByMonth.reduce((sum, val) => sum + val, 0) / 12).toFixed(3));
 
-  // 3. Total Number of Items Listed (only 'active' listings, using Listing model)
-  const totalItemsListed = await Listing.countDocuments({ vendor: vendorId, status: 'active', isActive: true });
+    // 3. Total Number of Items Listed (only 'active' listings, using Listing model)
+    const totalItemsListed = await Listing.countDocuments({ vendor: vendorId, status: 'active', isActive: true });
 
     // New: Total Service Items (listings that are services)
     // We consider a listing a service when `serviceDetails.serviceType` exists (human/non_human)
@@ -112,10 +115,12 @@ const getDashboardAnalytics = async (req, res) => {
     // 5. Order Overview by Month (just number of bookings per month)
     const orderOverviewAgg = await Booking.aggregate([
       { $match: { vendorId: vendorObjectId, createdAt: { $gte: startOfYear } } },
-      { $group: {
-        _id: { month: { $month: '$createdAt' } },
-        totalOrders: { $sum: 1 }
-      } },
+      {
+        $group: {
+          _id: { month: { $month: '$createdAt' } },
+          totalOrders: { $sum: 1 }
+        }
+      },
       { $sort: { '_id.month': 1 } }
     ]);
     // Fill missing months with 0 orders
@@ -124,7 +129,7 @@ const getDashboardAnalytics = async (req, res) => {
       return { month: i + 1, totalOrders: found ? found.totalOrders : 0 };
     });
 
-        // 6. Purchase Overview by Month (sale item purchases for this vendor)
+    // 6. Purchase Overview by Month (sale item purchases for this vendor)
     const purchaseAgg = await Purchase.aggregate([
       { $match: { vendor: vendorObjectId, purchasedAt: { $gte: startOfYear } } },
       { $group: { _id: { month: { $month: '$purchasedAt' } }, totalPurchases: { $sum: '$quantity' } } },
@@ -135,7 +140,9 @@ const getDashboardAnalytics = async (req, res) => {
       const found = purchaseAgg.find(m => m._id.month === i + 1);
       return { month: i + 1, totalPurchases: found ? found.totalPurchases : 0 };
     });
-
+    const activityLog = await ActivityLog.find({ vendorId: req.user.id })
+    console.log(activityLog,"activityLogactivityLogactivityLogactivityLog");
+    
     // Recent Purchases (last 3)
     const recentPurchases = await Purchase.find({ vendor: vendorId })
       .sort({ purchasedAt: -1 })
