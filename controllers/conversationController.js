@@ -88,6 +88,7 @@ const getConversations = async (req, res) => {
       .populate("participants.userId")
       .sort({ lastUpdated: -1 });
 
+      
     return res.status(200).json({
       success: true,
       message: "Conversation fetched successfully",

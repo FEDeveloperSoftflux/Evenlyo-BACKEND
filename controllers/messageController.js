@@ -6,9 +6,17 @@ const getMessages = async (req, res) => {
     const { conversationId } = req.params;
     const messages = await Message.find({ conversationId });
 
-    res.json(messages);
+    res.status(200).json({
+      success: true,
+      message: "Messages fetched successfully",
+      data: messages,
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      success: false,
+      message: "Error fetching messages",
+      error: err.message,
+    });
   }
 };
 

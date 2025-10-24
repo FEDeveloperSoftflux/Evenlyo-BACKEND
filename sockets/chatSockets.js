@@ -26,7 +26,7 @@ function chatSocket(io) {
     });
 
     socket.on("send_message", async (params) => {
-      console.log("AYA", params);
+      console.log("EVENT_FIRED", params);
 
       const {
         conversationId,
@@ -38,6 +38,7 @@ function chatSocket(io) {
         receiverRefrence,
         message,
         conversationType,
+        attachment,
       } = params;
 
       try {
@@ -50,10 +51,18 @@ function chatSocket(io) {
           senderRefrence,
           receiverRefrence,
           message,
+          ...(attachment && {
+            attachment: {
+              url: attachment?.url,
+              type: attachment?.type,
+              name: attachment?.name,
+              size: attachment?.size,
+            },
+          }),
         });
         await newMessage.save();
 
-        console.log("MIDD ME:", newMessage);
+        console.log("NEW_MESSAGE_SAVED", newMessage);
 
         try {
           const conversation = await Conversation.findOne({ conversationId });
@@ -100,6 +109,40 @@ function chatSocket(io) {
         console.error("Error saving message:", err.message);
       }
     });
+
+    socket.on(
+      "reset_unread_count",
+      async ({ conversationId, userId, userType }) => {
+        try {
+          const conversation = await Conversation.findOne({ conversationId });
+          if (conversation) {
+            if (conversation.unreadMessagesCount.has(userId)) {
+              conversation.unreadMessagesCount.set(userId, 0);
+              await conversation.save();
+
+              const conObj = {
+                conversationId,
+                isListUpdated: false,
+                lastMessage: conversation.lastMessage,
+                lastUpdated: conversation.lastUpdated,
+                unreadMessagesCount: Object.fromEntries(
+                  conversation.unreadMessagesCount
+                ),
+              };
+
+              if (userType === "user") {
+                io.to(`user_${userId}`).emit("new_conversation", conObj);
+              }
+              if (userType === "vendor") {
+                io.to(`vendor_${userId}`).emit("new_conversation", conObj);
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error resetting unread count:", error.message);
+        }
+      }
+    );
 
     // Handle disconnection
     socket.on("disconnect", () => {

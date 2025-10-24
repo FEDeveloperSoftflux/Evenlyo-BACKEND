@@ -14,7 +14,9 @@ const allowedOrigins = [
   'http://localhost:3001',
   'https://evenlyo.web.app',
   'https://staging-evenlyo-vendor.web.app',
-  'https://evenlyo-admin.web.app'
+  'https://evenlyo-admin.web.app',
+  'https://cp5h187s-5173.inc1.devtunnels.ms',
+  'https://cp5h187s-3000.inc1.devtunnels.ms'
 ];
 
 // Initialize Socket.io
