@@ -49,7 +49,7 @@ const getConflictingBookings = async (listingId, startDate, endDate) => {
         }
       ]
     }).select('details.startDate details.endDate status trackingId userId')
-    .populate('userId', 'firstName lastName');
+      .populate('userId', 'firstName lastName');
 
     return conflictingBookings;
   } catch (error) {
@@ -105,23 +105,23 @@ const calculateBookingPrice = (listing, duration) => {
  */
 const validateBookingDetails = (details) => {
   const errors = [];
-  
+
   if (!details.startDate) {
     errors.push('Start date is required');
   }
-  
+
   if (!details.endDate) {
     errors.push('End date is required');
   }
-  
+
   if (!details.startTime) {
     errors.push('Start time is required');
   }
-  
+
   if (!details.endTime) {
     errors.push('End time is required');
   }
-  
+
   if (!details.eventLocation) {
     errors.push('Event location is required');
   }
@@ -130,11 +130,11 @@ const validateBookingDetails = (details) => {
   if (details.startDate && details.endDate) {
     const start = new Date(details.startDate);
     const end = new Date(details.endDate);
-    
+
     if (start >= end) {
       errors.push('Start date must be before end date');
     }
-    
+
     // Check if booking is for the future
     if (start < new Date()) {
       errors.push('Booking date cannot be in the past');
@@ -188,7 +188,7 @@ const checkTimeSlotAvailability = (availableTimeSlots, requestedStartTime, reque
   return availableTimeSlots.some(slot => {
     const slotStart = timeToMinutes(slot.startTime);
     const slotEnd = timeToMinutes(slot.endTime);
-    
+
     return requestedStart >= slotStart && requestedEnd <= slotEnd;
   });
 };
@@ -220,7 +220,7 @@ const timeToMinutes = (timeString) => {
   if (!timeString || typeof timeString !== 'string') {
     return 0;
   }
-  
+
   const [hours, minutes] = timeString.split(':').map(Number);
   return (hours || 0) * 60 + (minutes || 0);
 };
@@ -280,7 +280,7 @@ const calculateFullBookingPrice = (listing, opts = {}) => {
 
     const pricingType = (listing.pricing.type || '').toString().toLowerCase();
     const eventsCount = Number(numberOfEvents) > 0 ? Number(numberOfEvents) : 1;
-console.log('Pricing Type:', pricingType);
+    console.log('Pricing Type:', pricingType);
     let bookingPrice = 0;
     if (pricingType === 'PerHour' || pricingType === 'hourly' || pricingType === 'perhour' || pricingType === 'per hour') {
       bookingPrice = listing.pricing.amount * totalHours;
@@ -339,7 +339,7 @@ console.log('Pricing Type:', pricingType);
 // Helper function to get detailed availability information
 const getAvailabilityDetails = async (listingId, startDate, endDate, excludeBookingId = null, startTime = null, endTime = null) => {
   const isAvailable = await checkAvailability(listingId, startDate, endDate, excludeBookingId, startTime, endTime);
-  
+
   if (!isAvailable) {
     // Get conflicting bookings for detailed response
     const query = {
@@ -395,13 +395,13 @@ const checkAvailability = async (listingId, startDate, endDate, excludeBookingId
     // Normalize dates to start of day for accurate comparison
     const checkStart = new Date(startDate);
     checkStart.setHours(0, 0, 0, 0);
-    
+
     const checkEnd = new Date(endDate);
     checkEnd.setHours(23, 59, 59, 999);
-    
+
     // Check if it's a single day booking
     const isSingleDay = checkStart.getTime() === checkEnd.setHours(0, 0, 0, 0);
-    
+
     // For single day bookings, check time availability
     if (isSingleDay && startTime && endTime && listing.availability?.availableTimeSlots?.length > 0) {
       const isTimeAvailable = checkTimeSlotAvailability(
@@ -409,7 +409,7 @@ const checkAvailability = async (listingId, startDate, endDate, excludeBookingId
         startTime,
         endTime
       );
-      
+
       if (!isTimeAvailable) {
         console.log(`Time slot ${startTime}-${endTime} is not available for listing ${listingId}`);
         return false;
@@ -424,7 +424,7 @@ const checkAvailability = async (listingId, startDate, endDate, excludeBookingId
         return false;
       }
     }
-    
+
     // Build query to check for overlapping bookings
     const query = {
       listingId,
@@ -442,7 +442,7 @@ const checkAvailability = async (listingId, startDate, endDate, excludeBookingId
     if (excludeBookingId) {
       query._id = { $ne: excludeBookingId };
     }
-    
+
     // Check for overlapping bookings that are not rejected or cancelled
     const overlappingBookings = await BookingRequest.find(query)
       .select('details.startDate details.endDate details.startTime details.endTime status trackingId');
@@ -455,10 +455,10 @@ const checkAvailability = async (listingId, startDate, endDate, excludeBookingId
         const bookingEnd = new Date(booking.details.endDate);
         bookingStart.setHours(0, 0, 0, 0);
         bookingEnd.setHours(0, 0, 0, 0);
-        
-        const isSameDay = bookingStart.getTime() === checkStart.getTime() || 
-                         bookingEnd.getTime() === checkStart.getTime();
-        
+
+        const isSameDay = bookingStart.getTime() === checkStart.getTime() ||
+          bookingEnd.getTime() === checkStart.getTime();
+
         if (isSameDay && booking.details.startTime && booking.details.endTime) {
           return checkTimeOverlap(
             startTime, endTime,
@@ -467,7 +467,7 @@ const checkAvailability = async (listingId, startDate, endDate, excludeBookingId
         }
         return true; // If no time info, assume conflict
       });
-      
+
       if (timeConflicts.length > 0) {
         console.log('Time conflicts found for listing', listingId + ':');
         timeConflicts.forEach(booking => {

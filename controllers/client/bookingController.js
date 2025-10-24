@@ -5,8 +5,8 @@ const Listing = require('../../models/Listing');
 const User = require('../../models/User');
 const Vendor = require('../../models/Vendor');
 const Settings = require('../../models/Settings');
-const {checkAvailability,calculateFullBookingPrice, checkListingStock, getListingPaymentPolicy} = require('../../utils/bookingUtils');
-const {toMultilingualText} = require('../../utils/textUtils');
+const { checkAvailability, calculateFullBookingPrice, checkListingStock, getListingPaymentPolicy } = require('../../utils/bookingUtils');
+const { toMultilingualText } = require('../../utils/textUtils');
 const stripe = require('../../config/stripe');
 
 // @desc    Create Stripe PaymentIntent for a booking
@@ -38,8 +38,8 @@ const createBookingPaymentIntent = asyncHandler(async (req, res) => {
       amount,
       currency: 'usd',
       metadata: {
-  bookingId: booking._id ? booking._id.toString() : '',
-  userId: booking.userId ? (booking.userId._id ? booking.userId._id.toString() : booking.userId.toString()) : ''
+        bookingId: booking._id ? booking._id.toString() : '',
+        userId: booking.userId ? (booking.userId._id ? booking.userId._id.toString() : booking.userId.toString()) : ''
       }
     });
     res.status(200).json({
@@ -96,7 +96,7 @@ const reviewBooking = asyncHandler(async (req, res) => {
     const newAverage = (prevTotal + rating) / newCount;
     vendor.rating.average = newAverage;
     vendor.rating.totalReviews = newCount;
-    
+
     // Add review to vendor's reviews array
     vendor.reviews.push({
       bookingId: booking._id,
@@ -104,29 +104,29 @@ const reviewBooking = asyncHandler(async (req, res) => {
       rating: rating,
       review: review ? toMultilingualText(review) : undefined
     });
-    
+
     await vendor.save();
   }
 
-    // Update listing's average rating, total reviews, and add review to reviews array
-    const listing = await Listing.findById(booking.listingId);
-    if (listing) {
-      const prevTotal = (listing.rating?.average || 0) * (listing.rating?.totalReviews || 0);
-      const newCount = (listing.rating?.totalReviews || 0) + 1;
-      const newAverage = (prevTotal + rating) / newCount;
-      listing.rating = listing.rating || {};
-      listing.rating.average = newAverage;
-      listing.rating.totalReviews = newCount;
-      // Add review to listing's reviews array
-      listing.reviews = listing.reviews || [];
-      listing.reviews.push({
-        bookingId: booking._id,
-        clientId: booking.userId,
-        rating: rating,
-        review: review ? toMultilingualText(review) : undefined
-      });
-      await listing.save();
-    }
+  // Update listing's average rating, total reviews, and add review to reviews array
+  const listing = await Listing.findById(booking.listingId);
+  if (listing) {
+    const prevTotal = (listing.rating?.average || 0) * (listing.rating?.totalReviews || 0);
+    const newCount = (listing.rating?.totalReviews || 0) + 1;
+    const newAverage = (prevTotal + rating) / newCount;
+    listing.rating = listing.rating || {};
+    listing.rating.average = newAverage;
+    listing.rating.totalReviews = newCount;
+    // Add review to listing's reviews array
+    listing.reviews = listing.reviews || [];
+    listing.reviews.push({
+      bookingId: booking._id,
+      clientId: booking.userId,
+      rating: rating,
+      review: review ? toMultilingualText(review) : undefined
+    });
+    await listing.save();
+  }
 
   res.json({
     success: true,
@@ -134,6 +134,14 @@ const reviewBooking = asyncHandler(async (req, res) => {
     data: { booking }
   });
 });
+
+function getDayCount(startDate, endDate) {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  const diffTime = end - start;
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 for inclusive
+}
 
 // @desc    Create a booking request
 // @route   POST /api/booking/request
@@ -217,9 +225,9 @@ const createBookingRequest = asyncHandler(async (req, res) => {
 
   // Check availability for all days in the range, including time slots for single-day bookings
   const isAvailable = await checkAvailability(
-    listingId, 
-    new Date(startDate), 
-    new Date(endDate), 
+    listingId,
+    new Date(startDate),
+    new Date(endDate),
     null, // excludeBookingId
     startTime, // pass startTime for time slot validation
     endTime    // pass endTime for time slot validation
@@ -253,11 +261,11 @@ const createBookingRequest = asyncHandler(async (req, res) => {
   }
 
   // Fetch platform fee from Settings
-    const settings = await Settings.findOne();
-    let platformFeePercent = 0.015; // default 1.5%
-    if (settings && typeof settings.bookingItemPlatformFee === 'number') {
-      platformFeePercent = settings.bookingItemPlatformFee;
-    }
+  const settings = await Settings.findOne();
+  let platformFeePercent = 0.015; // default 1.5%
+  if (settings && typeof settings.bookingItemPlatformFee === 'number') {
+    platformFeePercent = settings.bookingItemPlatformFee;
+  }
 
   // Calculate pricing using utility
   const pricingResult = calculateFullBookingPrice(listing, { startDate, endDate, startTime, endTime, distanceKm });
@@ -271,7 +279,7 @@ const createBookingRequest = asyncHandler(async (req, res) => {
   const extratimeCost = pricingResult.extratimeCost;
   const securityFee = pricingResult.securityFee;
   const kmCharge = pricingResult.kmCharge;
-  const subtotal = bookingPrice + extratimeCost + securityFee + kmCharge ;
+  const subtotal = bookingPrice + extratimeCost + securityFee + kmCharge;
   const totalPrice = subtotal + platformFee;
   dailyHours = pricingResult.dailyHours;
   totalHours = pricingResult.totalHours;
@@ -279,7 +287,7 @@ const createBookingRequest = asyncHandler(async (req, res) => {
   isMultiDay = pricingResult.isMultiDay;
 
   // Calculate platform fee as percentage of booking price
-  
+
 
   // Transform eventType and specialRequests to multilingual format if they are strings
   let processedEventType = eventType;
@@ -301,6 +309,11 @@ const createBookingRequest = asyncHandler(async (req, res) => {
     };
   }
   // Create booking request with multi-day support
+
+  console.log(listing, "listinglistinglistinglisting");
+  const result = getDayCount(startDate, endDate);
+  // console.log(result, "RESSASDASDADASD");
+  // return
   const bookingRequest = new BookingRequest({
     userId: req.user.id,
     vendorId,
@@ -316,7 +329,8 @@ const createBookingRequest = asyncHandler(async (req, res) => {
         amount: listing.pricing.amount,
         extratimeCost: listing.pricing.extratimeCost || 0,
         securityFee: listing.pricing.securityFee || 0,
-        pricePerKm: listing.pricing.pricePerKm || 0
+        pricePerKm: listing.pricing.pricePerKm || 0,
+        days: result
       },
       category: listing.category ? {
         _id: listing.category._id,
@@ -361,7 +375,6 @@ const createBookingRequest = asyncHandler(async (req, res) => {
       eventType: processedEventType,
       guestCount,
       specialRequests: processedSpecialRequests,
-
     },
     pricing: {
       type: listing.pricing.type,
@@ -391,12 +404,12 @@ const createBookingRequest = asyncHandler(async (req, res) => {
   try {
     const vendor = await Vendor.findById(bookingRequest.vendorId);
     const client = await User.findById(bookingRequest.userId).select('firstName lastName');
-    
+
     if (vendor && vendor.userId) {
       const clientName = client ? `${client.firstName} ${client.lastName}` : 'A client';
       const listingTitle = listing.title || 'your listing';
       const bookingDates = `${startDate}${endDate !== startDate ? ` to ${endDate}` : ''}`;
-      
+
       await notificationController.createNotification({
         user: vendor.userId, // vendor's user account receives notification
         bookingId: bookingRequest._id,
@@ -453,8 +466,8 @@ const getPendingBookings = asyncHandler(async (req, res) => {
     vendorId: vendor._id,
     status: 'pending'
   })
-  .populate('userId', 'firstName lastName email contactNumber')
-  .sort({ createdAt: -1 });
+    .populate('userId', 'firstName lastName email contactNumber')
+    .sort({ createdAt: -1 });
 
   res.json({
     success: true,
@@ -473,8 +486,8 @@ const getAcceptedBookings = asyncHandler(async (req, res) => {
     userId: req.user.id,
     status: 'accepted'
   })
-  .populate('vendorId', 'businessName businessEmail businessPhone')
-  .sort({ createdAt: -1 });
+    .populate('vendorId', 'businessName businessEmail businessPhone')
+    .sort({ createdAt: -1 });
 
   res.json({
     success: true,
@@ -508,7 +521,7 @@ const markBookingAsPaid = asyncHandler(async (req, res) => {
   booking.status = 'paid';
   booking.paymentStatus = 'paid';
   booking.paymentMethod = paymentMethod || 'stripe';
-  
+
   if (transactionId) {
     booking.transactionId = transactionId;
   }
@@ -521,7 +534,7 @@ const markBookingAsPaid = asyncHandler(async (req, res) => {
     if (vendor && vendor.userId) {
       await notificationController.createNotification({
         user: vendor.userId,
-        bookingId : booking._id,
+        bookingId: booking._id,
         message: `A client has paid for a booking.`
       });
     }
@@ -549,7 +562,7 @@ const markBookingAsPaid = asyncHandler(async (req, res) => {
 // @access  Private (User)
 const getBookingHistory = asyncHandler(async (req, res) => {
   const { status, page = 1, limit = 30 } = req.query;
-  
+
   const filter = { userId: req.user.id };
   if (status) {
     filter.status = status;
@@ -565,7 +578,10 @@ const getBookingHistory = asyncHandler(async (req, res) => {
 
   // Format bookings with action buttons based on status
   const formattedBookings = bookings.map(booking => {
+    console.log(booking, "bookingbookingbookingbooking");
+
     const bookingData = {
+      ...booking.toObject(),
       _id: booking._id,
       trackingId: booking.trackingId,
       bookingDateTime: {
@@ -611,7 +627,7 @@ const getBookingHistory = asyncHandler(async (req, res) => {
 // Helper function to get action buttons for clients based on status
 const getClientActionButtons = (status) => {
   const buttons = [];
-  
+
   switch (status) {
     case 'pending':
       buttons.push({
@@ -621,7 +637,7 @@ const getClientActionButtons = (status) => {
         type: 'danger'
       });
       break;
-      
+
     case 'accepted':
       buttons.push(
         {
@@ -638,7 +654,7 @@ const getClientActionButtons = (status) => {
         }
       );
       break;
-      
+
     case 'paid':
       buttons.push({
         action: 'view_details',
@@ -647,7 +663,7 @@ const getClientActionButtons = (status) => {
         type: 'info'
       });
       break;
-      
+
     case 'on the way':
       buttons.push({
         action: 'track',
@@ -656,7 +672,7 @@ const getClientActionButtons = (status) => {
         type: 'info'
       });
       break;
-      
+
     case 'received':
       buttons.push(
         {
@@ -673,7 +689,7 @@ const getClientActionButtons = (status) => {
         }
       );
       break;
-      
+
     case 'picked up':
       buttons.push(
         {
@@ -690,7 +706,7 @@ const getClientActionButtons = (status) => {
         }
       );
       break;
-      
+
     case 'completed':
       buttons.push(
         {
@@ -707,7 +723,7 @@ const getClientActionButtons = (status) => {
         }
       );
       break;
-      
+
     case 'claim':
       buttons.push({
         action: 'view_claim',
@@ -716,7 +732,7 @@ const getClientActionButtons = (status) => {
         type: 'warning'
       });
       break;
-      
+
     case 'rejected':
       buttons.push({
         action: 'view_reason',
@@ -725,11 +741,11 @@ const getClientActionButtons = (status) => {
         type: 'danger'
       });
       break;
-      
+
     default:
       break;
   }
-  
+
   return buttons;
 };
 
@@ -738,7 +754,7 @@ const getClientActionButtons = (status) => {
 // @access  Private (Vendor)
 const getVendorBookingHistory = asyncHandler(async (req, res) => {
   const { status, page = 1, limit = 10 } = req.query;
-  
+
   // Get vendor profile
   const vendor = await Vendor.findOne({ userId: req.user.id });
   if (!vendor) {
@@ -1141,7 +1157,7 @@ const getBookingSummary = asyncHandler(async (req, res) => {
         fullAddress: listing.location && listing.location.fullAddress ? listing.location.fullAddress : '',
         coordinates: listing.location && listing.location.coordinates ? listing.location.coordinates : { latitude: null, longitude: null }
       },
-  images: (Array.isArray(listing.images) && listing.images.length > 0) ? listing.images[0] : (listing.images ? (typeof listing.images === 'string' ? listing.images : '') : '')
+      images: (Array.isArray(listing.images) && listing.images.length > 0) ? listing.images[0] : (listing.images ? (typeof listing.images === 'string' ? listing.images : '') : '')
     };
   }
 
@@ -1221,7 +1237,7 @@ const TrackBooking = asyncHandler(async (req, res) => {
         fullAddress: listing.location && listing.location.fullAddress ? listing.location.fullAddress : '',
         coordinates: listing.location && listing.location.coordinates ? listing.location.coordinates : { latitude: null, longitude: null }
       },
-  images: (Array.isArray(listing.images) && listing.images.length > 0) ? listing.images[0] : (listing.images ? (typeof listing.images === 'string' ? listing.images : '') : '')
+      images: (Array.isArray(listing.images) && listing.images.length > 0) ? listing.images[0] : (listing.images ? (typeof listing.images === 'string' ? listing.images : '') : '')
     };
   }
 
