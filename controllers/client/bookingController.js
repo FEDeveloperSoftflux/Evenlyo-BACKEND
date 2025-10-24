@@ -8,6 +8,7 @@ const Settings = require('../../models/Settings');
 const {checkAvailability,calculateFullBookingPrice, checkListingStock, getListingPaymentPolicy} = require('../../utils/bookingUtils');
 const {toMultilingualText} = require('../../utils/textUtils');
 const stripe = require('../../config/stripe');
+const Booking = require('../../models/Booking');
 
 // @desc    Create Stripe PaymentIntent for a booking
 // @route   POST /api/booking/:id/create-payment-intent
@@ -1246,6 +1247,30 @@ const TrackBooking = asyncHandler(async (req, res) => {
 });
 
 
+const fetchBookingRequest = asyncHandler(async(req,res)=> {
+  const {status, vendorId} = req.body;
+
+  let obj = {}
+  if(vendorId) obj.vendorId = vendorId;
+  if(status) obj.status = status;
+
+  const findBookingRequest = await Booking.find(obj);
+
+  if (!findBookingRequest || findBookingRequest.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Cannot find a booking request!'
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    data: findBookingRequest,
+    message: 'Booking requests fetched successfully'
+  });
+});
+
+
 module.exports = {
   createBookingRequest,
   getPendingBookings,
@@ -1262,6 +1287,7 @@ module.exports = {
   createBookingPaymentIntent,
   getBookingSummary,
   TrackBooking,
+  fetchBookingRequest,
 };
 
 
