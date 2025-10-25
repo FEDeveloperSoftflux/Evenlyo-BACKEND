@@ -9,7 +9,7 @@ const { checkAvailability, calculateFullBookingPrice, checkListingStock, getList
 const { toMultilingualText } = require('../../utils/textUtils');
 const stripe = require('../../config/stripe');
 const Booking = require('../../models/Booking');
-
+const mongoose = require("mongoose")
 // @desc    Create Stripe PaymentIntent for a booking
 // @route   POST /api/booking/:id/create-payment-intent
 // @access  Private (User)
@@ -1263,14 +1263,17 @@ const TrackBooking = asyncHandler(async (req, res) => {
 });
 
 
-const fetchBookingRequest = asyncHandler(async(req,res)=> {
-  const {status, vendorId} = req.body;
+const fetchBookingRequest = asyncHandler(async (req, res) => {
+  const { status, vendorId } = req.body;
 
   let obj = {}
-  if(vendorId) obj.vendorId = vendorId;
-  if(status) obj.status = status;
+  if (vendorId) obj.vendorId = new mongoose.Types.ObjectId(vendorId);
+  if (status) obj.status = status;
 
+  console.log(obj,"objobj");
+  
   const findBookingRequest = await Booking.find(obj);
+  console.log(findBookingRequest, "findBookingRequestfindBookingRequest");
 
   if (!findBookingRequest || findBookingRequest.length === 0) {
     return res.status(400).json({
