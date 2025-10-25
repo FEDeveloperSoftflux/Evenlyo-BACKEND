@@ -3,8 +3,11 @@ const Message = require("../models/Message");
 // Get all messages in a chat room
 const getMessages = async (req, res) => {
   try {
-    const { conversationId } = req.params;
-    const messages = await Message.find({ conversationId });
+    const { conversationId, userId } = req.params;
+    const messages = await Message.find({
+      conversationId,
+      deletedFor: { $ne: userId },
+    });
 
     res.status(200).json({
       success: true,
@@ -19,6 +22,36 @@ const getMessages = async (req, res) => {
     });
   }
 };
+
+// const getMessages = async (req, res) => {
+//   try {
+//     const { conversationId } = req.params;
+//     const { page = 1, limit = 30 } = req.query;
+
+//     const skip = (page - 1) * limit;
+
+//     // Newest messages last me aayein → sort ascending by createdAt
+//     const messages = await Message.find({ conversationId })
+//       .sort({ createdAt: -1 }) // newest first
+//       .skip(skip)
+//       .limit(Number(limit));
+
+//     const totalMessages = await Message.countDocuments({ conversationId });
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Messages fetched successfully",
+//       data: messages.reverse(), // reverse to show oldest → newest in frontend
+//       hasMore: skip + Number(limit) < totalMessages,
+//     });
+//   } catch (err) {
+//     res.status(500).json({
+//       success: false,
+//       message: "Error fetching messages",
+//       error: err.message,
+//     });
+//   }
+// };
 
 // Send a message
 const sendMessage = async (req, res) => {
@@ -46,8 +79,22 @@ const markAsRead = async (req, res) => {
   }
 };
 
+const softDeleteMessage = async (req, res) => {
+  try {
+    const { conversationId, userId } = req.params;
+    await Message.updateMany(
+      { conversationId },
+      { $addToSet: { deletedFor: userId } }
+    );
+    res.json({ success: true, message: "Message deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 module.exports = {
   getMessages,
   sendMessage,
   markAsRead,
+  softDeleteMessage,
 };

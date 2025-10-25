@@ -54,6 +54,12 @@ const MessageSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    deletedFor: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        refPath: "senderRefrence",
+      },
+    ],
   },
   {
     collection: "message",
