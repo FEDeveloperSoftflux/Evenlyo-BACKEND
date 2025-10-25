@@ -32,8 +32,7 @@ const registerClient = async (req, res) => {
 };
 
 // --- Admin Login ---
-const performAdminLogin = async (req, res) => 
-  {
+const performAdminLogin = async (req, res) => {
   // ...existing code for performLogin with userType 'admin'...
   return performLogin(req, res, 'admin');
 };
@@ -61,7 +60,7 @@ const performLogin = async (req, res, userType) => {
         message: 'Email and password are required'
       });
     }
-      // Removed super admin environment variable login logic
+    // Removed super admin environment variable login logic
 
     // Get appropriate model
     const UserModel = getModelByUserType(userType);
@@ -219,7 +218,7 @@ const performLogin = async (req, res, userType) => {
       }
     }
 
-  const accessToken = buildAccessToken(user, extraPayload);
+    const accessToken = buildAccessToken(user, extraPayload);
 
     // Return success response
     // Build response user object, include pages for employee role-users
@@ -282,7 +281,7 @@ const performLogin = async (req, res, userType) => {
 
 // Admin Login
 const adminLogin = performAdminLogin;
-  
+
 
 
 // --- Logout (stateless) ---
@@ -495,7 +494,7 @@ const verifyOtpAndRegister = async (req, res, userType = 'client') => {
     //   // Vendor profile creation logic will be implemented here
     // }
 
-    const successMessage = userType === 'vendor' 
+    const successMessage = userType === 'vendor'
       ? 'Vendor registration successful. Your account is pending approval.'
       : 'Client registration successful';
 
@@ -516,7 +515,7 @@ const verifyOtpAndRegister = async (req, res, userType = 'client') => {
 // --- Forgot Password OTP endpoints ---
 const sendOtpForForgotPassword = async (req, res) => {
   try {
-    let { email ,type } = req.body;
+    let { email, type } = req.body;
     if (!email) {
       return res.status(400).json({
         success: false,
@@ -660,10 +659,10 @@ const resetPassword = async (req, res) => {
 const verifyOtpAndRegisterGeneral = async (req, res) => {
   try {
     const { userType } = req.body;
-    
+
     // If userType is provided in body, use it; otherwise default to 'client'
     const targetUserType = userType || 'client';
-    
+
     // Validate userType
     if (!['client', 'vendor'].includes(targetUserType)) {
       return res.status(400).json({
@@ -679,7 +678,7 @@ const verifyOtpAndRegisterGeneral = async (req, res) => {
         message: 'Vendor registration is not yet implemented. Please use client registration.'
       });
     }
-    
+
     return verifyOtpAndRegister(req, res, targetUserType);
   } catch (error) {
     console.error('General registration error:', error);
@@ -740,11 +739,11 @@ const googleAuth = async (req, res) => {
       // User is a Google user, allow login
       user.lastLogin = new Date();
       await user.save();
-  const accessToken = buildAccessToken(user);
+      const accessToken = buildAccessToken(user);
       return res.json({
         success: true,
         message: 'Login successful',
-  tokens: { access: accessToken },
+        tokens: { access: accessToken },
         user: {
           id: user._id,
           email: user.email,
@@ -774,11 +773,11 @@ const googleAuth = async (req, res) => {
 
       await user.save();
 
-  const accessToken = buildAccessToken(user);
+      const accessToken = buildAccessToken(user);
       return res.status(201).json({
         success: true,
         message: 'Registration and login successful',
-  tokens: { access: accessToken },
+        tokens: { access: accessToken },
         user: {
           id: user._id,
           email: user.email,
@@ -1047,7 +1046,7 @@ const registerVendor2 = async (req, res) => {
       if (!businessEmail) {
         return res.status(400).json({ success: false, message: 'businessEmail is required for business accounts' });
       }
-      if (!businessName  || !teamSize || !teamType || !kvkNumber || !mainCategories || !subCategories) {
+      if (!businessName || !teamSize || !teamType || !kvkNumber || !mainCategories || !subCategories) {
         return res.status(400).json({ success: false, message: 'Missing required business account fields' });
       }
     }
@@ -1086,7 +1085,7 @@ const registerVendor2 = async (req, res) => {
       userData.lastName = lastName;
       userData.address = fullAddress;
       userData.passportDetails = passportDetails;
-    } 
+    }
     else {
       // For business, store minimal info in User
       userData.firstName = businessName;
@@ -1098,7 +1097,7 @@ const registerVendor2 = async (req, res) => {
 
     // Create vendor profile
     const vendorData = {
-      userId: user._id,
+      vendorId: user._id,
       mainCategories: mainCategories || [],
       subCategories: subCategories || [],
       isApproved: false
@@ -1165,7 +1164,7 @@ module.exports = {
   clientLogin,
   vendorLogin,
   adminLogin,
-  
+
   logout,
   getCurrentUser,
   googleAuth,

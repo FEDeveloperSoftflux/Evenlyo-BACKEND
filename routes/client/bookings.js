@@ -14,7 +14,8 @@ const {
   getBookingSummary,
   reviewBooking,
   cancelBooking,
-  TrackBooking
+  TrackBooking,
+  fetchBookingRequest,
 } = require('../../controllers/client/bookingController');
 
   const { getBookingSimpleDetails } = require('../../controllers/client/bookingController');
@@ -96,5 +97,6 @@ router.get('/:id/direction', requireAuth, TrackBooking);
 
 router.post('/:id/create-payment-intent', requireAuth, requireClient, createBookingPaymentIntent);
 
+router.post("/request-by-status",  fetchBookingRequest);
 
 module.exports = router;

@@ -4,7 +4,7 @@ const User = require('../../models/User');
 const Category = require('../../models/Category');
 const SubCategory = require('../../models/SubCategory');
 const { toMultilingualText } = require('../../utils/textUtils');
-
+const mongoose = require("mongoose")
 // Get vendor profile (fields depend on account type)
 const getProfile = async (req, res) => {
   try {
@@ -18,7 +18,7 @@ const getProfile = async (req, res) => {
     // Assume account type is determined by businessName: if present, business; else, personal
     const isBusiness = !!vendor.businessName;
     let profile = {};
-  if (isBusiness) {
+    if (isBusiness) {
       // Map categories into a cleaner shape
       const mappedMainCategories = (vendor.mainCategories || []).map(c => ({
         _id: c._id,
@@ -100,7 +100,7 @@ const updateProfile = async (req, res) => {
         const foundMain = await Category.find({ _id: { $in: uniqueMain }, isActive: true }).select('_id');
         if (foundMain.length !== uniqueMain.length) {
           const foundIds = new Set(foundMain.map(c => c._id.toString()));
-            const missing = uniqueMain.filter(id => !foundIds.has(id));
+          const missing = uniqueMain.filter(id => !foundIds.has(id));
           return res.status(400).json({ message: 'Some main categories not found or inactive', missing });
         }
         validMainCategoryIds = uniqueMain; // Replace vendor main categories fully (idempotent replace strategy)
@@ -211,7 +211,54 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const subCategoryFromCategory = async (req, res) => {
+  const { categoryIds } = req.body;
+  console.log(categoryIds, "categoryIdscategoryIdscategoryIdscategoryIds");
+
+  if (!categoryIds || !Array.isArray(categoryIds) || categoryIds.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: "categoryIds must be an array of IDs"
+    });
+  }
+
+  // Convert to ObjectIds
+  const objectIds = categoryIds.map(id => new mongoose.Types.ObjectId(id));
+  console.log(objectIds, "objectIdsobjectIdsobjectIds");
+
+  const data = await Category.aggregate([
+    { $match: { _id: { $in: objectIds } } },
+
+    {
+      $lookup: {
+        from: "subcategories",     // collection name in DB (plural lowercase!)
+        localField: "_id",
+        foreignField: "mainCategory",
+        as: "subcategories"
+      }
+    },
+    {
+      $project: {
+        name: "$name",          // return English category name
+        subcategories: {
+          _id: 1,
+          name: 1,
+          icon: 1,
+          isActive: 1
+        }
+      }
+    }
+  ]);
+
+  return res.status(200).json({
+    success: true,
+    data,
+    message: "Categories with subcategories fetched successfully"
+  });
+}
+
 module.exports = {
   getProfile,
-  updateProfile
+  updateProfile,
+  subCategoryFromCategory
 };
