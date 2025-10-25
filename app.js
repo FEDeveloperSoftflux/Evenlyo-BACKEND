@@ -77,11 +77,11 @@ app.use(cors({
 // ==========================
 
 // Morgan HTTP request logging
-app.use(morgan('combined', {
-  stream: {
-    write: (message) => logger.info(message.trim())
-  }
-}));
+// app.use(morgan('combined', {
+//   stream: {
+//     write: (message) => logger.info(message.trim())
+//   }
+// }));
 
 // Custom request logging
 app.use(logger.logRequest);
