@@ -12,8 +12,11 @@ const requireAuth = async (req, res, next) => {
 
     // 1. Try Authorization Bearer token first
     const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    console.log(authHeader, "authHeaderauthHeaderauthHeader");
+
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
+      console.log(token, "tokentokentokentoken");
       try {
         const decoded = verifyAccessToken(token);
         tokenUser = decoded; // should contain id, userType, etc.
@@ -27,25 +30,12 @@ const requireAuth = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Authentication required' });
     }
     const baseUser = tokenUser;
+    console.log(baseUser, "tokenUsertokenUsertokenUser");
 
     // Super admin shortcut (legacy env-based)
-    if (baseUser.id === 'superadmin') {
-      req.user = {
-        id: 'superadmin',
-        email: baseUser.email,
-        firstName: baseUser.firstName,
-        lastName: baseUser.lastName,
-        userType: 'admin',
-        role: 'super_admin',
-        permissions: ['*'],
-        department: 'Administration',
-        authSource: tokenUser ? 'jwt' : 'session'
-      };
-      return next();
-    }
-
     // Verify user still exists in database. Accept Employee/AdminEmployee tokens too.
     let user = await User.findById(baseUser.id);
+
     if (user && !user.isActive) {
       return res.status(401).json({ success: false, message: 'User not found or deactivated' });
     }
@@ -60,7 +50,7 @@ const requireAuth = async (req, res, next) => {
             return res.status(401).json({ success: false, message: 'User not found or deactivated' });
           }
           req.user = {
-            id: emp._id,
+            id: emp._id ? emp._id : emp.id,
             email: emp.email,
             firstName: emp.firstName,
             lastName: emp.lastName,
@@ -81,7 +71,7 @@ const requireAuth = async (req, res, next) => {
             return res.status(401).json({ success: false, message: 'User not found or deactivated' });
           }
           req.user = {
-            id: adm._id,
+            id: adm._id ? adm._id : adm.id,
             email: adm.email,
             firstName: adm.firstName,
             lastName: adm.lastName,
@@ -101,7 +91,7 @@ const requireAuth = async (req, res, next) => {
 
     // Build request user object for regular User
     req.user = {
-      id: user._id,
+      id: user._id ? user._id : user?.id,
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
@@ -119,6 +109,50 @@ const requireAuth = async (req, res, next) => {
       }
     }
 
+    next();
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    res.status(500).json({ success: false, message: 'Authentication error' });
+  }
+};
+
+const requireAdmin = async (req, res, next) => {
+  console.log("CALLEDDD");
+  
+  try {
+    let tokenUser = null;
+
+    // 1. Try Authorization Bearer token first
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      console.log(token, "tokentokentokentoken");
+      try {
+        const decoded = verifyAccessToken(token);
+        console.log(decoded,"decodeddecoded");
+        
+        tokenUser = decoded; // should contain id, userType, etc.
+      } catch (err) {
+        return res.status(401).json({ success: false, message: 'Invalid or expired token' });
+      }
+    }
+
+    // If no token user -> unauthorized (sessions removed)
+    if (!tokenUser) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+    const baseUser = tokenUser;
+    console.log(baseUser, "tokenUsertokenUsertokenUser");
+
+    // Super admin shortcut (legacy env-based)
+    // Verify user still exists in database. Accept Employee/AdminEmployee tokens too.
+    let user = await User.findById(baseUser.id);
+
+    if (user && !user.isActive) {
+      return res.status(401).json({ success: false, message: 'User not found or deactivated' });
+    }
+    
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
@@ -149,7 +183,6 @@ const requireRole = (allowedRoles) => {
 // --- Specific Role Middleware ---
 const requireClient = requireRole(['client']);
 const requireVendor = requireRole(['vendor']);
-const requireAdmin = requireRole(['admin']);
 
 // --- Permission-based Middleware ---
 const requirePermission = (requiredPermissions) => {
@@ -176,7 +209,7 @@ const requirePermission = (requiredPermissions) => {
       if (admin) permissions = admin.permissions || [];
 
       // Check if user has required permissions
-      const hasPermission = requiredPermissions.every(permission => 
+      const hasPermission = requiredPermissions.every(permission =>
         permissions.includes(permission)
       );
 
@@ -316,7 +349,7 @@ const rateLimit = (maxRequests = 100, windowMs = 15 * 60 * 1000) => {
     }
 
     const userRequests = requests.get(ip);
-    
+
     if (userRequests.length >= maxRequests) {
       return res.status(429).json({
         success: false,
@@ -339,7 +372,7 @@ const csrfProtection = (req, res, next) => {
   // Basic CSRF check - in production, use a proper CSRF library
   const origin = req.get('Origin');
   const referer = req.get('Referer');
-  
+
   // Allow requests from same origin or trusted origins
   const allowedOrigins = [
     'http://localhost:3000',

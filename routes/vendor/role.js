@@ -8,7 +8,7 @@ const { requireAuth, requireVendor } = require('../../middleware/authMiddleware'
 router.get('/designations', requireAuth, requireVendor, getAllDesignations);
 
 // POST create a new designation
-router.post('/designations', requireAuth, requireVendor, createDesignation);
+router.post('/admin/create-designation', requireAuth, requireVendor, createDesignation);
 
 // POST create a new role user (person)
 router.post('/role-users', requireAuth, requireVendor, createRoleUser);

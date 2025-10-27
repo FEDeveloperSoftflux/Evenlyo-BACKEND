@@ -18,7 +18,7 @@ const getAllClients = async (req, res) => {
       User.countDocuments({ userType: 'client', isActive: true }),
       User.countDocuments({ userType: 'client', isActive: false }),
       User.countDocuments({ userType: 'client' }),
-      
+
       // All clients data with their booking counts
       User.find({ userType: 'client' })
         .select('firstName lastName email contactNumber address isActive createdAt')
@@ -30,7 +30,7 @@ const getAllClients = async (req, res) => {
     const clientsWithBookings = await Promise.all(
       clientsData.map(async (client) => {
         const totalOrders = await Booking.countDocuments({ userId: client._id });
-        
+
         return {
           id: client._id,
           clientName: `${client.firstName || ''} ${client.lastName || ''}`.trim(),
@@ -399,7 +399,7 @@ const getAllVendors = async (req, res) => {
       User.countDocuments({ userType: 'vendor', isActive: true }),
       User.countDocuments({ userType: 'vendor', isActive: false }),
       User.countDocuments({ userType: 'vendor' }),
-      
+
       // All vendors data with their booking counts
       User.find({ userType: 'vendor' })
         .select('firstName lastName email contactNumber address isActive createdAt')
@@ -415,13 +415,13 @@ const getAllVendors = async (req, res) => {
         let totalOrders = 0;
         let businessName = '';
         let approvalStatus = 'pending';
-        
+
         if (vendorProfile) {
           totalOrders = await Booking.countDocuments({ vendorId: vendorProfile._id });
           businessName = vendorProfile.businessName || '';
           approvalStatus = vendorProfile.approvalStatus || 'pending';
         }
-        
+
         return {
           id: vendorUser._id,
           vendorId: vendorProfile?._id || '',
@@ -475,8 +475,9 @@ const toggleVendorStatus = async (req, res) => {
         message: 'Invalid action. Use "block" or "unblock"'
       });
     }
-
+    console.log(vendorId, "vendorIdvendorIdvendorId");
     const vendor = await User.findOne({ _id: vendorId, userType: 'vendor' });
+    console.log(vendor, "vendorvendorvendor");
     if (!vendor) {
       return res.status(404).json({
         success: false,
@@ -579,7 +580,7 @@ const getVendorDetails = async (req, res) => {
 
     // Get vendor profile
     const vendorProfile = await Vendor.findOne({ userId: vendorId });
-    
+
     // Get vendor's booking history
     const bookings = vendorProfile ? await Booking.find({ vendorId: vendorProfile._id })
       .select('trackingId status createdAt pricing.totalPrice details.eventLocation')
@@ -823,7 +824,7 @@ const sendEmailToVendors = async (req, res) => {
     const emailResults = await Promise.allSettled(
       vendorsWithBusinessInfo.map(async (vendor) => {
         const vendorName = vendor.businessName || `${vendor.firstName} ${vendor.lastName}`;
-        
+
         const htmlMessage = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
             <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">

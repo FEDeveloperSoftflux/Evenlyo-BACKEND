@@ -137,14 +137,14 @@ app.use('/api/payments', require('./routes/payments'));
 
 // Admin routes
 app.use('/api/admin/dashboard', require('./routes/admin/dashboard'));
-app.use('/api/admin/users', require('./routes/admin/userManagement'));
+app.use('/api', require('./routes/admin/userManagement'));
 app.use('/api/admin/bookings', require('./routes/admin/bookings'));
 app.use('/api/admin/report', require('./routes/admin/report'));
 app.use('/api/admin/tracking', require('./routes/admin/tracking'));
 app.use('/api/admin/listing', require('./routes/admin/listingsManagement'));
 app.use('/api/admin/plans', require('./routes/admin/plans'));
-app.use('/api/admin/designations', require('./routes/admin/adminDesignations'));
-app.use('/api/admin/employees', require('./routes/admin/adminEmployees'));
+app.use('/api', require('./routes/admin/adminDesignations'));
+app.use('/api', require('./routes/admin/adminEmployees'));
 app.use('/api/admin/support', require('./routes/admin/support'));
 app.use('/api/admin/settings', require('./routes/admin/settings'));
 app.use('/api/admin/blogs', require('./routes/admin/blog'));

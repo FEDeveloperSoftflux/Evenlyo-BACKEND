@@ -4,7 +4,7 @@ const Vendor = require('../models/Vendor');
 const Admin = require('../models/Admin');
 const { generateAndSendOTP, verifyOTP } = require('../utils/otpUtils');
 const { auth } = require('../config/firebase');
-const { signAccessToken } = require('../utils/jwtUtils');
+const { signAccessToken, signToken } = require('../utils/jwtUtils');
 const logger = require('../utils/logger');
 
 // --- Model loading utility ---
@@ -50,240 +50,340 @@ const buildAccessToken = (userDoc, extra = {}) => {
 };
 
 const performLogin = async (req, res, userType) => {
-  try {
-    const { email, password } = req.body;
+  exports.loginAdmin = async (req, res) => {
+    try {
+      const { email, password, provider } = req.body;
 
-    // Validate required fields
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email and password are required'
-      });
-    }
-    // Removed super admin environment variable login logic
-
-    // Get appropriate model
-    const UserModel = getModelByUserType(userType);
-
-    let user;
-    let userData;
-
-    if (userType === 'client') {
-      // For clients, search directly in User model
-      user = await User.findOne({ email, userType: 'client', isActive: true });
-      userData = user;
-    } else if (userType === 'vendor') {
-      // For vendors: first try Vendor user account, else try Employee (role user) login
-      user = await User.findOne({ email, userType: 'vendor', isActive: true });
-      let employeeLogin = false;
-      let employee = null;
-      if (user) {
-        userData = await Vendor.findOne({ userId: user._id }).populate('userId');
-      } else {
-        // Try employee (role user) login
-        employee = await require('../models/Employee').findOne({ email, status: 'active' }).populate('designation');
-        if (employee) {
-          employeeLogin = true;
-          // Build a user-like object for token creation
-          user = {
-            _id: employee._id,
-            email: employee.email,
-            userType: 'vendor',
-            firstName: employee.firstName,
-            lastName: employee.lastName
-          };
-          // Load vendor profile for extra data
-          userData = await Vendor.findById(employee.vendor).populate('userId');
-        }
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          message: "Email is required"
+        });
       }
-      // attach flags for later checks
-      user && (user._isEmployeeLogin = !!employeeLogin);
-      user && (user._employeeDoc = employee);
-    } else if (userType === 'admin') {
-      // For admins, try the normal admin user account first
-      user = await User.findOne({ email, userType: 'admin', isActive: true });
-      let adminEmployeeLogin = false;
-      let adminEmployee = null;
-      if (user) {
-        userData = await Admin.findOne({ userId: user._id }).populate('userId');
-      } else {
-        // Try admin employee login
-        adminEmployee = await require('../models/AdminEmployee').findOne({ email, status: 'active' }).populate('designation');
-        if (adminEmployee) {
-          adminEmployeeLogin = true;
-          user = {
-            _id: adminEmployee._id,
-            email: adminEmployee.email,
-            userType: 'admin',
-            firstName: adminEmployee.firstName,
-            lastName: adminEmployee.lastName
-          };
-          // Build userData as admin root info if needed
-          userData = { role: 'admin', permissions: adminEmployee.designation ? adminEmployee.designation.permissions.map(p => p.module) : [], department: 'operations' };
-        }
+
+      // Find admin
+      const user = await User.findOne({ email, isActive: true });
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: "Account not found"
+        });
       }
-      user && (user._isAdminEmployeeLogin = !!adminEmployeeLogin);
-      user && (user._adminEmployeeDoc = adminEmployee);
-    }
 
-    // Check if user exists
-    if (!user || !userData) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
-    }
-
-    // Check if user is a social login user trying to login with password
-    if (user.provider === 'google') {
-      return res.status(400).json({
-        success: false,
-        message: 'This account uses Google Sign-In. Please use Google authentication.'
-      });
-    }
-
-    // Verify password
-    let isPasswordValid = false;
-    // Determine which stored hash to use (vendor employee, admin employee, or main user)
-    let storedHash;
-    if (user._isEmployeeLogin && user._employeeDoc) {
-      storedHash = user._employeeDoc.password;
-    } else if (user._isAdminEmployeeLogin && user._adminEmployeeDoc) {
-      storedHash = user._adminEmployeeDoc.password;
-    } else {
-      storedHash = user.password;
-    }
-
-    // If stored hash is missing, fail fast with invalid credentials
-    if (!storedHash) {
-      logger.warn('Login attempt with missing password hash', { email: user && user.email });
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
-    }
-
-    isPasswordValid = await bcrypt.compare(password, storedHash);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
-    }
-
-    // Additional checks for admin
-    if (userType === 'admin') {
-      // If admin employee login, check the AdminEmployee.status instead of userData
-      if (user._isAdminEmployeeLogin && user._adminEmployeeDoc) {
-        if (user._adminEmployeeDoc.status !== 'active') {
-          return res.status(403).json({ success: false, message: 'Account is deactivated. Please contact support.' });
-        }
-      } else {
-        if (userData && userData.isActive === false) {
+      // --- GOOGLE LOGIN ---
+      if (provider === "google") {
+        if (user.provider !== "google") {
           return res.status(403).json({
             success: false,
-            message: 'Account is deactivated. Please contact support.'
+            message: "This email is registered with password. Please login using email/password."
           });
         }
+
+        // ✅ Google login success
+        const token = signToken({
+          id: user._id,
+          name: user.name,
+        });
+        console.log(user, "useruseruseruseruser");
+
+
+        return res.json({
+          success: true,
+          message: "Google login successful",
+          token,
+          admin: {
+            id: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            profileImage: user.profileImage,
+            role: "admin"
+          }
+        });
       }
-    }
 
-
-    // Update last login for User model if present
-    try {
-      if (!user._isEmployeeLogin && user.save) {
-        user.lastLogin = new Date();
-        await user.save({ validateBeforeSave: false });
+      // --- EMAIL LOGIN ---
+      if (!password) {
+        return res.status(400).json({
+          success: false,
+          message: "Password is required for email login"
+        });
       }
-      // Vendor profile lastLogin not tracked consistently; skip if not present
-    } catch (e) {
-      // non-fatal
-      logger.warn('Could not update lastLogin', { error: e.message || e });
-    }
 
-    // Determine extra props for token
-    const extraPayload = {};
-    if (userType === 'admin') {
-      extraPayload.role = userData.role;
-      extraPayload.permissions = userData.permissions;
-      extraPayload.department = userData.department;
-    } else if (userType === 'vendor') {
-      // If this was an employee login, include employee-specific payload
-      if (user._isEmployeeLogin && user._employeeDoc) {
-        const emp = user._employeeDoc;
-        extraPayload.vendorId = emp.vendor;
-        extraPayload.employeeId = emp._id;
-        extraPayload.designation = emp.designation ? emp.designation.name : undefined;
-      } else {
-        extraPayload.businessName = userData.businessName;
-        extraPayload.approvalStatus = userData.approvalStatus;
-        extraPayload.vendorId = userData._id;
+      if (user.provider === "google") {
+        return res.status(403).json({
+          success: false,
+          message: "This account was created with Google. Please login using Google."
+        });
       }
-    }
 
-    const accessToken = buildAccessToken(user, extraPayload);
-
-    // Return success response
-    // Build response user object, include pages for employee role-users
-    const responseUser = {
-      id: user._id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      userType: user.userType
-    };
-
-    if (userType === 'admin') {
-      if (user._isAdminEmployeeLogin && user._adminEmployeeDoc) {
-        const admEmp = user._adminEmployeeDoc;
-        responseUser.designation = admEmp.designation ? admEmp.designation.name : null;
-        responseUser.pages = Array.isArray(admEmp.designation?.permissions)
-          ? admEmp.designation.permissions.map(p => p.module)
-          : [];
-        responseUser.status = admEmp.status;
-      } else {
-        responseUser.role = userData.role;
-        responseUser.permissions = userData.permissions;
-        responseUser.department = userData.department;
+      // Compare password
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid email or password"
+        });
       }
+
+      const token = signToken({
+        id: user._id,
+        name: user.name,
+      });
+
+      return res.json({
+        success: true,
+        message: "Login successful",
+        token,
+        admin: {
+          id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          profileImage: user.profileImage,
+          role: "admin"
+        }
+      });
+    } catch (err) {
+      console.error("Admin Login Error:", err);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error"
+      });
     }
+  };
 
-    if (userType === 'vendor') {
-      if (user._isEmployeeLogin && user._employeeDoc) {
-        const emp = user._employeeDoc;
-        responseUser.designation = emp.designation ? emp.designation.name : null;
-        // pages: array of permission module names
-        responseUser.pages = Array.isArray(emp.designation?.permissions)
-          ? emp.designation.permissions.map(p => p.module)
-          : [];
-        responseUser.vendorId = emp.vendor;
-        responseUser.employeeId = emp._id;
-      } else {
-        responseUser.businessName = userData.businessName;
-        responseUser.approvalStatus = userData.approvalStatus;
-        responseUser.vendorId = userData._id;
-      }
-    }
+  // try {
+  //   const { email, password } = req.body;
 
-    res.json({
-      success: true,
-      message: 'Login successful',
-      tokens: { access: accessToken },
-      user: responseUser
-    });
+  //   // Validate required fields
+  //   if (!email || !password) {
+  //     return res.status(400).json({
+  //       success: false,
+  //       message: 'Email and password are required'
+  //     });
+  //   }
+  //   // Removed super admin environment variable login logic
 
-  } catch (error) {
-    logger.error('Login error', { error: error.message, stack: error.stack });
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
+  //   // Get appropriate model
+  //   const UserModel = getModelByUserType(userType);
+
+  //   let user;
+  //   let userData;
+
+  //   if (userType === 'client') {
+  //     // For clients, search directly in User model
+  //     user = await User.findOne({ email, userType: 'client', isActive: true });
+  //     userData = user;
+  //   } else if (userType === 'vendor') {
+  //     // For vendors: first try Vendor user account, else try Employee (role user) login
+  //     user = await User.findOne({ email, userType: 'vendor', isActive: true });
+  //     let employeeLogin = false;
+  //     let employee = null;
+  //     if (user) {
+  //       userData = await Vendor.findOne({ userId: user._id }).populate('userId');
+  //     } else {
+  //       // Try employee (role user) login
+  //       employee = await require('../models/Employee').findOne({ email, status: 'active' }).populate('designation');
+  //       if (employee) {
+  //         employeeLogin = true;
+  //         // Build a user-like object for token creation
+  //         user = {
+  //           _id: employee._id,
+  //           email: employee.email,
+  //           userType: 'vendor',
+  //           firstName: employee.firstName,
+  //           lastName: employee.lastName
+  //         };
+  //         // Load vendor profile for extra data
+  //         userData = await Vendor.findById(employee.vendor).populate('userId');
+  //       }
+  //     }
+  //     // attach flags for later checks
+  //     user && (user._isEmployeeLogin = !!employeeLogin);
+  //     user && (user._employeeDoc = employee);
+  //   } else if (userType === 'admin') {
+  //     // For admins, try the normal admin user account first
+  //     user = await User.findOne({ email, userType: 'admin', isActive: true });
+  //     let adminEmployeeLogin = false;
+  //     let adminEmployee = null;
+  //     if (user) {
+  //       userData = await Admin.findOne({ userId: user._id }).populate('userId');
+  //     } else {
+  //       // Try admin employee login
+  //       adminEmployee = await require('../models/AdminEmployee').findOne({ email, status: 'active' }).populate('designation');
+  //       if (adminEmployee) {
+  //         adminEmployeeLogin = true;
+  //         user = {
+  //           _id: adminEmployee._id,
+  //           email: adminEmployee.email,
+  //           userType: 'admin',
+  //           firstName: adminEmployee.firstName,
+  //           lastName: adminEmployee.lastName
+  //         };
+  //         // Build userData as admin root info if needed
+  //         userData = { role: 'admin', permissions: adminEmployee.designation ? adminEmployee.designation.permissions.map(p => p.module) : [], department: 'operations' };
+  //       }
+  //     }
+  //     user && (user._isAdminEmployeeLogin = !!adminEmployeeLogin);
+  //     user && (user._adminEmployeeDoc = adminEmployee);
+  //   }
+
+  //   // Check if user exists
+  //   if (!user || !userData) {
+  //     return res.status(401).json({
+  //       success: false,
+  //       message: 'Invalid credentials'
+  //     });
+  //   }
+
+  //   // Check if user is a social login user trying to login with password
+  //   if (user.provider === 'google') {
+  //     return res.status(400).json({
+  //       success: false,
+  //       message: 'This account uses Google Sign-In. Please use Google authentication.'
+  //     });
+  //   }
+
+  //   // Verify password
+  //   let isPasswordValid = false;
+  //   // Determine which stored hash to use (vendor employee, admin employee, or main user)
+  //   let storedHash;
+  //   if (user._isEmployeeLogin && user._employeeDoc) {
+  //     storedHash = user._employeeDoc.password;
+  //   } else if (user._isAdminEmployeeLogin && user._adminEmployeeDoc) {
+  //     storedHash = user._adminEmployeeDoc.password;
+  //   } else {
+  //     storedHash = user.password;
+  //   }
+
+  //   // If stored hash is missing, fail fast with invalid credentials
+  //   if (!storedHash) {
+  //     logger.warn('Login attempt with missing password hash', { email: user && user.email });
+  //     return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  //   }
+
+  //   isPasswordValid = await bcrypt.compare(password, storedHash);
+  //   if (!isPasswordValid) {
+  //     return res.status(401).json({
+  //       success: false,
+  //       message: 'Invalid credentials'
+  //     });
+  //   }
+
+  //   // Additional checks for admin
+  //   if (userType === 'admin') {
+  //     // If admin employee login, check the AdminEmployee.status instead of userData
+  //     if (user._isAdminEmployeeLogin && user._adminEmployeeDoc) {
+  //       if (user._adminEmployeeDoc.status !== 'active') {
+  //         return res.status(403).json({ success: false, message: 'Account is deactivated. Please contact support.' });
+  //       }
+  //     } else {
+  //       if (userData && userData.isActive === false) {
+  //         return res.status(403).json({
+  //           success: false,
+  //           message: 'Account is deactivated. Please contact support.'
+  //         });
+  //       }
+  //     }
+  //   }
+
+
+  //   // Update last login for User model if present
+  //   try {
+  //     if (!user._isEmployeeLogin && user.save) {
+  //       user.lastLogin = new Date();
+  //       await user.save({ validateBeforeSave: false });
+  //     }
+  //     // Vendor profile lastLogin not tracked consistently; skip if not present
+  //   } catch (e) {
+  //     // non-fatal
+  //     logger.warn('Could not update lastLogin', { error: e.message || e });
+  //   }
+
+  //   // Determine extra props for token
+  //   const extraPayload = {};
+  //   if (userType === 'admin') {
+  //     extraPayload.role = userData.role;
+  //     extraPayload.permissions = userData.permissions;
+  //     extraPayload.department = userData.department;
+  //   } else if (userType === 'vendor') {
+  //     // If this was an employee login, include employee-specific payload
+  //     if (user._isEmployeeLogin && user._employeeDoc) {
+  //       const emp = user._employeeDoc;
+  //       extraPayload.vendorId = emp.vendor;
+  //       extraPayload.employeeId = emp._id;
+  //       extraPayload.designation = emp.designation ? emp.designation.name : undefined;
+  //     } else {
+  //       extraPayload.businessName = userData.businessName;
+  //       extraPayload.approvalStatus = userData.approvalStatus;
+  //       extraPayload.vendorId = userData._id;
+  //     }
+  //   }
+
+  //   const accessToken = buildAccessToken(user, extraPayload);
+
+  //   // Return success response
+  //   // Build response user object, include pages for employee role-users
+  //   const responseUser = {
+  //     id: user._id,
+  //     email: user.email,
+  //     firstName: user.firstName,
+  //     lastName: user.lastName,
+  //     userType: user.userType
+  //   };
+
+  //   if (userType === 'admin') {
+  //     if (user._isAdminEmployeeLogin && user._adminEmployeeDoc) {
+  //       const admEmp = user._adminEmployeeDoc;
+  //       responseUser.designation = admEmp.designation ? admEmp.designation.name : null;
+  //       responseUser.pages = Array.isArray(admEmp.designation?.permissions)
+  //         ? admEmp.designation.permissions.map(p => p.module)
+  //         : [];
+  //       responseUser.status = admEmp.status;
+  //     } else {
+  //       responseUser.role = userData.role;
+  //       responseUser.permissions = userData.permissions;
+  //       responseUser.department = userData.department;
+  //     }
+  //   }
+
+  //   if (userType === 'vendor') {
+  //     if (user._isEmployeeLogin && user._employeeDoc) {
+  //       const emp = user._employeeDoc;
+  //       responseUser.designation = emp.designation ? emp.designation.name : null;
+  //       // pages: array of permission module names
+  //       responseUser.pages = Array.isArray(emp.designation?.permissions)
+  //         ? emp.designation.permissions.map(p => p.module)
+  //         : [];
+  //       responseUser.vendorId = emp.vendor;
+  //       responseUser.employeeId = emp._id;
+  //     } else {
+  //       responseUser.businessName = userData.businessName;
+  //       responseUser.approvalStatus = userData.approvalStatus;
+  //       responseUser.vendorId = userData._id;
+  //     }
+  //   }
+
+  //   res.json({
+  //     success: true,
+  //     message: 'Login successful',
+  //     tokens: { access: accessToken },
+  //     user: responseUser
+  //   });
+
+  // } catch (error) {
+  //   logger.error('Login error', { error: error.message, stack: error.stack });
+  //   res.status(500).json({
+  //     success: false,
+  //     message: 'Internal server error',
+  //     error: process.env.NODE_ENV === 'development' ? error.message : undefined
+  //   });
+  // }
 };
 
 // Admin Login
 const adminLogin = performAdminLogin;
-
-
-
 // --- Logout (stateless) ---
 const logout = async (_req, res) => {
   // Client should discard JWT. No server state to clear.
@@ -693,86 +793,62 @@ const verifyOtpAndRegisterGeneral = async (req, res) => {
 // --- Google Authentication ---
 const googleAuth = async (req, res) => {
   try {
-    const { idToken } = req.body;
+    const { idToken, type, userData } = req.body;
 
-    // Validate required fields
-    if (!idToken) {
+    if (type != "App" && !idToken) {
       return res.status(400).json({
         success: false,
         message: 'ID token is required'
       });
     }
 
-    // Verify the ID token with Firebase
-    let decodedToken;
-    try {
-      decodedToken = await auth.verifyIdToken(idToken);
-    } catch (error) {
-      console.error('Firebase token verification error:', error);
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid or expired ID token'
-      });
-    }
+    let userInfo;
+    // 🟢 APP LOGIN (Google OAuth Token)
+    if (type === "App") {
 
-    // Extract user information from decoded token
-    const { uid, email, name, picture } = decodedToken;
+      let user = await User.findOne({ email: userData?.email, userType: 'client', isActive: true });
 
-    if (!email || !name) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email and name are required from Google account'
-      });
-    }
+      if (user) {
+        if (user.provider === 'email') {
+          return res.status(403).json({
+            success: false,
+            message: 'This email is registered with email/password. Please login using email/password.'
+          });
+        }
 
-    // Check if user already exists
-    let user = await User.findOne({ email, userType: 'client', isActive: true });
+        user.lastLogin = new Date();
+        await user.save();
+        const accessToken = buildAccessToken(user);
 
-    if (user) {
-      // User exists - block Google login if registered with email/password
-      if (user.provider === 'email') {
-        return res.status(403).json({
-          success: false,
-          message: 'This email is registered with email/password. Please use email and password to login.'
+        return res.json({
+          success: true,
+          message: 'Login successful',
+          tokens: { access: accessToken },
+          user: {
+            id: user._id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            userType: user.userType,
+            profileImage: user.profileImage
+          }
         });
       }
-      // User is a Google user, allow login
-      user.lastLogin = new Date();
-      await user.save();
-      const accessToken = buildAccessToken(user);
-      return res.json({
-        success: true,
-        message: 'Login successful',
-        tokens: { access: accessToken },
-        user: {
-          id: user._id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          userType: user.userType,
-          profileImage: user.profileImage
-        }
-      });
-    } else {
-      // User doesn't exist - create new user
-      const [firstName, ...lastNameParts] = name.split(' ');
-      const lastName = lastNameParts.join(' ') || '';
+
+      console.log(user, "useruseruseruseruser");
 
       user = new User({
-        firstName,
-        lastName,
-        email,
+        firstName: userData?.firstName,
+        lastName: userData?.lastName,
+        email: userData?.email,
         userType: 'client',
-        googleId: uid,
         provider: 'google',
-        password: null, // Explicitly set password to null for Google users
-        profileImage: picture || undefined,
+        profileImage: userData?.picture,
         isActive: true,
         lastLogin: new Date()
       });
 
       await user.save();
-
       const accessToken = buildAccessToken(user);
       return res.status(201).json({
         success: true,
@@ -787,18 +863,123 @@ const googleAuth = async (req, res) => {
           profileImage: user.profileImage
         }
       });
+      // try {
+      //   const ticket = await googleClient.verifyIdToken({
+      //     idToken,
+      //     audience: process.env.FIREBASE_WEB_CLIENT_ID
+      //   });
+
+      //   const payload = ticket.getPayload();
+      //   userInfo = {
+      //     uid: payload.sub,
+      //     email: payload.email,
+      //     name: payload.name,
+      //     picture: payload.picture
+      //   };
+      // } catch (error) {
+      //   return res.status(401).json({
+      //     success: false,
+      //     message: "Invalid Google OAuth token (App)"
+      //   });
+      // }
     }
 
-  } catch (error) {
-    console.error('Google authentication error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    // 🔵 WEB LOGIN (Firebase ID Token)
+    else {
+      try {
+        const decodedToken = await auth.verifyIdToken(idToken);
+        userInfo = {
+          uid: decodedToken.uid,
+          email: decodedToken.email,
+          name: decodedToken.name,
+          picture: decodedToken.picture
+        };
+      } catch (error) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid Firebase ID token (Web)"
+        });
+      }
+    }
+
+    const { uid, email, name, picture } = userInfo;
+
+    if (!email || !name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and name are required'
+      });
+    }
+
+    // ----- YOUR EXISTING DB LOGIC BELOW -----
+
+    let user = await User.findOne({ email, userType: 'client', isActive: true });
+
+    if (user) {
+      if (user.provider === 'email') {
+        return res.status(403).json({
+          success: false,
+          message: 'This email is registered with email/password. Please login using email/password.'
+        });
+      }
+
+      user.lastLogin = new Date();
+      await user.save();
+      const accessToken = buildAccessToken(user);
+
+      return res.json({
+        success: true,
+        message: 'Login successful',
+        tokens: { access: accessToken },
+        user: {
+          id: user._id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          userType: user.userType,
+          profileImage: user.profileImage
+        }
+      });
+    }
+
+    const [firstName, ...lastNameParts] = name.split(" ");
+    const lastName = lastNameParts.join(" ");
+
+    user = new User({
+      firstName,
+      lastName,
+      email,
+      userType: 'client',
+      googleId: uid,
+      provider: 'google',
+      profileImage: picture,
+      isActive: true,
+      lastLogin: new Date()
     });
+
+    await user.save();
+    const accessToken = buildAccessToken(user);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Registration and login successful',
+      tokens: { access: accessToken },
+      user: {
+        id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        userType: user.userType,
+        profileImage: user.profileImage
+      }
+    });
+
+  } catch (error) {
+    console.log(error, "errorerrorerror");
+
+    return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
-
 
 // --- Vendor Registration ---
 const registerVendor = async (req, res) => {
@@ -933,7 +1114,107 @@ const registerVendor = async (req, res) => {
 
 // --- Vendor Login ---
 const vendorLogin = async (req, res) => {
-  return performLogin(req, res, 'vendor');
+  try {
+    const { email, password, provider } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required"
+      });
+    }
+
+    // Find admin
+    const user = await User.findOne({ email, isActive: true });
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Account not found"
+      });
+    }
+
+    // --- GOOGLE LOGIN ---
+    if (provider === "google") {
+      if (user.provider !== "google") {
+        return res.status(403).json({
+          success: false,
+          message: "This email is registered with password. Please login using email/password."
+        });
+      }
+
+      // ✅ Google login success
+      const token = signToken({
+        id: user._id,
+        name: user.name,
+      });
+      console.log(user, "useruseruseruseruser");
+
+
+      return res.json({
+        success: true,
+        message: "Google login successful",
+        token,
+        admin: {
+          id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          profileImage: user.profileImage,
+          role: "admin"
+        }
+      });
+    }
+
+    // --- EMAIL LOGIN ---
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: "Password is required for email login"
+      });
+    }
+
+    if (user.provider === "google") {
+      return res.status(403).json({
+        success: false,
+        message: "This account was created with Google. Please login using Google."
+      });
+    }
+
+    // Compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password"
+      });
+    }
+
+    const token = signToken({
+      id: user._id,
+      name: user.name,
+    });
+    console.log(user,"useruseruseruseruser");
+    
+    return res.json({
+      success: true,
+      message: "Login successful",
+      token,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        profileImage: user.profileImage,
+        userType: user.userType
+      }
+    });
+  } catch (err) {
+    console.error("Admin Login Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
 };
 
 // --- Check already registered user ---

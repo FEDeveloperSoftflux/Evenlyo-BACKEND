@@ -4,7 +4,8 @@ const User = require('../../models/User');
 const Category = require('../../models/Category');
 const SubCategory = require('../../models/SubCategory');
 const { toMultilingualText } = require('../../utils/textUtils');
-const mongoose = require("mongoose")
+const mongoose = require("mongoose");
+const { successHelper } = require('../../utils/jwtUtils');
 // Get vendor profile (fields depend on account type)
 const getProfile = async (req, res) => {
   try {
@@ -211,6 +212,16 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const getMainCategoriesbyVendorId = async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    const data = await Vendor.find({ userId: vendorId }).select("mainCategories subCategories")
+    successHelper(res, data, "categories fetch successfully");
+  } catch (error) {
+    errorHelper(res, error);
+  }
+}
+
 const subCategoryFromCategory = async (req, res) => {
   const { categoryIds } = req.body;
   console.log(categoryIds, "categoryIdscategoryIdscategoryIdscategoryIds");
@@ -260,5 +271,6 @@ const subCategoryFromCategory = async (req, res) => {
 module.exports = {
   getProfile,
   updateProfile,
-  subCategoryFromCategory
+  subCategoryFromCategory,
+  getMainCategoriesbyVendorId
 };
