@@ -1097,7 +1097,8 @@ const registerVendor2 = async (req, res) => {
 
     // Create vendor profile
     const vendorData = {
-      vendorId: user._id,
+      // vendorId: user._id,
+      userId: user._id,
       mainCategories: mainCategories || [],
       subCategories: subCategories || [],
       isApproved: false
