@@ -92,13 +92,14 @@ const getConversations = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Conversation fetched successfully",
-      data: [
-        ...conversations,
-        ...conversations,
-        ...conversations,
-        ...conversations,
-        ...conversations,
-      ],
+      data: conversations,
+      // data: [
+      //   ...conversations,
+      //   ...conversations,
+      //   ...conversations,
+      //   ...conversations,
+      //   ...conversations,
+      // ],
     });
   } catch (error) {
     return res.status(500).json({
@@ -275,12 +276,10 @@ const reportConversation = async (req, res) => {
     convo.reportedByRefrence = reportedByRefrence;
     convo.isReported = true;
     convo.reportReason = reportReason;
-
-    if (!convo.blockedBy && !convo.reportedBy) {
-      convo.blockedBy = reportedBy;
-      convo.blockedByRefrence = reportedByRefrence;
-      convo.isBlocked = true;
-    }
+    
+    convo.blockedBy = reportedBy;
+    convo.blockedByRefrence = reportedByRefrence;
+    convo.isBlocked = true;
 
     await convo.save();
 
