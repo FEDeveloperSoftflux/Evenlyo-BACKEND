@@ -39,7 +39,7 @@ const MessageSchema = new mongoose.Schema(
     },
     message: {
       type: String,
-      required: true,
+      default: "",
     },
     attachment: {
       url: { type: String },

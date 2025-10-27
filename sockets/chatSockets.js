@@ -68,7 +68,7 @@ function chatSocket(io) {
           const conversation = await Conversation.findOne({ conversationId });
 
           if (conversation) {
-            conversation.lastMessage = message;
+            conversation.lastMessage = message || attachment?.name;
             conversation.lastUpdated = Date.now();
             conversation.messagesCount += 1;
 
@@ -83,7 +83,7 @@ function chatSocket(io) {
 
             const conObj = {
               conversationId,
-              lastMessage: message,
+              lastMessage: message || attachment?.name,
               lastUpdated: Date.now(),
               unreadMessagesCount: Object.fromEntries(
                 conversation.unreadMessagesCount
