@@ -1,28 +1,71 @@
 const mongoose = require("mongoose");
 
-const messageSchema = new mongoose.Schema({
-  sender: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true
+const MessageSchema = new mongoose.Schema(
+  {
+    conversationId: {
+      type: String,
+      required: true,
+      ref: "Conversation",
+    },
+    senderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+      refPath: "senderRefrence",
+    },
+    receiverId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+      refPath: "receiverRefrence",
+    },
+    senderRefrence: {
+      type: String,
+      required: true,
+      enum: ["User", "Vendor"],
+    },
+    receiverRefrence: {
+      type: String,
+      required: true,
+      enum: ["User", "Vendor"],
+    },
+    senderRole: {
+      type: String,
+      enum: ["user", "vendor"],
+      required: true,
+    },
+    receiverRole: {
+      type: String,
+      enum: ["user", "vendor"],
+      required: true,
+    },
+    message: {
+      type: String,
+      default: "",
+    },
+    attachment: {
+      url: { type: String },
+      type: {
+        type: String,
+        enum: ["image", "file"],
+      },
+      name: { type: String },
+      size: { type: Number },
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now,
+    },
+    deletedFor: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        refPath: "senderRefrence",
+      },
+    ],
   },
-  content: {
-    type: String,
-    required: true
-  },
-  chatRoom: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "ChatRoom",
-    required: true
-  },
-  readBy: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User"
-  }],
-  createdAt: {
-    type: Date,
-    default: Date.now
+  {
+    collection: "message",
+    timestamps: true,
   }
-});
+);
 
-module.exports = mongoose.model("Message", messageSchema);
+const Message = mongoose.model("Message", MessageSchema);
+module.exports = Message;
