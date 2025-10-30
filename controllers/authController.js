@@ -23,7 +23,107 @@ const getModelByUserType = (userType) => {
 
 // --- Client Login ---
 const clientLogin = async (req, res) => {
-  return performLogin(req, res, 'client');
+  try {
+    const { email, password, provider } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required"
+      });
+    }
+
+    // Find admin
+    const user = await User.findOne({ email, isActive: true });
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Account not found"
+      });
+    }
+
+    // --- GOOGLE LOGIN ---
+    if (provider === "google") {
+      if (user.provider !== "google") {
+        return res.status(403).json({
+          success: false,
+          message: "This email is registered with password. Please login using email/password."
+        });
+      }
+
+      // ✅ Google login success
+      const token = signToken({
+        id: user._id,
+        name: user.name,
+      });
+      console.log(user, "useruseruseruseruser");
+
+
+      return res.json({
+        success: true,
+        message: "Google login successful",
+        token,
+        admin: {
+          id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          profileImage: user.profileImage,
+          role: "admin"
+        }
+      });
+    }
+
+    // --- EMAIL LOGIN ---
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: "Password is required for email login"
+      });
+    }
+
+    if (user.provider === "google") {
+      return res.status(403).json({
+        success: false,
+        message: "This account was created with Google. Please login using Google."
+      });
+    }
+
+    // Compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password"
+      });
+    }
+
+    const token = signToken({
+      id: user._id,
+      name: user.name,
+    });
+    console.log(user, "useruseruseruseruser");
+
+    return res.json({
+      success: true,
+      message: "Login successful",
+      token,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        profileImage: user.profileImage,
+        userType: user.userType
+      }
+    });
+  } catch (err) {
+    console.error("Admin Login Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
 };
 
 // --- Client Registration ---
@@ -1193,8 +1293,8 @@ const vendorLogin = async (req, res) => {
       id: user._id,
       name: user.name,
     });
-    console.log(user,"useruseruseruseruser");
-    
+    console.log(user, "useruseruseruseruser");
+
     return res.json({
       success: true,
       message: "Login successful",
