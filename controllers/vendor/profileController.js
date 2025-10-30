@@ -215,12 +215,18 @@ const updateProfile = async (req, res) => {
 const getMainCategoriesbyVendorId = async (req, res) => {
   try {
     const { vendorId } = req.params;
-    const data = await Vendor.find({ userId: vendorId }).select("mainCategories subCategories")
+
+    const data = await Vendor.find({ userId: vendorId })
+      .select("mainCategories subCategories")
+      .populate("mainCategories", "name")   // only get category name
+      .populate("subCategories", "name");   // only get category name
+
     successHelper(res, data, "categories fetch successfully");
   } catch (error) {
     errorHelper(res, error);
   }
 }
+
 
 const subCategoryFromCategory = async (req, res) => {
   const { categoryIds } = req.body;
