@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Vendor = require('../models/Vendor');
 const Admin = require('../models/Admin');
+const VendorDesignations = require('../models/vendorDesignations');
 const { generateAndSendOTP, verifyOTP } = require('../utils/otpUtils');
 const { auth } = require('../config/firebase');
 const { signAccessToken, signToken } = require('../utils/jwtUtils');
@@ -1241,13 +1242,17 @@ const vendorLogin = async (req, res) => {
           message: "This email is registered with password. Please login using email/password."
         });
       }
+      console.log(user, "useruseruseruser");
 
       // ✅ Google login success
+      let vaaa = user.createdById != null ? user.createdById : user._id
+      console.log(vaaa, "VALLEEAE");
+
       const token = signToken({
-        id: user._id,
+        id: user.createdById != null ? user.createdById : user._id,
         name: user.name,
       });
-      console.log(user, "useruseruseruseruser");
+      console.log(user, "MY_USERRRRRRR");
 
 
       return res.json({
@@ -1289,12 +1294,23 @@ const vendorLogin = async (req, res) => {
       });
     }
 
+    let vaaa = user.createdById != null ? user.createdById : user._id
+    console.log(vaaa, "VALLEEAE");
+
+    let pages = [];
+    if (user.createdById != null) {
+      const designation = await VendorDesignations.findOne({ vendorId: user.createdById });
+      console.log(designation, "designationdesignationdesignation");
+      pages = designation?.permissions?.map(p => p.module) || [];
+    }
+    console.log(pages, "pagespagespagespagespages");
+
     const token = signToken({
-      id: user._id,
+      id: user.createdById != null ? user.createdById : user._id,
       name: user.name,
     });
-    console.log(user, "useruseruseruseruser");
-
+    console.log(user, "MY_USERRRRRRR");
+    // return
     return res.json({
       success: true,
       message: "Login successful",
@@ -1306,6 +1322,7 @@ const vendorLogin = async (req, res) => {
         email: user.email,
         profileImage: user.profileImage,
         userType: user.userType
+        
       }
     });
   } catch (err) {

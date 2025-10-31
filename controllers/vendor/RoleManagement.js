@@ -4,8 +4,39 @@ const Employee = require('../../models/Employee');
 const Vendor = require('../../models/Vendor');
 const User = require('../../models/User');
 const bcrypt = require('bcryptjs');
+const { errorHelper, successHelper } = require('../../utils/jwtUtils');
 
 // Get all designations for a vendor
+
+const registerVendorFromUser = async (req, res) => {
+	const { email, contactNumber, password, vendorId } = req.body
+	console.log(vendorId, "vendorIdvendorId");
+
+	const hashedPassword = await bcrypt.hash(password, 10);
+	const vendorDetails = await User.findOne({ _id: vendorId }).select("+accountType")
+	console.log(vendorDetails, "vendorDetailsvendorDetailsvendorDetailsvendorDetails");
+	try {
+		const userData = {
+			email,
+			contactNumber,
+			password: hashedPassword,
+			userType: 'vendor',
+			accountType: vendorDetails?.accountType,
+			isActive: true,
+			kvkNumber: vendorDetails?.kvkNumber,
+			createdById: vendorId,
+			firstName:vendorDetails?.firstName
+		};
+		console.log(userData, "userDatauserDatauserData");
+
+		const user = new User(userData);
+		await user.save();
+		successHelper(res, "employee created successfully", "employee created successfully");
+	} catch (error) {
+		errorHelper(res, error);
+	}
+}
+
 const getAllDesignations = async (req, res) => {
 	try {
 		// Require vendor authentication, get vendorId from req.user
@@ -153,7 +184,7 @@ const editDesignation = async (req, res) => {
 
 		const { designationId } = req.params;
 		const { name, permissions } = req.body;
-		const {isActive} = req.body;
+		const { isActive } = req.body;
 		if (!designationId) return res.status(400).json({ error: 'designationId is required' });
 
 		const update = {};
@@ -220,6 +251,7 @@ module.exports = {
 	getAllRoleUsers,
 	deleteDesignation,
 	deleteRoleUser,
-editDesignation,
-editRoleUser
+	editDesignation,
+	editRoleUser,
+	registerVendorFromUser
 };
