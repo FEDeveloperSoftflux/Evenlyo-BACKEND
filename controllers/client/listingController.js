@@ -7,7 +7,8 @@ const BookingRequest = require('../../models/Booking');
 const ServiceItem = require('../../models/Item');
 const Cart = require('../../models/Cart');
 const { verifyAccessToken } = require('../../utils/jwtUtils');
-const Item = require('../../models/Item')
+const Item = require('../../models/Item');
+const User = require('../../models/User');
 // @desc    Get calendar data (booked and available days/times) for a listing
 // @route   GET /api/listing/:id/calendar
 // @access  Public
@@ -591,16 +592,19 @@ const searchListings = async (req, res) => {
 // @route   GET /api/listings/vendor/:vendorId
 // @access  Public
 const getListingsByVendor = async (req, res) => {
+  console.log("CASDASDSD");
+  
   try {
     const { vendorId } = req.params;
     const { page = 1, limit = 12, sortBy = 'createdAt', sortOrder = 'desc', status = 'active' } = req.query;
-
+    console.log(vendorId,"vendorIdvendorIdvendorId");
+    
     // Verify vendor exists
-    const vendor = await Vendor.findById(vendorId);
+    const vendor = await User.findById({ _id: vendorId });
     if (!vendor) {
       return res.status(404).json({
         success: false,
-        message: 'Vendor not found'
+        message: 'Vendor not'
       });
     }
 
