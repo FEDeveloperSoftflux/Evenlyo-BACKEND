@@ -1310,20 +1310,26 @@ const vendorLogin = async (req, res) => {
       name: user.name,
     });
     console.log(user, "MY_USERRRRRRR");
+
+    const responseUser = {
+      id: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      profileImage: user.profileImage,
+      userType: user.userType
+    };
+
+    // ✅ Add pages only if it has values
+    if (pages.length > 0) {
+      responseUser.pages = pages;
+    }
     // return
     return res.json({
       success: true,
       message: "Login successful",
       token,
-      user: {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        profileImage: user.profileImage,
-        userType: user.userType
-        
-      }
+      user: responseUser
     });
   } catch (err) {
     console.error("Admin Login Error:", err);
