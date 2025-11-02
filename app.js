@@ -138,6 +138,7 @@ app.use("/api/faqs", require("./routes/client/faqs"));
 
 // Vendor routes
 app.use("/api/vendor/dashboard", require("./routes/vendor/dashboard"));
+app.use("/api", require("./routes/vendor/vendorDesignationsROute"));
 app.use("/api/vendor/listings", require("./routes/vendor/listings"));
 app.use("/api/vendor/bookings", require("./routes/vendor/booking"));
 app.use("/api/vendor/tracking", require("./routes/vendor/tracking"));
@@ -187,5 +188,26 @@ app.use((err, req, res, next) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+
+// const UserModel = require("./models/User");
+
+// async function addCreatedByIdToUsers() {
+//   try {
+//     const result = await UserModel.updateMany(
+//       { createdById: { $exists: false } }, // only update if key not present
+//       { $set: { createdById: null } }
+//     );
+
+//     console.log(`✅ Updated ${result.modifiedCount} users.`);
+//     process.exit(0);
+//   } catch (error) {
+//     console.error("❌ Error:", error);
+//     process.exit(1);
+//   }
+// }
+
+// addCreatedByIdToUsers();
+
 
 module.exports = app;

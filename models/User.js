@@ -99,11 +99,13 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  designationID: { type: mongoose.Types.ObjectId },
   language: {
     type: String,
     enum: ['english', 'dutch'],
     default: 'english'
   },
+  createdById: { type: mongoose.Types.ObjectId, default: null },
   notifications:
   {
     email: {
