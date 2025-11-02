@@ -60,6 +60,16 @@ const MessageSchema = new mongoose.Schema(
         refPath: "senderRefrence",
       },
     ],
+
+    isOffer: {
+      type: Boolean,
+      default: false,
+    },
+
+    offerObject: {
+      type: Object,
+      default: {},
+    },
   },
   {
     collection: "message",
