@@ -39,6 +39,8 @@ function chatSocket(io) {
         message,
         conversationType,
         attachment,
+        isOffer,
+        offerObject,
       } = params;
 
       try {
@@ -59,6 +61,10 @@ function chatSocket(io) {
               size: attachment?.size,
             },
           }),
+          ...(isOffer && {
+            isOffer,
+            offerObject,
+          }),
         });
         await newMessage.save();
 
@@ -68,7 +74,8 @@ function chatSocket(io) {
           const conversation = await Conversation.findOne({ conversationId });
 
           if (conversation) {
-            conversation.lastMessage = message || attachment?.name;
+            conversation.lastMessage =
+              message || attachment?.name || "Offer sent";
             conversation.lastUpdated = Date.now();
             conversation.messagesCount += 1;
 
@@ -83,7 +90,7 @@ function chatSocket(io) {
 
             const conObj = {
               conversationId,
-              lastMessage: message || attachment?.name,
+              lastMessage: message || attachment?.name || "Offer sent",
               lastUpdated: Date.now(),
               unreadMessagesCount: Object.fromEntries(
                 conversation.unreadMessagesCount
@@ -107,6 +114,28 @@ function chatSocket(io) {
         socket.broadcast.to(conversationId).emit("receive_message", newMessage);
       } catch (err) {
         console.error("Error saving message:", err.message);
+      }
+    });
+
+    socket.on("accept_offer", async (offerObject) => {
+      try {
+        const uniqueId = offerObject?.uniqueId;
+        const message = await Message.findOne({
+          "offerObject.uniqueId": uniqueId,
+        });
+
+        const updateMessage = await Message.findOneAndUpdate(
+          { "offerObject.uniqueId": uniqueId },
+          { offerObject: offerObject },
+          { new: true }
+        );
+
+        console.log("UPDATE_MESSAGE", updateMessage);
+
+        io.to(message.conversationId).emit("offer_accepted", updateMessage);
+      } catch (error) {
+        console.error("Error accepting offer:", error.message);
+        socket.emit("accept_offer_error", { message: "Error accepting offer" });
       }
     });
 
@@ -143,6 +172,16 @@ function chatSocket(io) {
         }
       }
     );
+
+    socket.on("typing", ({ conversationId, senderId }) => {
+      socket.broadcast.to(conversationId).emit("user_typing", { senderId });
+    });
+
+    socket.on("stop_typing", ({ conversationId, senderId }) => {
+      socket.broadcast
+        .to(conversationId)
+        .emit("user_stop_typing", { senderId });
+    });
 
     // Handle disconnection
     socket.on("disconnect", () => {
