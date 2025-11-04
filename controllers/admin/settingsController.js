@@ -7,6 +7,8 @@ const resetPassword = async (req, res) => {
     try {
         // The JWT/req.user contains the user id (User document), not the Admin document id.
         const userId = req.user && req.user.id;
+        console.log(req.user,req.user.id,"asdasd");
+        
         const { oldPassword, newPassword } = req.body;
 
         if (!oldPassword || !newPassword) {
