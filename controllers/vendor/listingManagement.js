@@ -5,6 +5,42 @@ const Booking = require("../../models/Booking");
 const { toMultilingualText } = require("../../utils/textUtils");
 const { createActivityLog } = require("../../utils/activityLogger");
 
+
+const filterByCategory = async (req, res) => {
+  try {
+    const { category, subCategory } = req.query;
+
+    // Build dynamic query object
+    let query = {};
+
+    if (category) query.category = category;
+    if (subCategory) query.subCategory = subCategory;
+    
+    const results = await Listing.find(query);
+    console.log(results,"resultsresultsresultsresults");
+    
+    if (results.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No results found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Results fetched successfully",
+      data: results,
+    });
+
+  } catch (error) {
+    console.error("Filter Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
 const toggleListingStatus = async (req, res) => {
   try {
     const vendorId =
@@ -617,4 +653,5 @@ module.exports = {
   createListing,
   updateListing,
   deleteListing,
+  filterByCategory
 };

@@ -1,7 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { requireAuth, requireVendor } = require('../../middleware/authMiddleware');
-const { getVendorListingsOverview, getVendorListings, toggleListingStatus, createListing, updateListing, deleteListing } = require('../../controllers/vendor/listingManagement');
+const { getVendorListingsOverview, filterByCategory, getVendorListings,
+    toggleListingStatus, createListing,
+    updateListing,
+    deleteListing } = require('../../controllers/vendor/listingManagement');
 
 
 // GET /api/vendor/listings
@@ -18,6 +21,7 @@ router.post('/create', requireAuth, requireVendor, createListing);
 router.delete('/delete/:id', requireAuth, requireVendor, deleteListing);
 
 router.put('/update/:id', requireAuth, requireVendor, updateListing);
+router.get("/listings/filter", filterByCategory);
 
 module.exports = router;
 
