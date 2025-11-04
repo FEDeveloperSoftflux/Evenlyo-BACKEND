@@ -15,10 +15,10 @@ const filterByCategory = async (req, res) => {
 
     if (category) query.category = category;
     if (subCategory) query.subCategory = subCategory;
-    
+
     const results = await Listing.find(query);
-    console.log(results,"resultsresultsresultsresults");
-    
+    console.log(results, "resultsresultsresultsresults");
+
     if (results.length === 0) {
       return res.status(404).json({
         success: false,
@@ -212,7 +212,9 @@ const createListing = async (req, res) => {
     }
 
     // Set vendor ID from authenticated user
-    const vendorId = req.user?.vendorId ? req.user?.vendorId : req?.user.id
+    console.log(req.user, "REQQSDASDASD")
+    const vendorId = req?.user?.id
+    console.log(vendorId,"vendorIdvendorIdvendorIdvendorIdvendorId")
     if (!vendorId) {
       return res.status(400).json({
         success: false,
@@ -224,7 +226,7 @@ const createListing = async (req, res) => {
     if (!listingData.vendor) {
       listingData.vendor = vendorId;
     }
-
+console.log(listingData,"listingDatalistingData_beforeeeeeeeee")
     // Handle images array
     if (Array.isArray(listingData.images)) {
       listingData.images = listingData.images.filter(

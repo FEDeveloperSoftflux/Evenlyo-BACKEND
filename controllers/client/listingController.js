@@ -592,8 +592,6 @@ const searchListings = async (req, res) => {
 // @route   GET /api/listings/vendor/:vendorId
 // @access  Public
 const getListingsByVendor = async (req, res) => {
-  console.log("CASDASDSD");
-  
   try {
     const { vendorId } = req.params;
     const { page = 1, limit = 12, sortBy = 'createdAt', sortOrder = 'desc', status = 'active' } = req.query;
@@ -629,6 +627,8 @@ const getListingsByVendor = async (req, res) => {
     } else {
       sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
     }
+    console.log(query,"queryqueryquery");
+    
 
     const listings = await Listing.find(query)
       .populate('category', 'name icon')
