@@ -8,7 +8,37 @@ const ServiceItemStockLog = require('../../models/ServiceItemStockLog');
 const { toMultilingualText } = require('../../utils/textUtils');
 const SaleItem = require('../../models/Item');
 const ActivityLog = require("../../models/ActivityLog")
-const {createActivityLog} = require("../../utils/activityLogger")
+const { createActivityLog } = require("../../utils/activityLogger")
+
+const itemDetailById = async (req, res) => {
+	const { itemId } = req.params;
+
+	try {
+		const details = await Item.findOne({ _id: itemId })
+			.populate("mainCategory", "name")       // Select only "name" field
+			.populate("subCategory", "name");       // Select only "name" field
+
+		if (!details) {
+			return res.status(404).json({
+				success: false,
+				message: "Item not found"
+			});
+		}
+
+		return res.status(200).json({
+			success: true,
+			message: "Item details fetched successfully",
+			data: details
+		});
+
+	} catch (error) {
+		console.error("Item detail error:", error);
+		return res.status(500).json({
+			success: false,
+			message: "Internal server error"
+		});
+	}
+};
 
 const createItem = async (req, res) => {
 	try {
@@ -113,10 +143,10 @@ const createItem = async (req, res) => {
 		} catch (e) {
 			console.warn('Failed to log initial service item stock checkin:', e.message);
 		}
-        let awaitingActivityLog = null
+		let awaitingActivityLog = null
 		try {
 			const itemTitle = multilingualTitle?.en || title;
-		      awaitingActivityLog = await createActivityLog({
+			awaitingActivityLog = await createActivityLog({
 				heading: 'New Sale Item Added',
 				type: 'sale_item_added',
 				description: `Added new sale item: "${itemTitle}" with stock quantity of ${stockQuantity}`,
@@ -125,15 +155,15 @@ const createItem = async (req, res) => {
 		} catch (error) {
 			console.warn('Failed to create activity log:', error.message);
 		}
-         console.log(awaitingActivityLog, "LOGLOGLOGLOGLOGLOGLOG")
-		
+		console.log(awaitingActivityLog, "LOGLOGLOGLOGLOGLOGLOG")
+
 
 		return res.status(201).json({
 			success: true,
 			item,
 			listingDetails: listingDetails,
 			awaitingActivityLog
-		
+
 		});
 	} catch (error) {
 		return res.status(500).json({ success: false, message: error.message });
@@ -349,7 +379,7 @@ const getVendorItemsOverview = async (req, res) => {
 			status: item.status,
 		}));
 
-         const activityLog = await ActivityLog.find({vendorId})
+		const activityLog = await ActivityLog.find({ vendorId })
 
 		const totalMain = await SaleItem.find({
 			vendor: vendorId,
@@ -563,5 +593,6 @@ module.exports = {
 	updateItemListing,
 	removeItemListing,
 	deleteItem,
-	getVendorItemsOverview
+	getVendorItemsOverview,
+	itemDetailById
 };
