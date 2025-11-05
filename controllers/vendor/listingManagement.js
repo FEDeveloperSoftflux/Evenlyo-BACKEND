@@ -84,17 +84,15 @@ const toggleListingStatus = async (req, res) => {
 
 // GET /api/vendor/listings/overview
 const getVendorListingsOverview = async (req, res) => {
-  console.log(req.user,"req.userreq.userreq.userreq.user");
+  console.log(req.user, "req.userreq.userreq.userreq.user");
   try {
     const vendorId = req.user?.id;
-
     if (!vendorId) {
       return res.status(400).json({
         success: false,
         message: "Vendor not found in request.",
       });
     }
-
     // Get all listings for this vendor
     const listings = await Listing.find({ vendor: vendorId })
       .populate("category", "name")
@@ -214,7 +212,7 @@ const createListing = async (req, res) => {
     // Set vendor ID from authenticated user
     console.log(req.user, "REQQSDASDASD")
     const vendorId = req?.user?.id
-    console.log(vendorId,"vendorIdvendorIdvendorIdvendorIdvendorId")
+    console.log(vendorId, "vendorIdvendorIdvendorIdvendorIdvendorId")
     if (!vendorId) {
       return res.status(400).json({
         success: false,
@@ -226,7 +224,7 @@ const createListing = async (req, res) => {
     if (!listingData.vendor) {
       listingData.vendor = vendorId;
     }
-console.log(listingData,"listingDatalistingData_beforeeeeeeeee")
+    console.log(listingData, "listingDatalistingData_beforeeeeeeeee")
     // Handle images array
     if (Array.isArray(listingData.images)) {
       listingData.images = listingData.images.filter(
