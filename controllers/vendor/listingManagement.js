@@ -84,9 +84,9 @@ const toggleListingStatus = async (req, res) => {
 
 // GET /api/vendor/listings/overview
 const getVendorListingsOverview = async (req, res) => {
+  console.log(req.user,"req.userreq.userreq.userreq.user");
   try {
-    const vendorId =
-      req.vendor?._id || req.user?._id || req.user?.vendorId || req.user?.id;
+    const vendorId = req.user?.id;
 
     if (!vendorId) {
       return res.status(400).json({
