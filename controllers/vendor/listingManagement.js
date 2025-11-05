@@ -571,8 +571,7 @@ const updateListing = async (req, res) => {
 // @access  Private (Vendor only)
 const deleteListing = async (req, res) => {
   try {
-    const vendorId =
-      req.vendor?._id || req.user?._id || req.user?.vendorId || req.user?.id;
+    const vendorId =req.user?.id;
     const listingId = req.params.id;
 
     if (!vendorId) {
