@@ -78,7 +78,9 @@ const createItem = async (req, res) => {
 						message: 'Linked listing not found'
 					});
 				}
-				const currentVendorId = req.user.vendorId;
+				const currentVendorId = req.user.id;
+				console.log(currentVendorId, listing.vendor.toString(), "currentVendorIdcurrentVendorIdcurrentVendorId");
+
 				if (listing.vendor.toString() !== currentVendorId) {
 					return res.status(403).json({
 						success: false,
@@ -333,7 +335,8 @@ const getVendorItemsOverview = async (req, res) => {
 		// Get all items for this vendor
 		const items = await Item.find({ vendor: vendorId })
 			.populate('mainCategory', 'name')
-			.populate('subCategory', 'name');
+			.populate('subCategory', 'name')
+			.sort({ createdAt: -1 });
 
 		// Stats: unique main categories and subcategories
 		const mainCategorySet = new Set();
@@ -363,6 +366,7 @@ const getVendorItemsOverview = async (req, res) => {
 			title: item.title?.en || item.title,
 			purchasedCount: purchaseCountMap[item._id.toString()] || 0
 		}));
+		console.log(items, "itemsitemsitemsitemsitems");
 
 		// itemsTable: all items with required details
 		const itemsTable = items.map(item => ({
@@ -377,6 +381,7 @@ const getVendorItemsOverview = async (req, res) => {
 			Stock: item.stockQuantity || 0,
 			date: item.createdAt,
 			status: item.status,
+			linkedListing: item.linkedListing
 		}));
 
 		const activityLog = await ActivityLog.find({ vendorId })

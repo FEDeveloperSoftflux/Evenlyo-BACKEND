@@ -10,7 +10,7 @@ const { createDesignation,
 router.post('/vendor/create-designation', createDesignation);
 router.get('/vendor/fetch-designations/:id', getDesignations);
 router.get('/:id', getDesignation);
-router.put('/:id', updateDesignation);
-router.delete('/:id', deleteDesignation);
+router.put('/vendor/update-designation/:id', updateDesignation);
+router.delete('/vendor/delete-designation/:id', deleteDesignation);
 
 module.exports = router;
