@@ -44,8 +44,8 @@ const vendorSchema = new mongoose.Schema({
     default: ""
   },
   businessImage: {
-    type: Array,
-    defauly: String
+    type: String,
+    default: ""
   },
   whyChooseUs: {
     en: { type: String, trim: true, default: '' },

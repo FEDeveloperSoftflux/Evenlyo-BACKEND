@@ -430,9 +430,13 @@ const updateItem = async (req, res) => {
 			image,
 			linkedListing
 		} = req.body;
-		const vendorId = req.user.vendorId;
+		console.log(req.user, " req.user req.user");
+
+		const vendorId = req.user.id;
 
 		// Find the item and verify ownership
+		console.log(itemId, "itemIditemId");
+
 		const item = await Item.findById(itemId);
 		if (!item) {
 			return res.status(404).json({
@@ -440,6 +444,7 @@ const updateItem = async (req, res) => {
 				message: 'Item not found'
 			});
 		}
+		console.log(item.vendor.toString(), vendorId, "item.vendor.toString() ");
 
 		if (item.vendor.toString() !== vendorId) {
 			return res.status(403).json({

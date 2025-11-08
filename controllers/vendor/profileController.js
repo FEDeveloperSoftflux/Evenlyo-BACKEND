@@ -15,6 +15,7 @@ const getProfile = async (req, res) => {
       .populate({ path: 'mainCategories', select: 'name' })
       .populate({ path: 'subCategories', select: 'name mainCategory' });
     if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
+    console.log(vendor, "vendorvendorvendor");
 
     // Assume account type is determined by businessName: if present, business; else, personal
     const isBusiness = !!vendor.businessName;
