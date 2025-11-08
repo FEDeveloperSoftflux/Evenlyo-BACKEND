@@ -175,7 +175,8 @@ const getVendorListingsOverview = async (req, res) => {
 const createListing = async (req, res) => {
   try {
     const listingData = req.body;
-
+    console.log(listingData,"listingDatalistingData");
+    
     // Validate required fields before processing
     if (
       !listingData.title ||
