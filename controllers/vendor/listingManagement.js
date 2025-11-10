@@ -140,10 +140,10 @@ const getVendorListingsOverview = async (req, res) => {
       ...listing.toObject(),
       listingId: listing._id,
       image: listing.images[0] || '',
-      title: listing.title?.en || listing.title,
-      description: listing.description?.en || listing.description,
-      category: listing.category?.name?.en || '',
-      subCategory: listing.subCategory?.name?.en || '',
+      title: listing.title || listing.title,
+      description: listing.description || listing.description,
+      category: listing.category || '',
+      subCategory: listing.subCategory || '',
       pricing: listing.pricing,
       date: listing.createdAt,
       status: listing.status,
@@ -175,8 +175,8 @@ const getVendorListingsOverview = async (req, res) => {
 const createListing = async (req, res) => {
   try {
     const listingData = req.body;
-    console.log(listingData,"listingDatalistingData");
-    
+    console.log(listingData, "listingDatalistingData");
+
     // Validate required fields before processing
     if (
       !listingData.title ||
@@ -372,6 +372,7 @@ const createListing = async (req, res) => {
 // @desc    Update an existing listing
 // @route   PUT /api/listings/:id
 // @access  Private (Vendor only)
+
 const updateListing = async (req, res) => {
   try {
     const { id } = req.params;
@@ -479,6 +480,7 @@ const updateListing = async (req, res) => {
         };
       }
     }
+    console.log(updateData, "updateDataupdateDataupdateDataupdateData");
 
     // --- Merge pricing updates with existing pricing ---
     if (updateData.pricing) {
@@ -572,7 +574,7 @@ const updateListing = async (req, res) => {
 // @access  Private (Vendor only)
 const deleteListing = async (req, res) => {
   try {
-    const vendorId =req.user?.id;
+    const vendorId = req.user?.id;
     const listingId = req.params.id;
 
     if (!vendorId) {

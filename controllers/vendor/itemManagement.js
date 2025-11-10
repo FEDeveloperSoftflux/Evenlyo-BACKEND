@@ -50,7 +50,7 @@ const createItem = async (req, res) => {
 			sellingPrice,
 			stockQuantity,
 			image,
-			linkedListing
+			linkedListing,
 		} = req.body;
 
 		if (!req.user || !req.user.vendorId) {
@@ -128,7 +128,7 @@ const createItem = async (req, res) => {
 			sellingPrice,
 			stockQuantity,
 			image,
-			vendor: req.user.vendorId,
+			vendor: req.user.id,
 			linkedListing: linkedListing || null
 		});
 
@@ -152,7 +152,7 @@ const createItem = async (req, res) => {
 				heading: 'New Sale Item Added',
 				type: 'sale_item_added',
 				description: `Added new sale item: "${itemTitle}" with stock quantity of ${stockQuantity}`,
-				vendorId: req.user.vendorId
+				vendorId: req.user.id
 			});
 		} catch (error) {
 			console.warn('Failed to create activity log:', error.message);
@@ -323,8 +323,7 @@ const removeItemListing = async (req, res) => {
 
 const getVendorItemsOverview = async (req, res) => {
 	try {
-		const vendorId = req.vendor?._id || req.user?._id || req.user?.vendorId || req.user?.id;
-
+		const vendorId = req.user.id
 		if (!vendorId) {
 			return res.status(400).json({
 				success: false,
@@ -372,10 +371,10 @@ const getVendorItemsOverview = async (req, res) => {
 		const itemsTable = items.map(item => ({
 			itemId: item._id,
 			image: item.image || '',
-			title: item.title?.en || item.title,
-			description: item.description?.en || item.description,
-			mainCategory: item.mainCategory?.name?.en || 'Others',
-			subCategory: item.subCategory?.name?.en || 'Others',
+			title: item.title || item.title,
+			description: item.description || item.description,
+			mainCategory: item.mainCategory || 'Others',
+			subCategory: item.subCategory || 'Others',
 			SellingPrice: item.sellingPrice || 0,
 			PurchasePrice: item.purchasePrice || 0,
 			Stock: item.stockQuantity || 0,
@@ -548,7 +547,7 @@ const deleteItem = async (req, res) => {
 		}
 
 		const { itemId } = req.params;
-		const vendorId = req.user.vendorId;
+		const vendorId = req.user.id;
 
 		// Find the item and verify ownership
 		const item = await Item.findById(itemId);

@@ -1212,7 +1212,7 @@ const registerVendor = async (req, res) => {
       businessWebsite,
       businessDescription,
       businessLogo,
-      bannerImage,
+      businessImage,
       whyChooseUs,
       teamType,
       teamSize,
@@ -1320,7 +1320,7 @@ const registerVendor = async (req, res) => {
         businessWebsite,
         businessDescription,
         businessLogo,
-        bannerImage,
+        businessImage,
         whyChooseUs,
         teamType,
         teamSize,
@@ -1576,7 +1576,7 @@ const registerVendor2 = async (req, res) => {
       businessWebsite,
       businessDescription,
       businessLogo,
-      bannerImage,
+      businessImage,
       whyChooseUs,
       teamType,
       teamSize,
@@ -1717,7 +1717,7 @@ const registerVendor2 = async (req, res) => {
       vendorData.accountType = accountType;
       vendorData.businessEmail = registrationEmail;
       vendorData.businessLogo = businessLogo;
-      vendorData.bannerImage = bannerImage;
+      vendorData.businessImage = businessImage;
     } else if (accountType === "business") {
       // Business vendors: convert multilingual-capable fields
       vendorData.businessName = businessName;
@@ -1727,7 +1727,7 @@ const registerVendor2 = async (req, res) => {
       vendorData.businessWebsite = businessWebsite;
       vendorData.businessDescription = toMultilingualText(businessDescription);
       vendorData.businessLogo = businessLogo;
-      vendorData.bannerImage = bannerImage;
+      vendorData.businessImage = businessImage;
       vendorData.whyChooseUs = toMultilingualText(whyChooseUs);
       vendorData.teamType = teamType;
       vendorData.teamSize = teamSize;
