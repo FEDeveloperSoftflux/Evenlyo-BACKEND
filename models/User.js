@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
   firstName: {
     type: String,
-    required: function() {
+    required: function () {
       // Required for clients and personal vendors, not for business vendors
       if (this.userType === 'client') return true;
       if (this.userType === 'vendor' && this.accountType === 'personal') return true;
@@ -14,21 +14,21 @@ const userSchema = new mongoose.Schema({
   },
   passportDetails: {
     type: String,
-    required: function() {
+    required: function () {
       return this.userType === 'vendor' && this.accountType === 'personal';
     },
     trim: true
   },
   kvkNumber: {
     type: String,
-    required: function() {
+    required: function () {
       return this.userType === 'vendor' && this.accountType === 'business';
     },
     trim: true
   },
   lastName: {
     type: String,
-    required: function() {
+    required: function () {
       // Required for clients and personal vendors, not for business vendors
       if (this.userType === 'client') return true;
       if (this.userType === 'vendor' && (!this.provider || this.provider === 'email')) {
@@ -52,15 +52,14 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: function() {
+    required: function () {
       return !this.provider || this.provider === 'email';
     },
-    minlength: 8,
     default: '' // Default to null for social logins
   },
   contactNumber: {
     type: String,
-    required: function() {
+    required: function () {
       // Contact number is required only for non-Google logins
       return !this.provider || this.provider === 'email';
     }
@@ -73,20 +72,20 @@ const userSchema = new mongoose.Schema({
   googleId: {
     type: String,
     sparse: true, // Allow multiple null values
-    unique: true 
+    unique: true
   },
   accountType: {
     type: String,
     enum: ['personal', 'business'],
-    required: function() {
+    required: function () {
       return this.userType === 'vendor';
     }
   },
-address: {
-  type: String,
-  default: '',
-  trim: true
-},
+  address: {
+    type: String,
+    default: '',
+    trim: true
+  },
   userType: {
     type: String,
     enum: ['client', 'vendor', 'admin'],
@@ -100,12 +99,14 @@ address: {
     type: Boolean,
     default: true
   },
+  designationID: { type: mongoose.Types.ObjectId },
   language: {
     type: String,
     enum: ['english', 'dutch'],
     default: 'english'
   },
-  notifications: 
+  createdById: { type: mongoose.Types.ObjectId, default: null },
+  notifications:
   {
     email: {
       type: Boolean,
@@ -123,11 +124,11 @@ address: {
     ref: 'Role',
     required: false
   }
-}, 
-{ timestamps: true });
+},
+  { timestamps: true });
 
 // Virtual for fullName
-userSchema.virtual('fullName').get(function() {
+userSchema.virtual('fullName').get(function () {
   return `${this.firstName} ${this.lastName}`;
 });
 
@@ -136,24 +137,21 @@ userSchema.set('toJSON', { virtuals: true });
 userSchema.set('toObject', { virtuals: true });
 
 // Pre-save middleware
-userSchema.pre('save', function(next) {
+userSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
-  
-  // Ensure social login users don't have passwords
-  if (this.provider === 'google' && this.password) 
-  {
+
+  // Social login users should not have password
+  if (this.provider === 'google') {
     this.password = null;
   }
-  
-  // Ensure email users have passwords (unless it's being set to null intentionally during Google migration)
-  if (this.provider === 'email' && !this.password && this.isNew) 
-  {
+
+  // Email users must have password
+  if (this.provider === 'email' && !this.password && this.isNew) {
     return next(new Error('Password is required for email authentication'));
   }
-  
+
   next();
 });
-
 // Indexes for better performance
 // Note: email already has unique index from schema definition
 userSchema.index({ userType: 1, isActive: 1 });

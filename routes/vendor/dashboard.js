@@ -4,6 +4,6 @@ const { getDashboardAnalytics } = require('../../controllers/vendor/dashboardCon
 const { requireAuth, requireVendor } = require('../../middleware/authMiddleware');
 
 // GET /api/vendor/dashboard/analytics
-router.get('/analytics', requireAuth, requireVendor, getDashboardAnalytics);
+router.get('/analytics', requireAuth, getDashboardAnalytics);
 
 module.exports = router;

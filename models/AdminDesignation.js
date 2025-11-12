@@ -7,36 +7,10 @@ const adminDesignationSchema = new mongoose.Schema({
     unique: true,
     trim: true
   },
-  permissions: [{
-    module: {
-      type: String,
-      required: true,
-      enum: [
-        'dashboard',
-        'user_management',
-        'listing_management',
-        "booking-analytics",
-        'tracking',
-        'role_management',
-        'settings',
-        'reports',
-        'blog_management',
-        'notifications',
-        'faqs',
-        'customer_support',
-        'fees_and_payments',
-        'system_settings'
-      ]
-    },
-    canEdit: {
-      type: Boolean,
-      default: false
-    },
-    canDelete: {
-      type: Boolean,
-      default: false
-    }
-  }],
+  permissions: {
+    type: Array,
+    default: []
+  },
   isActive: {
     type: Boolean,
     default: true

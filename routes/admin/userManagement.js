@@ -6,94 +6,94 @@ const { requireAuth, requireAdmin, requireActiveAdmin } = require('../../middlew
 // --- Admin User Management Routes ---
 
 // Get all clients with stats and table data
-router.get('/clients', 
-  requireAuth,
+router.get('/admin/users/clients', 
+  // requireAuth,
   requireAdmin,
-  requireActiveAdmin,
+  // requireActiveAdmin,
   userManagementController.getAllClients
 );
 
 // Get specific client details
-router.get('/clients/:clientId', 
-  requireAuth,
+router.get('/admin/users/clients/:clientId', 
+  // requireAuth,
   requireAdmin,
-  requireActiveAdmin,
+  // requireActiveAdmin,
   userManagementController.getClientDetails
 );
 
 // Block/Unblock client
-router.patch('/clients/:clientId/status', 
-  requireAuth,
+router.patch('/admin/users/clients/:clientId/status', 
+  // requireAuth,
   requireAdmin,
-  requireActiveAdmin,
+  // requireActiveAdmin,
   userManagementController.toggleClientStatus
 );
 
 // Reset client password
-router.patch('/clients/:clientId/reset-password', 
-  requireAuth,
+router.patch('/admin/users/clients/:clientId/reset-password', 
+  // requireAuth,
   requireAdmin,
-  requireActiveAdmin,
+  // requireActiveAdmin,
   userManagementController.resetClientPassword
 );
 
 // --- Vendor Management Routes ---
 
 // Get all vendors with stats and table data
-router.get('/vendors', 
-  requireAuth,
+router.get('/admin/users/vendors', 
+  // requireAuth,
   requireAdmin,
-  requireActiveAdmin,
+  // requireActiveAdmin,
   userManagementController.getAllVendors
 );
 
 // Get specific vendor details
-router.get('/vendors/:vendorId', 
-  requireAuth,
+router.get('/admin/users/vendors/:vendorId', 
+  // requireAuth,
   requireAdmin,
-  requireActiveAdmin,
+  // requireActiveAdmin,
   userManagementController.getVendorDetails
 );
 
 // Block/Unblock vendor
-router.patch('/vendors/:vendorId/status', 
-  requireAuth,
+router.patch('/admin/users/vendors/:vendorId/status', 
+  // requireAuth,
   requireAdmin,
-  requireActiveAdmin,
+  // requireActiveAdmin,
   userManagementController.toggleVendorStatus
 );
 
 // Approve/Reject vendor
-router.patch('/vendors/:vendorId/approval', 
-  requireAuth,
+router.patch('/admin/users/vendors/:vendorId/approval', 
+  // requireAuth,
   requireAdmin,
-  requireActiveAdmin,
+  // requireActiveAdmin,
   userManagementController.toggleVendorApproval
 );
 
 // Reset vendor password
-router.patch('/vendors/:vendorId/reset-password', 
-  requireAuth,
+router.patch('/admin/users/vendors/:vendorId/reset-password', 
+  // requireAuth,
   requireAdmin,
-  requireActiveAdmin,
+  // requireActiveAdmin,
   userManagementController.resetVendorPassword
 );
 
 // --- Email Management Routes ---
 
 // Send email to selected clients
-router.post('/clients/send-email', 
-  requireAuth,
+router.post('/admin/users/clients/send-email', 
+  // requireAuth,
   requireAdmin,
-  requireActiveAdmin,
+  // requireActiveAdmin,
   userManagementController.sendEmailToClients
 );
 
 // Send email to selected vendors
-router.post('/vendors/send-email', 
-  requireAuth,
+router.post('/admin/users/vendors/send-email', 
+  // requireAuth,
   requireAdmin,
-  requireActiveAdmin,
+  // requireActiveAdmin,
   userManagementController.sendEmailToVendors
 );
 

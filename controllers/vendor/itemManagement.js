@@ -8,7 +8,37 @@ const ServiceItemStockLog = require('../../models/ServiceItemStockLog');
 const { toMultilingualText } = require('../../utils/textUtils');
 const SaleItem = require('../../models/Item');
 const ActivityLog = require("../../models/ActivityLog")
-const {createActivityLog} = require("../../utils/activityLogger")
+const { createActivityLog } = require("../../utils/activityLogger")
+
+const itemDetailById = async (req, res) => {
+	const { itemId } = req.params;
+
+	try {
+		const details = await Item.findOne({ _id: itemId })
+			.populate("mainCategory", "name")       // Select only "name" field
+			.populate("subCategory", "name");       // Select only "name" field
+
+		if (!details) {
+			return res.status(404).json({
+				success: false,
+				message: "Item not found"
+			});
+		}
+
+		return res.status(200).json({
+			success: true,
+			message: "Item details fetched successfully",
+			data: details
+		});
+
+	} catch (error) {
+		console.error("Item detail error:", error);
+		return res.status(500).json({
+			success: false,
+			message: "Internal server error"
+		});
+	}
+};
 
 const createItem = async (req, res) => {
 	try {
@@ -20,7 +50,7 @@ const createItem = async (req, res) => {
 			sellingPrice,
 			stockQuantity,
 			image,
-			linkedListing
+			linkedListing,
 		} = req.body;
 
 		if (!req.user || !req.user.vendorId) {
@@ -48,7 +78,9 @@ const createItem = async (req, res) => {
 						message: 'Linked listing not found'
 					});
 				}
-				const currentVendorId = req.user.vendorId;
+				const currentVendorId = req.user.id;
+				console.log(currentVendorId, listing.vendor.toString(), "currentVendorIdcurrentVendorIdcurrentVendorId");
+
 				if (listing.vendor.toString() !== currentVendorId) {
 					return res.status(403).json({
 						success: false,
@@ -96,7 +128,7 @@ const createItem = async (req, res) => {
 			sellingPrice,
 			stockQuantity,
 			image,
-			vendor: req.user.vendorId,
+			vendor: req.user.id,
 			linkedListing: linkedListing || null
 		});
 
@@ -113,27 +145,27 @@ const createItem = async (req, res) => {
 		} catch (e) {
 			console.warn('Failed to log initial service item stock checkin:', e.message);
 		}
-        let awaitingActivityLog = null
+		let awaitingActivityLog = null
 		try {
 			const itemTitle = multilingualTitle?.en || title;
-		      awaitingActivityLog = await createActivityLog({
+			awaitingActivityLog = await createActivityLog({
 				heading: 'New Sale Item Added',
 				type: 'sale_item_added',
 				description: `Added new sale item: "${itemTitle}" with stock quantity of ${stockQuantity}`,
-				vendorId: req.user.vendorId
+				vendorId: req.user.id
 			});
 		} catch (error) {
 			console.warn('Failed to create activity log:', error.message);
 		}
-         console.log(awaitingActivityLog, "LOGLOGLOGLOGLOGLOGLOG")
-		
+		console.log(awaitingActivityLog, "LOGLOGLOGLOGLOGLOGLOG")
+
 
 		return res.status(201).json({
 			success: true,
 			item,
 			listingDetails: listingDetails,
 			awaitingActivityLog
-		
+
 		});
 	} catch (error) {
 		return res.status(500).json({ success: false, message: error.message });
@@ -291,8 +323,7 @@ const removeItemListing = async (req, res) => {
 
 const getVendorItemsOverview = async (req, res) => {
 	try {
-		const vendorId = req.vendor?._id || req.user?._id || req.user?.vendorId || req.user?.id;
-
+		const vendorId = req.user.id
 		if (!vendorId) {
 			return res.status(400).json({
 				success: false,
@@ -303,7 +334,8 @@ const getVendorItemsOverview = async (req, res) => {
 		// Get all items for this vendor
 		const items = await Item.find({ vendor: vendorId })
 			.populate('mainCategory', 'name')
-			.populate('subCategory', 'name');
+			.populate('subCategory', 'name')
+			.sort({ createdAt: -1 });
 
 		// Stats: unique main categories and subcategories
 		const mainCategorySet = new Set();
@@ -333,23 +365,25 @@ const getVendorItemsOverview = async (req, res) => {
 			title: item.title?.en || item.title,
 			purchasedCount: purchaseCountMap[item._id.toString()] || 0
 		}));
+		console.log(items, "itemsitemsitemsitemsitems");
 
 		// itemsTable: all items with required details
 		const itemsTable = items.map(item => ({
 			itemId: item._id,
 			image: item.image || '',
-			title: item.title?.en || item.title,
-			description: item.description?.en || item.description,
-			mainCategory: item.mainCategory?.name?.en || 'Others',
-			subCategory: item.subCategory?.name?.en || 'Others',
+			title: item.title || item.title,
+			description: item.description || item.description,
+			mainCategory: item.mainCategory || 'Others',
+			subCategory: item.subCategory || 'Others',
 			SellingPrice: item.sellingPrice || 0,
 			PurchasePrice: item.purchasePrice || 0,
 			Stock: item.stockQuantity || 0,
 			date: item.createdAt,
 			status: item.status,
+			linkedListing: item.linkedListing
 		}));
 
-         const activityLog = await ActivityLog.find({vendorId})
+		const activityLog = await ActivityLog.find({ vendorId })
 
 		const totalMain = await SaleItem.find({
 			vendor: vendorId,
@@ -395,9 +429,13 @@ const updateItem = async (req, res) => {
 			image,
 			linkedListing
 		} = req.body;
-		const vendorId = req.user.vendorId;
+		console.log(req.user, " req.user req.user");
+
+		const vendorId = req.user.id;
 
 		// Find the item and verify ownership
+		console.log(itemId, "itemIditemId");
+
 		const item = await Item.findById(itemId);
 		if (!item) {
 			return res.status(404).json({
@@ -405,6 +443,7 @@ const updateItem = async (req, res) => {
 				message: 'Item not found'
 			});
 		}
+		console.log(item.vendor.toString(), vendorId, "item.vendor.toString() ");
 
 		if (item.vendor.toString() !== vendorId) {
 			return res.status(403).json({
@@ -508,7 +547,7 @@ const deleteItem = async (req, res) => {
 		}
 
 		const { itemId } = req.params;
-		const vendorId = req.user.vendorId;
+		const vendorId = req.user.id;
 
 		// Find the item and verify ownership
 		const item = await Item.findById(itemId);
@@ -563,5 +602,6 @@ module.exports = {
 	updateItemListing,
 	removeItemListing,
 	deleteItem,
-	getVendorItemsOverview
+	getVendorItemsOverview,
+	itemDetailById
 };

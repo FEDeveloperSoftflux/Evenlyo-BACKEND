@@ -6,10 +6,10 @@ const { requireAuth, requireAdmin, requireActiveAdmin } = require('../../middlew
 // --- Admin Dashboard Routes ---
 
 // Get dashboard stats and data
-router.get('/stats', 
-  requireAuth,
-  requireAdmin,
-  requireActiveAdmin,
+router.get('/stats', requireAdmin,
+  // requireAuth,
+  // requireAdmin,
+  // requireActiveAdmin,
   getDashboardStats
 );
 

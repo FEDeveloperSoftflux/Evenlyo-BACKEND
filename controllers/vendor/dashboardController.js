@@ -140,9 +140,11 @@ const getDashboardAnalytics = async (req, res) => {
       const found = purchaseAgg.find(m => m._id.month === i + 1);
       return { month: i + 1, totalPurchases: found ? found.totalPurchases : 0 };
     });
-    const activityLog = await ActivityLog.find({ vendorId: req.user.id })
-    console.log(activityLog,"activityLogactivityLogactivityLogactivityLog");
-    
+    console.log(req.user, "req.user.idreq.user.idreq.user.id");
+
+    const activityLog = await ActivityLog.find({ vendorId: req.user.vendorId ? req.user.vendorId : req.user.id })
+    console.log(activityLog, "activityLogactivityLogactivityLogactivityLog");
+
     // Recent Purchases (last 3)
     const recentPurchases = await Purchase.find({ vendor: vendorId })
       .sort({ purchasedAt: -1 })
@@ -178,7 +180,8 @@ const getDashboardAnalytics = async (req, res) => {
         status: p.status,
         purchasedAt: p.purchasedAt
       })),
-      recentClients
+      recentClients,
+      activityLog
     });
   } catch (err) {
     console.error('Dashboard analytics error:', err);

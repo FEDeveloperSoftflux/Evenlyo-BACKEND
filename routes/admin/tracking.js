@@ -23,8 +23,8 @@ router.get('/',
 // Get tracking statistics for dashboard
 router.get('/stats',
   requireAuth,
-  requireAdmin,
-  requireActiveAdmin,
+  // requireAdmin,
+  // requireActiveAdmin,
   getTrackingStats
 );
 

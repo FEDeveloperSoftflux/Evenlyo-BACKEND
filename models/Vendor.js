@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const vendorSchema = new mongoose.Schema({
+  // vendorId: {
+  //   type: mongoose.Schema.Types.ObjectId,
+  //   ref: 'User',
+  //   required: true
+  // },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -34,8 +39,14 @@ const vendorSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  businessLogo: String,
-  bannerImage: String,
+  businessLogo: {
+    type: String,
+    default: ""
+  },
+  businessImage: {
+    type: String,
+    default: ""
+  },
   whyChooseUs: {
     en: { type: String, trim: true, default: '' },
     nl: { type: String, trim: true, default: '' }
@@ -122,7 +133,10 @@ const vendorSchema = new mongoose.Schema({
     type: String,
     enum: ['personal', 'business'],
   }
-}, { timestamps: true });
+}, {
+  timestamps: true,
+  collection: "vendorDetails"
+});
 
 vendorSchema.index({ userId: 1 });
 vendorSchema.index({ mainCategories: 1 });
