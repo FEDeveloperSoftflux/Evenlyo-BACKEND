@@ -1,21 +1,23 @@
-const bcrypt = require('bcryptjs');
-const User = require('../models/User');
-const Vendor = require('../models/Vendor');
-const multer = require('multer');
-const path = require('path');
+const bcrypt = require("bcryptjs");
+const User = require("../models/User");
+const Vendor = require("../models/Vendor");
+const multer = require("multer");
+const path = require("path");
+const Listing = require("../models/Listing");
+const SaleItem = require("../models/Item");
 
 // --- Utility function to get user model ---
 const getUserData = async (userId, userType) => {
   const user = await User.findById(userId);
   if (!user) {
-    throw new Error('User not found');
+    throw new Error("User not found");
   }
 
-  if (userType === 'vendor') {
-    const vendor = await Vendor.findOne({ userId: userId }).populate('userId');
+  if (userType === "vendor") {
+    const vendor = await Vendor.findOne({ userId: userId }).populate("userId");
     return vendor || user;
   }
-  
+
   return user;
 };
 
@@ -28,12 +30,12 @@ const getPersonalInfo = async (req, res) => {
     const userType = req.user.userType;
 
     const userData = await getUserData(userId, userType);
-    const user = userType === 'vendor' ? userData.userId : userData;
+    const user = userType === "vendor" ? userData.userId : userData;
 
     res.json({
       success: true,
       data: {
-        profileImage: user.profileImage ,
+        profileImage: user.profileImage,
         firstName: user.firstName,
         lastName: user.lastName,
         fullName: user.fullName,
@@ -41,15 +43,15 @@ const getPersonalInfo = async (req, res) => {
         contactNumber: user.contactNumber,
         address: user.address || {},
         userType: user.userType,
-        language: user.language
-      }
+        language: user.language,
+      },
     });
   } catch (error) {
-    console.error('Get personal info error:', error);
+    console.error("Get personal info error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to retrieve personal information',
-      error: error.message
+      message: "Failed to retrieve personal information",
+      error: error.message,
     });
   }
 };
@@ -64,80 +66,93 @@ const updatePersonalInfo = async (req, res) => {
     const updates = {};
 
     if (contactNumber !== undefined) {
-      if (!contactNumber || contactNumber.trim() === '') {
+      if (!contactNumber || contactNumber.trim() === "") {
         return res.status(400).json({
           success: false,
-          message: 'Contact number cannot be empty'
+          message: "Contact number cannot be empty",
         });
       }
       updates.contactNumber = contactNumber.trim();
     }
     if (address !== undefined) {
-      if (typeof address !== 'object' || !address.fullAddress) {
+      if (typeof address !== "object" || !address.fullAddress) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid address format. Must be an object with a fullAddress field.'
+          message:
+            "Invalid address format. Must be an object with a fullAddress field.",
         });
       }
       updates.address = address;
     }
 
     if (language !== undefined) {
-      if (!['english', 'dutch'].includes(language)) {
+      if (!["english", "dutch"].includes(language)) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid language. Must be either english or dutch'
+          message: "Invalid language. Must be either english or dutch",
         });
       }
       updates.language = language;
     }
 
     if (profileImage !== undefined) {
-      console.log('Processing profileImage:', profileImage);
-      
+      console.log("Processing profileImage:", profileImage);
+
       // Validate Cloudinary URL format
-      if (profileImage && typeof profileImage === 'string' && profileImage.trim() !== '') {
+      if (
+        profileImage &&
+        typeof profileImage === "string" &&
+        profileImage.trim() !== ""
+      ) {
         const trimmedUrl = profileImage.trim();
-        console.log('Trimmed URL:', trimmedUrl);
-        
+        console.log("Trimmed URL:", trimmedUrl);
+
         // More flexible Cloudinary URL pattern
-        const cloudinaryUrlPattern = /^https?:\/\/res\.cloudinary\.com\/[a-zA-Z0-9_-]+\/image\/upload\/.*\.(jpg|jpeg|png|gif|webp|svg)$/i;
+        const cloudinaryUrlPattern =
+          /^https?:\/\/res\.cloudinary\.com\/[a-zA-Z0-9_-]+\/image\/upload\/.*\.(jpg|jpeg|png|gif|webp|svg)$/i;
         const isValidCloudinaryUrl = cloudinaryUrlPattern.test(trimmedUrl);
-        
-        console.log('URL validation result:', isValidCloudinaryUrl);
-        
+
+        console.log("URL validation result:", isValidCloudinaryUrl);
+
         if (!isValidCloudinaryUrl) {
           // Also check for basic Cloudinary pattern without file extension requirement
-          const basicCloudinaryPattern = /^https?:\/\/res\.cloudinary\.com\/[a-zA-Z0-9_-]+\/image\/upload\//i;
+          const basicCloudinaryPattern =
+            /^https?:\/\/res\.cloudinary\.com\/[a-zA-Z0-9_-]+\/image\/upload\//i;
           if (!basicCloudinaryPattern.test(trimmedUrl)) {
             return res.status(400).json({
               success: false,
-              message: 'Invalid Cloudinary URL format. Please provide a valid Cloudinary image URL.'
+              message:
+                "Invalid Cloudinary URL format. Please provide a valid Cloudinary image URL.",
             });
           }
         }
-        
+
         updates.profileImage = trimmedUrl;
-        console.log('Profile image added to updates');
-      } else if (profileImage === '') {
-        updates.profileImage = '';
-        console.log('Profile image set to empty string');
+        console.log("Profile image added to updates");
+      } else if (profileImage === "") {
+        updates.profileImage = "";
+        console.log("Profile image set to empty string");
       } else {
-        console.log('Invalid profileImage type or value:', typeof profileImage, profileImage);
+        console.log(
+          "Invalid profileImage type or value:",
+          typeof profileImage,
+          profileImage
+        );
         return res.status(400).json({
           success: false,
-          message: 'Profile image must be a valid Cloudinary URL string or an empty string'
+          message:
+            "Profile image must be a valid Cloudinary URL string or an empty string",
         });
       }
     }
 
     // Debug logging
-    console.log('Final updates object:', updates);
-    
+    console.log("Final updates object:", updates);
+
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'No valid fields to update'
+        message: "No valid fields to update",
       });
     }
 
@@ -150,26 +165,26 @@ const updatePersonalInfo = async (req, res) => {
     if (!updatedUser) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
     res.json({
       success: true,
-      message: 'Personal information updated successfully',
+      message: "Personal information updated successfully",
       data: {
         profileImage: updatedUser.profileImage,
         contactNumber: updatedUser.contactNumber,
         address: updatedUser.address,
-        language: updatedUser.language
-      }
+        language: updatedUser.language,
+      },
     });
   } catch (error) {
-    console.error('Update personal info error:', error);
+    console.error("Update personal info error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to update personal information',
-      error: error.message
+      message: "Failed to update personal information",
+      error: error.message,
     });
   }
 };
@@ -184,7 +199,7 @@ const changePassword = async (req, res) => {
     if (!oldPassword || !newPassword) {
       return res.status(400).json({
         success: false,
-        message: 'Old password and new password are required'
+        message: "Old password and new password are required",
       });
     }
 
@@ -192,7 +207,7 @@ const changePassword = async (req, res) => {
     if (newPassword.length < 8) {
       return res.status(400).json({
         success: false,
-        message: 'New password must be at least 8 characters long'
+        message: "New password must be at least 8 characters long",
       });
     }
 
@@ -201,7 +216,7 @@ const changePassword = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
@@ -209,7 +224,7 @@ const changePassword = async (req, res) => {
     if (!user.password) {
       return res.status(400).json({
         success: false,
-        message: 'Cannot change password for social login accounts'
+        message: "Cannot change password for social login accounts",
       });
     }
 
@@ -218,7 +233,7 @@ const changePassword = async (req, res) => {
     if (!isOldPasswordValid) {
       return res.status(400).json({
         success: false,
-        message: 'Current password is incorrect'
+        message: "Current password is incorrect",
       });
     }
 
@@ -227,7 +242,7 @@ const changePassword = async (req, res) => {
     if (isSamePassword) {
       return res.status(400).json({
         success: false,
-        message: 'New password must be different from current password'
+        message: "New password must be different from current password",
       });
     }
 
@@ -237,19 +252,19 @@ const changePassword = async (req, res) => {
 
     // Update password in database
     await User.findByIdAndUpdate(userId, {
-      $set: { password: hashedNewPassword }
+      $set: { password: hashedNewPassword },
     });
 
     res.json({
       success: true,
-      message: 'Password changed successfully'
+      message: "Password changed successfully",
     });
   } catch (error) {
-    console.error('Change password error:', error);
+    console.error("Change password error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to change password',
-      error: error.message
+      message: "Failed to change password",
+      error: error.message,
     });
   }
 };
@@ -265,7 +280,7 @@ const getNotificationSettings = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
@@ -279,15 +294,15 @@ const getNotificationSettings = async (req, res) => {
       success: true,
       data: {
         emailNotifications: user.notifications?.email ?? true,
-        pushNotifications: user.notifications?.push ?? true
-      }
+        pushNotifications: user.notifications?.push ?? true,
+      },
     });
   } catch (error) {
-    console.error('Get notification settings error:', error);
+    console.error("Get notification settings error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to retrieve notification settings',
-      error: error.message
+      message: "Failed to retrieve notification settings",
+      error: error.message,
     });
   }
 };
@@ -300,31 +315,31 @@ const updateNotificationSettings = async (req, res) => {
 
     // Validate input
     const updates = {};
-    
+
     if (emailNotifications !== undefined) {
-      if (typeof emailNotifications !== 'boolean') {
+      if (typeof emailNotifications !== "boolean") {
         return res.status(400).json({
           success: false,
-          message: 'emailNotifications must be a boolean value'
+          message: "emailNotifications must be a boolean value",
         });
       }
-      updates['notifications.email'] = emailNotifications;
+      updates["notifications.email"] = emailNotifications;
     }
 
     if (pushNotifications !== undefined) {
-      if (typeof pushNotifications !== 'boolean') {
+      if (typeof pushNotifications !== "boolean") {
         return res.status(400).json({
           success: false,
-          message: 'pushNotifications must be a boolean value'
+          message: "pushNotifications must be a boolean value",
         });
       }
-      updates['notifications.push'] = pushNotifications;
+      updates["notifications.push"] = pushNotifications;
     }
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'No notification settings to update'
+        message: "No notification settings to update",
       });
     }
 
@@ -333,7 +348,7 @@ const updateNotificationSettings = async (req, res) => {
     if (!currentUser) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
@@ -353,38 +368,89 @@ const updateNotificationSettings = async (req, res) => {
     if (!updatedUser) {
       return res.status(404).json({
         success: false,
-        message: 'Failed to update user'
+        message: "Failed to update user",
       });
     }
 
     // Return the updated notification settings
     res.json({
       success: true,
-      message: 'Notification settings updated successfully',
+      message: "Notification settings updated successfully",
       data: {
         emailNotifications: updatedUser.notifications?.email ?? true,
-        pushNotifications: updatedUser.notifications?.push ?? true
-      }
+        pushNotifications: updatedUser.notifications?.push ?? true,
+      },
     });
   } catch (error) {
-    console.error('Update notification settings error:', error);
+    console.error("Update notification settings error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to update notification settings',
-      error: error.message
+      message: "Failed to update notification settings",
+      error: error.message,
     });
   }
 };
+
+const getVendorFullData = async (req, res) => {
+  try {
+    const { vendorId } = req.body;
+
+    if (!vendorId) {
+      return res.status(400).json({
+        success: false,
+        message: "vendorId is required",
+      });
+    }
+
+    const vendor = await Vendor.findOne({ userId: vendorId })
+      .populate(
+        "userId",
+        "firstName lastName fullName email contactNumber profileImage"
+      )
+      .populate("mainCategories")
+      .populate("subCategories");
+
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor not found",
+      });
+    }
+
+    const listings = await Listing.find({ vendorId }).lean();
+
+    const saleItems = await SaleItem.find({ vendorId }).lean();
+
+    res.json({
+      success: true,
+      data: {
+        vendorData: vendor,
+        Listings: listings,
+        SaleItems: saleItems,
+      },
+    });
+  } catch (error) {
+    console.error("Get vendor data error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch vendor data",
+      error: error.message,
+    });
+  }
+};
+
+module.exports = getVendorFullData;
 
 module.exports = {
   // Personal Information
   getPersonalInfo,
   updatePersonalInfo,
-  
+
   // Security Details
   changePassword,
-  
+
   // Notification Settings
   getNotificationSettings,
-  updateNotificationSettings
+  updateNotificationSettings,
+  getVendorFullData,
 };
