@@ -1247,14 +1247,19 @@ const TrackBooking = asyncHandler(async (req, res) => {
 });
 
 
-const fetchBookingRequest = asyncHandler(async(req,res)=> {
-  const {status, vendorId} = req.body;
+const fetchBookingRequest = asyncHandler(async(req, res) => {
+  const { status, vendorId } = req.body;
 
-  let obj = {}
-  if(vendorId) obj.vendorId = vendorId;
-  if(status) obj.status = status;
+  let obj = {};
+  if (vendorId) obj.vendorId = vendorId;
+  if (status) obj.status = status;
 
-  const findBookingRequest = await Booking.find(obj);
+  const findBookingRequest = await Booking.find(obj)
+    .populate({
+      path: 'userId',
+      model: 'User',
+      select: 'firstName lastName email' 
+    });
 
   if (!findBookingRequest || findBookingRequest.length === 0) {
     return res.status(400).json({
@@ -1270,6 +1275,103 @@ const fetchBookingRequest = asyncHandler(async(req,res)=> {
   });
 });
 
+const fetchBookingRequestByDate = asyncHandler(async(req, res) => {
+  console.log('=== START fetchBookingRequestByDate ===');
+  console.log('req.body:', req.body);
+  
+  const { date, vendorId, userId } = req.body;
+
+  console.log('Extracted date:', date);
+  console.log('Extracted vendorId:', vendorId);
+  console.log('Extracted userId:', userId);
+
+  if (!date) {
+    console.log('Date validation failed - no date provided');
+    return res.status(400).json({
+      success: false,
+      message: 'Date is required'
+    });
+  }
+
+  const obj = {};
+  if (vendorId) obj.vendorId = vendorId;
+  if (userId) obj.userId = userId;
+
+  console.log('Initial query object:', obj);
+
+  try {
+    const inputDateString = date.split('T')[0];
+    console.log('Input date string:', inputDateString);
+
+    console.log('Fetching all bookings for filters...');
+    const allBookings = await Booking.find(obj);
+    console.log('Total bookings found:', allBookings.length);
+
+    if (allBookings.length > 0) {
+      console.log('All booking start dates:');
+      allBookings.forEach((booking, index) => {
+        const startDateStr = booking.details?.startDate ? new Date(booking.details.startDate).toISOString().split('T')[0] : 'N/A';
+        console.log(`Booking ${index + 1}: ${startDateStr}`, booking._id);
+      });
+    }
+
+    const filteredBookings = allBookings.filter(booking => {
+      if (!booking.details || !booking.details.startDate) {
+        console.log('Booking missing details.startDate:', booking._id);
+        return false;
+      }
+      
+      const bookingDateStr = new Date(booking.details.startDate).toISOString().split('T')[0];
+      const matches = bookingDateStr === inputDateString;
+      console.log(`Booking ${booking._id}: ${bookingDateStr} === ${inputDateString}? ${matches}`);
+      return matches;
+    });
+
+    console.log('Filtered bookings count:', filteredBookings.length);
+
+    if (filteredBookings.length === 0) {
+      console.log('No bookings found - returning 404');
+      return res.status(404).json({
+        success: false,
+        message: 'No booking requests found starting on the specified date'
+      });
+    }
+
+    const populatedBookings = await Booking.populate(filteredBookings, {
+      path: 'userId',
+      model: 'User',
+      select: 'firstName lastName email'
+    });
+
+    console.log('Populated bookings:', populatedBookings.length);
+
+    populatedBookings.sort((a, b) => {
+      const timeA = a.details?.startTime || '00:00';
+      const timeB = b.details?.startTime || '00:00';
+      if (timeA < timeB) return -1;
+      if (timeA > timeB) return 1;
+      return 0;
+    });
+
+    console.log('Returning success response');
+    return res.status(200).json({
+      success: true,
+      data: populatedBookings,
+      count: populatedBookings.length,
+      message: 'Booking requests fetched successfully'
+    });
+
+  } catch (error) {
+    console.log('ERROR CAUGHT:', error);
+    console.log('Error message:', error.message);
+    console.log('Error stack:', error.stack);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+});
 
 module.exports = {
   createBookingRequest,
@@ -1288,6 +1390,7 @@ module.exports = {
   getBookingSummary,
   TrackBooking,
   fetchBookingRequest,
+  fetchBookingRequestByDate,
 };
 
 
