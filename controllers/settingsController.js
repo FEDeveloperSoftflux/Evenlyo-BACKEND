@@ -403,24 +403,18 @@ const getVendorFullData = async (req, res) => {
     }
 
     const vendor = await Vendor.findOne({ userId: vendorId })
-      .populate(
-        "userId",
-        "firstName lastName fullName email contactNumber profileImage"
-      )
+      .populate("userId")
       .populate("mainCategories")
       .populate("subCategories");
 
     if (!vendor) {
-      return res.status(404).json({
-        success: false,
-        message: "Vendor not found",
-      });
+      return res
+        .status(404)
+        .json({ success: false, message: "Vendor not found" });
     }
 
-    const listings = await Listing.find({ vendorId }).lean();
-
-    const saleItems = await SaleItem.find({ vendorId }).lean();
-
+    const listings = await Listing.find({ vendor: vendor.userId }).lean();
+    const saleItems = await SaleItem.find({ vendor: vendor.userId }).lean();
     res.json({
       success: true,
       data: {
