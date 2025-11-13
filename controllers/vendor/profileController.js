@@ -1,20 +1,20 @@
 // Vendor Profile Controller
-const Vendor = require('../../models/Vendor');
-const User = require('../../models/User');
-const Category = require('../../models/Category');
-const SubCategory = require('../../models/SubCategory');
-const { toMultilingualText } = require('../../utils/textUtils');
+const Vendor = require("../../models/Vendor");
+const User = require("../../models/User");
+const Category = require("../../models/Category");
+const SubCategory = require("../../models/SubCategory");
+const { toMultilingualText } = require("../../utils/textUtils");
 const mongoose = require("mongoose");
-const { successHelper } = require('../../utils/jwtUtils');
+const { successHelper } = require("../../utils/jwtUtils");
 // Get vendor profile (fields depend on account type)
 const getProfile = async (req, res) => {
   try {
     // Find the vendor document for the logged-in user and populate userId
     const vendor = await Vendor.findOne({ userId: req.user.id })
-      .populate('userId')
-      .populate({ path: 'mainCategories', select: 'name' })
-      .populate({ path: 'subCategories', select: 'name mainCategory' });
-    if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
+      .populate("userId")
+      .populate({ path: "mainCategories", select: "name" })
+      .populate({ path: "subCategories", select: "name mainCategory" });
+    if (!vendor) return res.status(404).json({ message: "Vendor not found" });
     console.log(vendor, "vendorvendorvendor");
 
     // Assume account type is determined by businessName: if present, business; else, personal
@@ -22,17 +22,17 @@ const getProfile = async (req, res) => {
     let profile = {};
     if (isBusiness) {
       // Map categories into a cleaner shape
-      const mappedMainCategories = (vendor.mainCategories || []).map(c => ({
+      const mappedMainCategories = (vendor.mainCategories || []).map((c) => ({
         _id: c._id,
-        name: c.name
+        name: c.name,
       }));
-      const mappedSubCategories = (vendor.subCategories || []).map(sc => ({
+      const mappedSubCategories = (vendor.subCategories || []).map((sc) => ({
         _id: sc._id,
         name: sc.name,
-        mainCategory: sc.mainCategory
+        mainCategory: sc.mainCategory,
       }));
       profile = {
-        accountType: 'business',
+        accountType: "business",
         businessName: vendor.businessName,
         businessEmail: vendor.businessEmail,
         businessPhone: vendor.businessPhone,
@@ -40,36 +40,45 @@ const getProfile = async (req, res) => {
         businessWebsite: vendor.businessWebsite,
         businessLocation: vendor.businessLocation,
         businessLogo: vendor.businessLogo,
-        bannerImage: vendor.bannerImage,
+        businessImage: vendor.businessImage,
         businessDescription: vendor.businessDescription,
         teamType: vendor.teamType,
         teamSize: vendor.teamSize,
-        kvkNumber: vendor.userId.kvkNumber || '',
+        kvkNumber: vendor.userId.kvkNumber || "",
         mainCategories: mappedMainCategories,
         subCategories: mappedSubCategories,
       };
     } else {
       profile = {
-        accountType: 'personal',
+        accountType: "personal",
         firstName: vendor.userId.firstName,
         lastName: vendor.userId.lastName,
         email: vendor.userId.email,
         contactNumber: vendor.userId.contactNumber,
         address: vendor.userId.address,
         profileImage: vendor.userId.profileImage,
-        passportNumber: vendor.userId.passportNumber || ''
+        passportNumber: vendor.userId.passportNumber || "",
       };
     }
     return res.json(profile);
   } catch (err) {
-    return res.status(500).json({ message: 'Server error', error: err.message });
+    return res
+      .status(500)
+      .json({ message: "Server error", error: err.message });
   }
 };
 
 // Update vendor profile (fields depend on account type)
 const updateProfile = async (req, res) => {
   try {
-    const updatedData = await Vendor.findByIdAndUpdate(req.user.id, req.body, { new: true });
+    const updatedData = await Vendor.findOneAndUpdate(
+      { userId: req.user.id },
+      req.body,
+      {
+        new: true,
+      }
+    );
+
     // Populate userId so user.save works for personal accounts
     // const vendor = await Vendor.findOne({ userId: req.user.id }).populate('userId');
     // if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
@@ -207,10 +216,15 @@ const updateProfile = async (req, res) => {
     //     await User.findByIdAndUpdate(vendor.userId._id, { $set: personalUserUpdates }, { new: true, runValidators: false });
     //   }
     //   await vendor.save();
-    return res.json({ data: updatedData, message: 'Personal profile updated successfully' });
+    return res.json({
+      data: updatedData,
+      message: "Personal profile updated successfully",
+    });
     // }
   } catch (err) {
-    return res.status(500).json({ message: 'Server error', error: err.message });
+    return res
+      .status(500)
+      .json({ message: "Server error", error: err.message });
   }
 };
 
@@ -220,15 +234,14 @@ const getMainCategoriesbyVendorId = async (req, res) => {
 
     const data = await Vendor.find({ userId: vendorId })
       .select("mainCategories subCategories")
-      .populate("mainCategories", "name")   // only get category name
-      .populate("subCategories", "name");   // only get category name
+      .populate("mainCategories", "name") // only get category name
+      .populate("subCategories", "name"); // only get category name
 
     successHelper(res, data, "categories fetch successfully");
   } catch (error) {
     errorHelper(res, error);
   }
-}
-
+};
 
 const subCategoryFromCategory = async (req, res) => {
   const { categoryIds } = req.body;
@@ -237,12 +250,12 @@ const subCategoryFromCategory = async (req, res) => {
   if (!categoryIds || !Array.isArray(categoryIds) || categoryIds.length === 0) {
     return res.status(400).json({
       success: false,
-      message: "categoryIds must be an array of IDs"
+      message: "categoryIds must be an array of IDs",
     });
   }
 
   // Convert to ObjectIds
-  const objectIds = categoryIds.map(id => new mongoose.Types.ObjectId(id));
+  const objectIds = categoryIds.map((id) => new mongoose.Types.ObjectId(id));
   console.log(objectIds, "objectIdsobjectIdsobjectIds");
 
   const data = await Category.aggregate([
@@ -250,35 +263,35 @@ const subCategoryFromCategory = async (req, res) => {
 
     {
       $lookup: {
-        from: "subcategories",     // collection name in DB (plural lowercase!)
+        from: "subcategories", // collection name in DB (plural lowercase!)
         localField: "_id",
         foreignField: "mainCategory",
-        as: "subcategories"
-      }
+        as: "subcategories",
+      },
     },
     {
       $project: {
-        name: "$name",          // return English category name
+        name: "$name", // return English category name
         subcategories: {
           _id: 1,
           name: 1,
           icon: 1,
-          isActive: 1
-        }
-      }
-    }
+          isActive: 1,
+        },
+      },
+    },
   ]);
 
   return res.status(200).json({
     success: true,
     data,
-    message: "Categories with subcategories fetched successfully"
+    message: "Categories with subcategories fetched successfully",
   });
-}
+};
 
 module.exports = {
   getProfile,
   updateProfile,
   subCategoryFromCategory,
-  getMainCategoriesbyVendorId
+  getMainCategoriesbyVendorId,
 };

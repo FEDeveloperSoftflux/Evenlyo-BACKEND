@@ -9,6 +9,9 @@ const { toMultilingualText } = require('../../utils/textUtils');
 const SaleItem = require('../../models/Item');
 const ActivityLog = require("../../models/ActivityLog")
 const { createActivityLog } = require("../../utils/activityLogger")
+const ServiceItem = require('../../models/Item');
+// Update complete item
+
 
 const itemDetailById = async (req, res) => {
 	const { itemId } = req.params;
@@ -407,132 +410,144 @@ const getVendorItemsOverview = async (req, res) => {
 	}
 };
 
-// Update complete item
+// ✅ Update Complete Service Item
 const updateItem = async (req, res) => {
-	try {
-		// Validate vendor session
-		if (!req.user || !req.user.vendorId) {
-			return res.status(401).json({
-				success: false,
-				message: 'Vendor authentication required'
-			});
-		}
+  try {
+    // 🔒 Vendor authentication check
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: "Vendor authentication required",
+      });
+    }
 
-		const { itemId } = req.params;
-		const {
-			title,
-			mainCategory,
-			subCategory,
-			purchasePrice,
-			sellingPrice,
-			stockQuantity,
-			image,
-			linkedListing
-		} = req.body;
-		console.log(req.user, " req.user req.user");
+    const { itemId } = req.params;
+    const {
+      title,
+      mainCategory,
+      subCategory,
+      purchasePrice,
+      sellingPrice,
+      stockQuantity,
+      image,
+      linkedListing,
+    } = req.body;
 
-		const vendorId = req.user.id;
+    const vendorId = req.user.id;
 
-		// Find the item and verify ownership
-		console.log(itemId, "itemIditemId");
+    // 🔎 Find item
+    const item = await ServiceItem.findById(itemId);
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: "Item not found",
+      });
+    }
 
-		const item = await Item.findById(itemId);
-		if (!item) {
-			return res.status(404).json({
-				success: false,
-				message: 'Item not found'
-			});
-		}
-		console.log(item.vendor.toString(), vendorId, "item.vendor.toString() ");
+    // 🔒 Ownership validation
+    if (item.vendor.toString() !== vendorId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only update your own items",
+      });
+    }
 
-		if (item.vendor.toString() !== vendorId) {
-			return res.status(403).json({
-				success: false,
-				message: 'You can only update your own items'
-			});
-		}
+    // ==============================
+    // ✅ Validate Linked Listing
+    // ==============================
+    let listingDetails = null;
+    if (linkedListing) {
+      const listing = await Listing.findById(linkedListing);
+      if (!listing) {
+        return res.status(404).json({
+          success: false,
+          message: "Linked listing not found",
+        });
+      }
+      if (listing.vendor.toString() !== vendorId.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only link items to your own listings",
+        });
+      }
 
-		// Validate linked listing if provided
-		let listingDetails = null;
-		if (linkedListing) {
-			try {
-				const listing = await Listing.findById(linkedListing);
-				if (!listing) {
-					return res.status(404).json({
-						success: false,
-						message: 'Linked listing not found'
-					});
-				}
-				// Check if listing belongs to the same vendor
-				if (listing.vendor.toString() !== vendorId) {
-					return res.status(403).json({
-						success: false,
-						message: 'You can only link items to your own listings'
-					});
-				}
-				listingDetails = {
-					id: listing._id,
-					title: listing.title
-				};
-			} catch (error) {
-				return res.status(400).json({
-					success: false,
-					message: 'Invalid linked listing ID'
-				});
-			}
-		}
+      listingDetails = {
+        id: listing._id,
+        title: listing.title,
+      };
+    }
 
-		// Update category names if categories changed
-		let mainCategoryName = item.mainCategoryName;
-		let subCategoryName = item.subCategoryName;
+    // ==============================
+    // ✅ Validate Categories
+    // ==============================
+    let mainCategoryName = item.mainCategoryName;
+    let subCategoryName = item.subCategoryName;
 
-		if (mainCategory && mainCategory !== item.mainCategory?.toString()) {
-			const category = await Category.findById(mainCategory);
-			if (category && category.name && category.name.en) {
-				mainCategoryName = category.name.en;
-			}
-		}
+    if (mainCategory && mainCategory !== item.mainCategory?.toString()) {
+      const category = await Category.findById(mainCategory);
+      if (!category) {
+        return res.status(404).json({
+          success: false,
+          message: "Main category not found",
+        });
+      }
+      if (category?.name?.en) mainCategoryName = category.name.en;
+    }
 
-		if (subCategory && subCategory !== item.subCategory?.toString()) {
-			const subCat = await SubCategory.findById(subCategory);
-			if (subCat && subCat.name && subCat.name.en) {
-				subCategoryName = subCat.name.en;
-			}
-		}
+    if (subCategory && subCategory !== item.subCategory?.toString()) {
+      const subCat = await SubCategory.findById(subCategory);
+      if (!subCat) {
+        return res.status(404).json({
+          success: false,
+          message: "Sub category not found",
+        });
+      }
+      if (subCat?.name?.en) subCategoryName = subCat.name.en;
+    }
 
-		// Update fields that are provided
-		if (title) {
-			item.title = toMultilingualText(title);
-		}
-		if (mainCategory !== undefined) {
-			// store null instead of empty string for unset categories
-			item.mainCategory = mainCategory || null;
-			item.mainCategoryName = mainCategoryName;
-		}
-		if (subCategory !== undefined) {
-			item.subCategory = subCategory || null;
-			item.subCategoryName = subCategoryName;
-		}
-		if (purchasePrice !== undefined) item.purchasePrice = purchasePrice;
-		if (sellingPrice !== undefined) item.sellingPrice = sellingPrice;
-		if (stockQuantity !== undefined) item.stockQuantity = stockQuantity;
-		if (image !== undefined) item.image = image;
-		if (linkedListing !== undefined) item.linkedListing = linkedListing || null;
+    // ==============================
+    // ✅ Update all editable fields
+    // ==============================
+    if (title) item.title = toMultilingualText(title);
+    if (mainCategory !== undefined) {
+      item.mainCategory = mainCategory || null;
+      item.mainCategoryName = mainCategoryName || "";
+    }
+    if (subCategory !== undefined) {
+      item.subCategory = subCategory || null;
+      item.subCategoryName = subCategoryName || "";
+    }
+    if (purchasePrice !== undefined)
+      item.purchasePrice = Number(purchasePrice) || 0;
+    if (sellingPrice !== undefined)
+      item.sellingPrice = Number(sellingPrice) || 0;
+    if (stockQuantity !== undefined)
+      item.stockQuantity = Number(stockQuantity) || 0;
+    if (image !== undefined) item.image = image;
+    if (linkedListing !== undefined) item.linkedListing = linkedListing || null;
 
-		await item.save();
+    // ✅ Save updates
+    await item.save();
 
-		return res.status(200).json({
-			success: true,
-			message: 'Item updated successfully',
-			item,
-			listingDetails: listingDetails
-		});
-	} catch (error) {
-		return res.status(500).json({
-			success: false,
-			message: error.message
-		});
-	}
+    // ✅ Optionally populate related fields
+    const updatedItem = await ServiceItem.findById(item._id)
+      .populate("mainCategory")
+      .populate("subCategory")
+      .populate("linkedListing");
+
+    return res.status(200).json({
+      success: true,
+      message: "Item updated successfully",
+      item: updatedItem,
+      listingDetails,
+    });
+  } catch (error) {
+    console.error("Error updating item:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
 };
 
 // Delete item completely from database

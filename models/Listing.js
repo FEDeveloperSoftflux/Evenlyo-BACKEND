@@ -23,7 +23,7 @@ const listingSchema = new mongoose.Schema({
   },
   vendor: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Vendor',
+    ref: 'User',
     required: true
   },
   category: {

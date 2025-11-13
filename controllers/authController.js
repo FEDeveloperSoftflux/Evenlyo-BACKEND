@@ -1551,28 +1551,24 @@ const checkRegisteredUser = async (req, res) => {
 
 const registerVendor2 = async (req, res) => {
   try {
-    // Lazy import of multilingual helper to avoid circular deps
     const { toMultilingualText } = require("../utils/textUtils");
     const {
-      accountType, // 'personal' or 'business'
-      email, // personal account email
+      accountType,
+      email,
+      businessEmail,
       contactNumber,
       password,
       confirmPassword,
       otp,
-      // Personal account fields (stored in User model)
       firstName,
       lastName,
-      city,
-      postalCode,
       fullAddress,
       passportDetails,
+      kvkNumber,
       mainCategories,
       subCategories,
-      // Business account fields (stored in Vendor model)
       businessName,
       businessNumber,
-      businessEmail, // NEW: required for business accounts (used as User.email too)
       businessWebsite,
       businessDescription,
       businessLogo,
@@ -1580,182 +1576,125 @@ const registerVendor2 = async (req, res) => {
       whyChooseUs,
       teamType,
       teamSize,
-      kvkNumber,
+      tagline,
+      description,
     } = req.body;
 
-    // Validate accountType
-    if (!["personal", "business"].includes(accountType)) {
+    // ✅ Basic Validation
+    if (!["personal", "business"].includes(accountType))
       return res
         .status(400)
         .json({ success: false, message: "Invalid account type" });
-    }
 
-    // Common validations (for both types)
-    if (!contactNumber || !password || !confirmPassword || !otp) {
+    if (!contactNumber || !password || !confirmPassword || !otp)
       return res
         .status(400)
         .json({ success: false, message: "Missing required fields" });
-    }
-    if (password !== confirmPassword) {
-      return res.status(400).json({
-        success: false,
-        message: "Password and confirm password do not match",
-      });
-    }
 
-    // Personal account validations
-    if (accountType === "personal") {
-      if (!email) {
-        return res.status(400).json({
-          success: false,
-          message: "Email is required for personal accounts",
-        });
-      }
-      if (
-        !firstName ||
-        !lastName ||
-        !city ||
-        !postalCode ||
-        !fullAddress ||
-        !passportDetails ||
-        !mainCategories ||
-        !subCategories
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Missing required personal account fields",
-        });
-      }
-    }
+    if (password !== confirmPassword)
+      return res
+        .status(400)
+        .json({ success: false, message: "Passwords do not match" });
 
-    // Business account validations
-    if (accountType === "business") {
-      if (!businessEmail) {
-        return res.status(400).json({
-          success: false,
-          message: "businessEmail is required for business accounts",
-        });
-      }
-      if (
-        !businessName ||
-        !teamSize ||
-        !teamType ||
-        !kvkNumber ||
-        !mainCategories ||
-        !subCategories
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Missing required business account fields",
-        });
-      }
-    }
+    // ✅ Account-specific validation
+    const requiredPersonal = [
+      email,
+      firstName,
+      lastName,
+      fullAddress,
+      passportDetails,
+      mainCategories,
+      subCategories,
+    ];
+    const requiredBusiness = [
+      businessEmail,
+      businessName,
+      teamType,
+      teamSize,
+      kvkNumber,
+      mainCategories,
+      subCategories,
+    ];
 
-    // Determine which email to use for registration (stored in User.email)
+    const missingFields =
+      accountType === "personal"
+        ? requiredPersonal.filter((f) => !f)
+        : requiredBusiness.filter((f) => !f);
+
+    if (missingFields.length)
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing required account fields" });
+
+    // ✅ Choose email
     const registrationEmail =
       accountType === "business" ? businessEmail : email;
 
-    // Check if user already exists
+    // ✅ Check if user exists
     const existingUser = await User.findOne({ email: registrationEmail });
-    if (existingUser) {
+    if (existingUser)
       return res
         .status(409)
         .json({ success: false, message: "Email already registered" });
-    }
 
-    // OTP verification
-    const valid = await verifyOTP(registrationEmail, otp);
-    if (!valid) {
+    // ✅ Verify OTP
+    if (!(await verifyOTP(registrationEmail, otp)))
       return res
         .status(400)
         .json({ success: false, message: "Invalid or expired OTP" });
-    }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create user (common data for both types)
-    const userData = {
+    // ✅ Create User
+    const user = await User.create({
       email: registrationEmail,
       contactNumber,
-      password: hashedPassword,
+      password: await bcrypt.hash(password, 10),
       userType: "vendor",
       accountType,
+      firstName: accountType === "personal" ? firstName : businessName,
+      lastName: accountType === "personal" ? lastName : undefined,
+      address: fullAddress,
+      passportDetails,
+      kvkNumber,
       isActive: true,
-    };
+      tagline: toMultilingualText(tagline),
+      description: toMultilingualText(description),
+    });
 
-    // Add account-specific fields to User model
-    if (accountType === "personal") {
-      userData.firstName = firstName;
-      userData.lastName = lastName;
-      userData.address = fullAddress;
-      userData.passportDetails = passportDetails;
-    } else {
-      // For business, store minimal info in User
-      userData.firstName = businessName;
-      userData.kvkNumber = kvkNumber;
-    }
-
-    const user = new User(userData);
-    await user.save();
-
-    // Create vendor profile
+    // ✅ Vendor Data
     const vendorData = {
-      // vendorId: user._id,
       userId: user._id,
-      mainCategories: mainCategories || [],
-      subCategories: subCategories || [],
+      mainCategories,
+      subCategories,
+      businessName:
+        accountType === "personal" ? `${firstName} ${lastName}` : businessName,
+      businessEmail: registrationEmail,
+      businessPhone:
+        accountType === "personal" ? contactNumber : businessNumber,
+      businessWebsite,
+      businessDescription: toMultilingualText(businessDescription),
+      businessLogo,
+      businessImage,
+      whyChooseUs: toMultilingualText(whyChooseUs),
+      teamType,
+      teamSize,
+      kvkNumber,
+      accountType,
+      businessLocation: fullAddress,
       isApproved: false,
+      tagline: toMultilingualText(tagline),
+      description: toMultilingualText(description),
     };
 
-    // Handle businessName based on account type
-    if (accountType === "personal") {
-      // Personal vendors: businessName derived from name; wrap into multilingual object
-      vendorData.businessName = `${firstName} ${lastName}`.trim();
-      vendorData.businessPhone = contactNumber;
-      vendorData.businessLocation = `${fullAddress}`;
-      vendorData.accountType = accountType;
-      vendorData.businessEmail = registrationEmail;
-      vendorData.businessLogo = businessLogo;
-      vendorData.businessImage = businessImage;
-    } else if (accountType === "business") {
-      // Business vendors: convert multilingual-capable fields
-      vendorData.businessName = businessName;
-      console.log("Debug: businessName assigned as:", businessName); // Debug log
-      vendorData.businessPhone = businessNumber;
-      vendorData.businessLocation = fullAddress;
-      vendorData.businessWebsite = businessWebsite;
-      vendorData.businessDescription = toMultilingualText(businessDescription);
-      vendorData.businessLogo = businessLogo;
-      vendorData.businessImage = businessImage;
-      vendorData.whyChooseUs = toMultilingualText(whyChooseUs);
-      vendorData.teamType = teamType;
-      vendorData.teamSize = teamSize;
-      vendorData.kvkNumber = kvkNumber;
-      vendorData.accountType = accountType;
-      vendorData.businessEmail = registrationEmail; // ensure stored for business too
-    }
+    await Vendor.create(vendorData);
 
-    const vendor = new Vendor(vendorData);
-    console.log("Debug: vendorData before saving:", vendorData); // Debug log
-    await vendor.save();
-
-    console.log("Vendor data:", vendorData);
-    console.log("Vendor saved:", userData);
-
-    // Notify admin(s) of new vendor registration
+    // ✅ Notify admin
     try {
       const notificationController = require("./notificationController");
       await notificationController.createAdminNotification({
-        message: `A new vendor has registered: ${
-          accountType === "personal" ? firstName + " " + lastName : businessName
-        }`,
+        message: `New vendor registered: ${vendorData.businessName}`,
       });
     } catch (e) {
-      console.error(
-        "Failed to create admin notification for new vendor registration:",
-        e
-      );
+      console.error("Admin notification failed:", e);
     }
 
     res.status(201).json({
@@ -1764,9 +1703,11 @@ const registerVendor2 = async (req, res) => {
     });
   } catch (err) {
     console.error("Vendor registration error:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: err.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message,
+    });
   }
 };
 
