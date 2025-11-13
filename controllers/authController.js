@@ -1594,7 +1594,7 @@ const registerVendor2 = async (req, res) => {
       return res
         .status(400)
         .json({ success: false, message: "Invalid account type" });
-console.log(password,confirmPassword,otp,"VA");
+    console.log(password, confirmPassword, otp, "VA");
 
     if (password !== confirmPassword)
       return res

@@ -56,6 +56,7 @@ const getProfile = async (req, res) => {
         kvkNumber: vendor.userId.kvkNumber || "",
         mainCategories: mappedMainCategories,
         subCategories: mappedSubCategories,
+        tagline: vendor.tagline,
       };
     } else {
       profile = {
