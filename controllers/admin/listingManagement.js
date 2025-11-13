@@ -29,18 +29,23 @@ const getAllListingManagementData = async (req, res) => {
       { $unwind: '$listingInfo' },
       {
         $group: {
-          _id: '$listingInfo.category',
+          _id: '$listingInfo.category', // group by category
           count: { $sum: 1 },
+          totalPrice: { $sum: '$pricing.totalPrice' }, // 👈 add total price
         },
       },
     ]);
 
+    console.log(bookings, "bookingsbookingsbookings");
+
     // Map category _id to count
     const bookingCountMap = {};
     bookings.forEach(b => {
-      bookingCountMap[b._id?.toString()] = b.count;
+      bookingCountMap[b._id?.toString()] = {
+        count: b.count,
+        total: b.totalPrice || 0,
+      };
     });
-
     // Aggregate purchases by category via service items
     const purchases = await Purchase.aggregate([
       {
@@ -70,9 +75,9 @@ const getAllListingManagementData = async (req, res) => {
     const categoryBookings = categories.map(cat => ({
       id: cat._id,
       category: cat.name,
-      count: bookingCountMap[cat._id.toString()] || 0
+      count: bookingCountMap[cat._id.toString()]?.count || 0,  // 👈 fixed
+      total: bookingCountMap[cat._id.toString()]?.total || 0,
     }));
-
     // Prepare purchase results for all categories
     const categoryPurchases = categories.map(cat => ({
       id: cat._id,
@@ -170,7 +175,7 @@ const createSubCategory = async (req, res) => {
     };
 
     // Optional payment fields with validation and defaults
-  if (escrowEnabled !== undefined) subCategoryData.escrowEnabled = Boolean(escrowEnabled);
+    if (escrowEnabled !== undefined) subCategoryData.escrowEnabled = Boolean(escrowEnabled);
     if (upfrontFeePercent !== undefined) {
       const v = Number(upfrontFeePercent);
       if (Number.isNaN(v) || v < 0 || v > 100) return res.status(400).json({ error: 'upfrontFeePercent must be between 0 and 100' });

@@ -29,11 +29,10 @@ const vendorSchema = new mongoose.Schema(
       type: String,
     },
     teamType: {
-      en: { type: String, trim: true },
-      nl: { type: String, trim: true },
+      type: String,
     },
     teamSize: {
-      type: Number,
+      type: String,
       min: 1,
     },
     businessLocation: {
@@ -45,18 +44,12 @@ const vendorSchema = new mongoose.Schema(
       default: "",
     },
     tagline: {
-      type: String,
-      default: {
-        en: { type: String, trim: true },
-        nl: { type: String, trim: true },
-      },
+      en: { type: String, trim: true },
+      nl: { type: String, trim: true },
     },
     description: {
-      type: String,
-      default: {
-        en: { type: String, trim: true },
-        nl: { type: String, trim: true },
-      },
+      en: { type: String, trim: true },
+      nl: { type: String, trim: true },
     },
     businessImage: {
       type: String,

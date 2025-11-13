@@ -18,8 +18,17 @@ const getProfile = async (req, res) => {
     console.log(vendor, "vendorvendorvendor");
 
     // Assume account type is determined by businessName: if present, business; else, personal
-    const isBusiness = !!vendor.businessName;
+    const isBusiness = vendor.accountType === "business";
     let profile = {};
+    const mappedMainCategories = (vendor.mainCategories || []).map((c) => ({
+      _id: c._id,
+      name: c.name,
+    }));
+    const mappedSubCategories = (vendor.subCategories || []).map((sc) => ({
+      _id: sc._id,
+      name: sc.name,
+      mainCategory: sc.mainCategory,
+    }));
     if (isBusiness) {
       // Map categories into a cleaner shape
       const mappedMainCategories = (vendor.mainCategories || []).map((c) => ({
@@ -41,7 +50,7 @@ const getProfile = async (req, res) => {
         businessLocation: vendor.businessLocation,
         businessLogo: vendor.businessLogo,
         businessImage: vendor.businessImage,
-        businessDescription: vendor.businessDescription,
+        description: vendor.description,
         teamType: vendor.teamType,
         teamSize: vendor.teamSize,
         kvkNumber: vendor.userId.kvkNumber || "",
@@ -56,8 +65,16 @@ const getProfile = async (req, res) => {
         email: vendor.userId.email,
         contactNumber: vendor.userId.contactNumber,
         address: vendor.userId.address,
-        profileImage: vendor.userId.profileImage,
-        passportNumber: vendor.userId.passportNumber || "",
+        businessLogo: vendor.businessLogo,
+        businessImage: vendor.businessImage,
+        passportNumber: vendor.userId.passportDetails || "",
+        postalCode: vendor.userId.postalCode || "",
+        city: vendor.userId.city || "",
+        mainCategories: mappedMainCategories,
+        subCategories: mappedSubCategories,
+        tagline: vendor.tagline,
+        description: vendor.description,
+
       };
     }
     return res.json(profile);

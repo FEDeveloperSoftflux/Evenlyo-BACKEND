@@ -1333,9 +1333,8 @@ const registerVendor = async (req, res) => {
     try {
       const notificationController = require("./notificationController");
       await notificationController.createAdminNotification({
-        message: `A new vendor has registered: ${
-          accountType === "personal" ? firstName + " " + lastName : businessName
-        }`,
+        message: `A new vendor has registered: ${accountType === "personal" ? firstName + " " + lastName : businessName
+          }`,
       });
     } catch (e) {
       console.error(
@@ -1369,7 +1368,15 @@ const vendorLogin = async (req, res) => {
     }
 
     // Find admin
-    const user = await User.findOne({ email, isActive: true });
+    const user = await User.findOne({ email });
+
+    if (!user.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "Account not active! please contact evenlyo support",
+      });
+    }
+
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -1578,6 +1585,8 @@ const registerVendor2 = async (req, res) => {
       teamSize,
       tagline,
       description,
+      postalCode,
+      city
     } = req.body;
 
     // ✅ Basic Validation
@@ -1585,11 +1594,7 @@ const registerVendor2 = async (req, res) => {
       return res
         .status(400)
         .json({ success: false, message: "Invalid account type" });
-
-    if (!contactNumber || !password || !confirmPassword || !otp)
-      return res
-        .status(400)
-        .json({ success: false, message: "Missing required fields" });
+console.log(password,confirmPassword,otp,"VA");
 
     if (password !== confirmPassword)
       return res
@@ -1616,15 +1621,6 @@ const registerVendor2 = async (req, res) => {
       subCategories,
     ];
 
-    const missingFields =
-      accountType === "personal"
-        ? requiredPersonal.filter((f) => !f)
-        : requiredBusiness.filter((f) => !f);
-
-    if (missingFields.length)
-      return res
-        .status(400)
-        .json({ success: false, message: "Missing required account fields" });
 
     // ✅ Choose email
     const registrationEmail =
@@ -1658,6 +1654,8 @@ const registerVendor2 = async (req, res) => {
       isActive: true,
       tagline: toMultilingualText(tagline),
       description: toMultilingualText(description),
+      postalCode,
+      city
     });
 
     // ✅ Vendor Data

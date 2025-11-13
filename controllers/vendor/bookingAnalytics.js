@@ -13,6 +13,8 @@ const { createActivityLog } = require("../../utils/activityLogger");
 
 // GET /api/vendor/bookings/analytics
 const getVendorBookingAnalytics = async (req, res) => {
+  console.log("HAHAHAHHA");
+  
   try {
     const vendorId = req.user?.id;
     if (!vendorId)

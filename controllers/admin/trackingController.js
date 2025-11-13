@@ -8,8 +8,8 @@ const Item = require('../../models/Item');
 // Get all bookings with tracking information for admin
 const getAllBookingsTracking = async (req, res) => {
   try {
-    const { 
-      status = '', 
+    const {
+      status = '',
       search = '',
       sortBy = 'createdAt',
       sortOrder = 'desc'
@@ -17,7 +17,7 @@ const getAllBookingsTracking = async (req, res) => {
 
     // Build filter object
     let filter = {};
-    
+
     // Filter by status if provided
     if (status && status !== 'all') {
       filter.status = status;
@@ -42,7 +42,7 @@ const getAllBookingsTracking = async (req, res) => {
 
     // Get all bookings and purchases in parallel
     const [bookings, purchases] = await Promise.all([
-        Booking.find(finalFilter)
+      Booking.find(finalFilter)
         .populate({
           path: 'userId',
           select: 'firstName lastName profileImage email'
@@ -61,6 +61,8 @@ const getAllBookingsTracking = async (req, res) => {
         })
         .sort(sortConfig)
         .lean(),
+
+
 
       // Get all purchases with population
       Purchase.find(finalFilter)
@@ -84,6 +86,10 @@ const getAllBookingsTracking = async (req, res) => {
         .lean()
     ]);
 
+
+    console.log(bookings,purchases, "purchasespurchases")
+
+
     // Get total counts
     const totalBookings = bookings.length;
     const totalPurchases = purchases.length;
@@ -92,8 +98,8 @@ const getAllBookingsTracking = async (req, res) => {
     const trackingData = bookings.map(booking => {
       // Buyer Info
       const buyerInfo = {
-        name: booking.userId 
-          ? `${booking.userId.firstName || ''} ${booking.userId.lastName || ''}`.trim() 
+        name: booking.userId
+          ? `${booking.userId.firstName || ''} ${booking.userId.lastName || ''}`.trim()
           : 'Unknown Buyer',
         profilePic: booking.userId?.profileImage || '',
         email: booking.userId?.email || ''
@@ -144,8 +150,8 @@ const getAllBookingsTracking = async (req, res) => {
     const purchaseHistory = purchases.map(purchase => {
       // Buyer Info
       const buyerInfo = {
-        name: purchase.user 
-          ? `${purchase.user.firstName || ''} ${purchase.user.lastName || ''}`.trim() 
+        name: purchase.user
+          ? `${purchase.user.firstName || ''} ${purchase.user.lastName || ''}`.trim()
           : 'Unknown Buyer',
         profilePic: purchase.user?.profileImage || '',
         email: purchase.user?.email || ''
@@ -255,11 +261,11 @@ const getBookingByTrackingId = async (req, res) => {
       trackingId: booking.trackingId,
       bookingId: booking._id,
       date: booking.createdAt,
-      
+
       // Buyer Details
       buyer: {
-        name: booking.userId 
-          ? `${booking.userId.firstName || ''} ${booking.userId.lastName || ''}`.trim() 
+        name: booking.userId
+          ? `${booking.userId.firstName || ''} ${booking.userId.lastName || ''}`.trim()
           : 'Unknown Buyer',
         profilePic: booking.userId?.profileImage || '',
         email: booking.userId?.email || '',
@@ -336,15 +342,15 @@ const getBookingByTrackingId = async (req, res) => {
       status: booking.status,
       paymentStatus: booking.paymentStatus,
       paymentMethod: booking.paymentMethod,
-      
+
       // Status History
       statusHistory: booking.statusHistory || [],
-      
+
       // Additional Details
       cancellationDetails: booking.cancellationDetails || '',
       claimDetails: booking.claimDetails || '',
       rejectionReason: booking.rejectionReason || '',
-      
+
       updatedAt: booking.updatedAt
     };
 
@@ -382,7 +388,7 @@ const getTrackingStats = async (req, res) => {
       Booking.countDocuments({ status: 'completed' }),
       Booking.countDocuments({ status: 'cancelled' }),
       Booking.countDocuments({ status: 'claim' }),
-      
+
       // Status distribution
       Booking.aggregate([
         {
@@ -434,8 +440,8 @@ const updateBookingStatus = async (req, res) => {
 
     // Validate status
     const validStatuses = [
-      'pending', 'accepted', 'rejected', 'paid', 
-      'on_the_way', 'received', 'picked_up', 
+      'pending', 'accepted', 'rejected', 'paid',
+      'on_the_way', 'received', 'picked_up',
       'completed', 'cancelled', 'claim'
     ];
 
@@ -447,7 +453,7 @@ const updateBookingStatus = async (req, res) => {
     }
 
     const booking = await Booking.findOne({ trackingId });
-    
+
     if (!booking) {
       return res.status(404).json({
         success: false,
@@ -458,7 +464,7 @@ const updateBookingStatus = async (req, res) => {
     // Update status and add to history
     const previousStatus = booking.status;
     booking.status = status;
-    
+
     // Add to status history
     booking.statusHistory.push({
       status: status,
@@ -521,10 +527,10 @@ const getBookingStatusHistory = async (req, res) => {
       updatedBy: {
         userId: history.updatedBy?.userId?._id || history.updatedBy?.userId,
         userType: history.updatedBy?.userType,
-        name: history.updatedBy?.name || 
-              (history.updatedBy?.userId ? 
-                `${history.updatedBy.userId.firstName || ''} ${history.updatedBy.userId.lastName || ''}`.trim() : 
-                'Unknown User'),
+        name: history.updatedBy?.name ||
+          (history.updatedBy?.userId ?
+            `${history.updatedBy.userId.firstName || ''} ${history.updatedBy.userId.lastName || ''}`.trim() :
+            'Unknown User'),
         profileImage: history.updatedBy?.userId?.profileImage || ''
       },
       notes: history.notes || ''
@@ -579,10 +585,10 @@ const getBookingStatusHistoryById = async (req, res) => {
       updatedBy: {
         userId: history.updatedBy?.userId?._id || history.updatedBy?.userId,
         userType: history.updatedBy?.userType,
-        name: history.updatedBy?.name || 
-              (history.updatedBy?.userId ? 
-                `${history.updatedBy.userId.firstName || ''} ${history.updatedBy.userId.lastName || ''}`.trim() : 
-                'Unknown User'),
+        name: history.updatedBy?.name ||
+          (history.updatedBy?.userId ?
+            `${history.updatedBy.userId.firstName || ''} ${history.updatedBy.userId.lastName || ''}`.trim() :
+            'Unknown User'),
         profileImage: history.updatedBy?.userId?.profileImage || ''
       },
       notes: history.notes || ''

@@ -14,15 +14,13 @@ const { requireAuth, requireAdmin, requireActiveAdmin } = require('../../middlew
 
 // Get all bookings with tracking information (paginated, searchable, filterable)
 router.get('/', 
-  requireAuth,
   requireAdmin,
-  requireActiveAdmin,
   getAllBookingsTracking
 );
 
 // Get tracking statistics for dashboard
 router.get('/stats',
-  requireAuth,
+  requireAdmin,
   // requireAdmin,
   // requireActiveAdmin,
   getTrackingStats
@@ -30,25 +28,19 @@ router.get('/stats',
 
 // Get status history for a specific booking by tracking ID
 router.get('/:trackingId/status-history',
-  requireAuth,
   requireAdmin,
-  requireActiveAdmin,
   getBookingStatusHistory
 );
 
 // Update booking status (admin action) by tracking ID
 router.patch('/:trackingId/status',
-  requireAuth,
   requireAdmin,
-  requireActiveAdmin,
   updateBookingStatus
 );
 
 // Get specific booking details by tracking ID (this should be last to avoid conflicts)
 router.get('/:trackingId',
-  requireAuth,
   requireAdmin,
-  requireActiveAdmin,
   getBookingByTrackingId
 );
 
@@ -56,9 +48,7 @@ router.get('/:trackingId',
 
 // Get status history for a specific booking by booking ID
 router.get('/booking/:bookingId/status-history',
-  requireAuth,
   requireAdmin,
-  requireActiveAdmin,
   getBookingStatusHistoryById
 );
 
