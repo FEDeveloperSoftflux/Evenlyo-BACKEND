@@ -1,5 +1,6 @@
 const bcrypt = require('bcrypt');
 const Admin = require('../../models/Admin');
+const AdminEmployee = require('../../models/AdminEmployee');
 const User = require('../../models/User');
 const Settings = require('../../models/Settings');
 
@@ -8,6 +9,7 @@ const resetPassword = async (req, res) => {
         // The JWT/req.user contains the user id (User document), not the Admin document id.
         const userId = req.user && req.user.id;
         console.log(req.user,req.user.id,"asdasd");
+        console.log(userId,"userIduserId");
         
         const { oldPassword, newPassword } = req.body;
 
@@ -25,13 +27,13 @@ const resetPassword = async (req, res) => {
         }
 
         // Find the User (password lives on User model)
-        const user = await User.findById(userId);
+        const user = await AdminEmployee.findById(userId);  
         if (!user) {
             return res.status(404).json({ message: 'User not found.' });
         }
 
         // Ensure this user is an admin (extra safety)
-        if (user.userType !== 'admin') {
+        if (user.role !== 'Admin') {
             return res.status(403).json({ message: 'Only admin users may use this endpoint.' });
         }
 

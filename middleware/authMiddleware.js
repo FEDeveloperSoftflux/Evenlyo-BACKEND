@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Vendor = require('../models/Vendor');
 const Admin = require('../models/Admin');
+const AdminEmployee = require("../models/AdminEmployee")
 const { verifyAccessToken } = require('../utils/jwtUtils');
 
 // Session removed: configuration middleware no longer needed
@@ -118,7 +119,7 @@ const requireAuth = async (req, res, next) => {
 
 const requireAdmin = async (req, res, next) => {
   console.log("CALLEDDD");
-  
+
   try {
     let tokenUser = null;
 
@@ -130,8 +131,8 @@ const requireAdmin = async (req, res, next) => {
       console.log(token, "tokentokentokentoken");
       try {
         const decoded = verifyAccessToken(token);
-        console.log(decoded,"decodeddecoded");
-        
+        console.log(decoded, "decodeddecoded");
+
         tokenUser = decoded; // should contain id, userType, etc.
       } catch (err) {
         return res.status(401).json({ success: false, message: 'Invalid or expired token' });
@@ -147,12 +148,13 @@ const requireAdmin = async (req, res, next) => {
 
     // Super admin shortcut (legacy env-based)
     // Verify user still exists in database. Accept Employee/AdminEmployee tokens too.
-    let user = await User.findById(baseUser.id);
+    let user = await AdminEmployee.findById({ _id: baseUser.id });
+    console.log(user, "useruseruseruser");
 
-    if (user && !user.isActive) {
+    if (user && user.status != "active") {
       return res.status(401).json({ success: false, message: 'User not found or deactivated' });
     }
-    
+    req.user = user || baseUser;
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);

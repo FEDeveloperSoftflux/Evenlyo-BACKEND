@@ -22,25 +22,18 @@ const supportTicketSchema = new mongoose.Schema({
     required: true,
   },
   details: {
-    en: { type: String, trim: true, required: true, maxlength: 2000 },
-    nl: { type: String, trim: true, required: true, maxlength: 2000 },
+    type: String,
   },
   status: {
     type: String,
     enum: ["open", "closed"],
     default: "open",
   },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
   closedAt: {
     type: Date,
   },
+}, {
+  timestamps: true
 });
 
 // Update the updatedAt field before saving

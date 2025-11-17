@@ -8,6 +8,6 @@ router.post('/contact', contactUs);
 
 
 // User routes
-router.post('/ticket', createSupportTicket);
+router.post('/ticket',requireAuth, createSupportTicket);
 
 module.exports = router;

@@ -8,38 +8,42 @@ const { sendContactEmail } = require('../../utils/mailer');
 const createSupportTicket = async (req, res) => {
   try {
     // Accept payload in { data: { issueRelatedto, details } } format
-    const { data } = req.body;
-    if (!data || typeof data !== 'object') {
-      return res.status(400).json({
-        success: false,
-        message: 'Payload must be in the format { data: { issueRelatedto, details } }'
-      });
-    }
-    let { issueRelatedto, details } = data;
+    // const { data } = req.body;
+    // if (!data || typeof data !== 'object') {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: 'Payload must be in the format { data: { issueRelatedto, details } }'
+    //   });
+    // }
+    // let { issueRelatedto, details } = data;
 
-    // Normalize to multilingual object using shared util
-    issueRelatedto = (issueRelatedto);
-    details = toMultilingualText(details);
+    // // Normalize to multilingual object using shared util
+    // issueRelatedto = (issueRelatedto);
+    // details = toMultilingualText(details);
 
-    // Validate required fields
-    if (!issueRelatedto || !issueRelatedto|| !details || !details.en || !details.nl) {
-      return res.status(400).json({
-        success: false,
-        message: 'Issue category and details are required '
-      });
-    }
+    // // Validate required fields
+    // if (!issueRelatedto || !issueRelatedto|| !details || !details.en || !details.nl) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: 'Issue category and details are required '
+    //   });
+    // }
 
-    // Validate details length (check at least English length)
-    if ((details.en || '').length < 10) {
-      return res.status(400).json({
-        success: false,
-        message: 'Details must be at least 10 characters long'
-      });
-    }
+    // // Validate details length (check at least English length)
+    // if ((details.en || '').length < 10) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: 'Details must be at least 10 characters long'
+    //   });
+    // }
 
-  // ...existing code...
+    // ...existing code...
 
     // Get user info from session
+
+    const { issueRelatedto, details } = req.body
+    console.log(req.user,req.body, "req.userreq.userreq.user");
+
     const userId = req.user.id;
     const userEmail = req.user.email;
 

@@ -68,6 +68,8 @@ exports.toggleTicketStatus = async (req, res) => {
         await ticket.save();
         res.status(200).json({ success: true, message: `Ticket status updated to ${ticket.status}`, status: ticket.status });
     } catch (error) {
+        console.log(error,"errorerrorerror");
+        
         res.status(500).json({ success: false, message: 'Server Error', error: error.message });
     }
 };
