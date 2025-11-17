@@ -13,9 +13,10 @@ const { createActivityLog } = require("../../utils/activityLogger");
 
 // GET /api/vendor/bookings/analytics
 const getVendorBookingAnalytics = async (req, res) => {
+  console.log("HAHAHAHHA");
+  
   try {
-    const vendorId =
-      req.vendor?._id || req.user?._id || req.user?.vendorId || req.user?.id;
+    const vendorId = req.user?.id;
     if (!vendorId)
       return res
         .status(400)
@@ -41,6 +42,7 @@ const getVendorBookingAnalytics = async (req, res) => {
             "details status trackingId userId listingId description eventLocation createdAt statusHistory listingDetails"
           ),
       ]);
+    console.log(bookings, "bookingsbookingsbookingsbookingsbookings");
 
     // Get unique listing IDs
     const listingIds = [
@@ -98,7 +100,7 @@ const acceptBooking = asyncHandler(async (req, res) => {
 
   const booking = await BookingRequest.findOne({
     _id: id,
-    vendorId: vendor._id,
+    vendorId: vendor.userId,
     status: "pending",
   });
 
@@ -129,13 +131,13 @@ const acceptBooking = asyncHandler(async (req, res) => {
     });
   }
 
-  console.log(`Accepting booking ${id} for vendor ${vendor._id}`);
+  console.log(`Accepting booking ${id} for vendor ${vendor.userId}`);
 
   const decrementBy = 1;
   const updatedListing = await Listing.findOneAndUpdate(
     {
       _id: booking.listingId,
-      vendor: vendor._id,
+      vendor: vendor.userId,
       quantity: { $gte: decrementBy },
     },
     { $inc: { quantity: -decrementBy } },
@@ -185,7 +187,7 @@ const acceptBooking = asyncHandler(async (req, res) => {
 
   try {
     await createActivityLog({
-      vendorId: vendor._id,
+      vendorId: vendor.userId,
       heading: "Booking Accepted",
       type: "booking_accepted",
       description: `Booking ${booking.trackingId} has been accepted`,
@@ -237,7 +239,7 @@ const rejectBooking = asyncHandler(async (req, res) => {
 
   const booking = await BookingRequest.findOne({
     _id: id,
-    vendorId: vendor._id,
+    vendorId: vendor.userId,
     status: "pending",
   });
 
@@ -254,14 +256,14 @@ const rejectBooking = asyncHandler(async (req, res) => {
 
   try {
     await createActivityLog({
-      vendorId: vendor._id,
+      vendorId: vendor.userId,
       heading: "Booking Rejected",
       type: "booking_rejected",
       description: `Booking ${booking.trackingId} has been rejected. Reason: ${
         rejectionReason || "No reason provided"
       }`,
       bookingId: booking._id,
-      userId: req.user?._id,
+      userId: req.user?.id,
     });
   } catch (e) {
     console.error("Failed to create activity log", e);

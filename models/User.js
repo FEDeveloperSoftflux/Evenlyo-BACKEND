@@ -59,10 +59,6 @@ const userSchema = new mongoose.Schema({
   },
   contactNumber: {
     type: String,
-    required: function () {
-      // Contact number is required only for non-Google logins
-      return !this.provider || this.provider === 'email';
-    }
   },
   provider: {
     type: String,
@@ -92,6 +88,14 @@ const userSchema = new mongoose.Schema({
     required: true
   },
   profileImage: {
+    type: String,
+    default: ''
+  },
+  postalCode: {
+    type: String,
+    default: ''
+  },
+  city: {
     type: String,
     default: ''
   },

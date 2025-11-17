@@ -43,6 +43,8 @@ router.get('/notifications', requireAuth, settingsController.getNotificationSett
 // Update notification settings
 router.put('/notifications', requireAuth, settingsController.updateNotificationSettings);
 
+router.post('/vendor/full-data', settingsController.getVendorFullData);
+
 // --- Health Check Route ---
 router.get('/health', (req, res) => {
   res.json({

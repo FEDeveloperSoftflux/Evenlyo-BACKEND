@@ -1,15 +1,20 @@
-const asyncHandler = require('express-async-handler');
-const notificationController = require('../notificationController');
-const BookingRequest = require('../../models/Booking');
-const Listing = require('../../models/Listing');
-const User = require('../../models/User');
-const Vendor = require('../../models/Vendor');
-const Settings = require('../../models/Settings');
-const { checkAvailability, calculateFullBookingPrice, checkListingStock, getListingPaymentPolicy } = require('../../utils/bookingUtils');
-const { toMultilingualText } = require('../../utils/textUtils');
-const stripe = require('../../config/stripe');
-const Booking = require('../../models/Booking');
-const mongoose = require("mongoose")
+const asyncHandler = require("express-async-handler");
+const notificationController = require("../notificationController");
+const BookingRequest = require("../../models/Booking");
+const Listing = require("../../models/Listing");
+const User = require("../../models/User");
+const Vendor = require("../../models/Vendor");
+const Settings = require("../../models/Settings");
+const {
+  checkAvailability,
+  calculateFullBookingPrice,
+  checkListingStock,
+  getListingPaymentPolicy,
+} = require("../../utils/bookingUtils");
+const { toMultilingualText } = require("../../utils/textUtils");
+const stripe = require("../../config/stripe");
+const Booking = require("../../models/Booking");
+const mongoose = require("mongoose");
 // @desc    Create Stripe PaymentIntent for a booking
 // @route   POST /api/booking/:id/create-payment-intent
 // @access  Private (User)
@@ -18,12 +23,12 @@ const createBookingPaymentIntent = asyncHandler(async (req, res) => {
   // Find the booking by ID and user
   const booking = await BookingRequest.findOne({
     _id: id,
-    userId: req.user.id
+    userId: req.user.id,
   });
   if (!booking) {
     return res.status(404).json({
       success: false,
-      message: 'Booking not found'
+      message: "Booking not found",
     });
   }
   // Get amount from booking (assume pricing.totalPrice exists)
@@ -31,26 +36,30 @@ const createBookingPaymentIntent = asyncHandler(async (req, res) => {
   if (!amount || amount < 1) {
     return res.status(400).json({
       success: false,
-      message: 'Invalid booking amount'
+      message: "Invalid booking amount",
     });
   }
   try {
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
-      currency: 'usd',
+      currency: "usd",
       metadata: {
-        bookingId: booking._id ? booking._id.toString() : '',
-        userId: booking.userId ? (booking.userId._id ? booking.userId._id.toString() : booking.userId.toString()) : ''
-      }
+        bookingId: booking._id ? booking._id.toString() : "",
+        userId: booking.userId
+          ? booking.userId._id
+            ? booking.userId._id.toString()
+            : booking.userId.toString()
+          : "",
+      },
     });
     res.status(200).json({
       success: true,
-      clientSecret: paymentIntent.client_secret
+      clientSecret: paymentIntent.client_secret,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 });
@@ -65,20 +74,20 @@ const reviewBooking = asyncHandler(async (req, res) => {
   if (!rating || rating < 1 || rating > 5) {
     return res.status(400).json({
       success: false,
-      message: 'Rating must be between 1 and 5.'
+      message: "Rating must be between 1 and 5.",
     });
   }
 
   const booking = await BookingRequest.findOne({
     _id: req.params.id,
     userId: req.user.id,
-    status: 'finished'
+    status: "finished",
   });
 
   if (!booking) {
     return res.status(404).json({
       success: false,
-      message: 'Booking not found or not eligible for review.'
+      message: "Booking not found or not eligible for review.",
     });
   }
 
@@ -92,7 +101,8 @@ const reviewBooking = asyncHandler(async (req, res) => {
   // Update vendor's average rating, total reviews, and add review to reviews array
   const vendor = await Vendor.findById(booking.vendorId);
   if (vendor) {
-    const prevTotal = (vendor.rating.average || 0) * (vendor.rating.totalReviews || 0);
+    const prevTotal =
+      (vendor.rating.average || 0) * (vendor.rating.totalReviews || 0);
     const newCount = (vendor.rating.totalReviews || 0) + 1;
     const newAverage = (prevTotal + rating) / newCount;
     vendor.rating.average = newAverage;
@@ -103,7 +113,7 @@ const reviewBooking = asyncHandler(async (req, res) => {
       bookingId: booking._id,
       clientId: booking.userId,
       rating: rating,
-      review: review ? toMultilingualText(review) : undefined
+      review: review ? toMultilingualText(review) : undefined,
     });
 
     await vendor.save();
@@ -112,7 +122,8 @@ const reviewBooking = asyncHandler(async (req, res) => {
   // Update listing's average rating, total reviews, and add review to reviews array
   const listing = await Listing.findById(booking.listingId);
   if (listing) {
-    const prevTotal = (listing.rating?.average || 0) * (listing.rating?.totalReviews || 0);
+    const prevTotal =
+      (listing.rating?.average || 0) * (listing.rating?.totalReviews || 0);
     const newCount = (listing.rating?.totalReviews || 0) + 1;
     const newAverage = (prevTotal + rating) / newCount;
     listing.rating = listing.rating || {};
@@ -124,15 +135,15 @@ const reviewBooking = asyncHandler(async (req, res) => {
       bookingId: booking._id,
       clientId: booking.userId,
       rating: rating,
-      review: review ? toMultilingualText(review) : undefined
+      review: review ? toMultilingualText(review) : undefined,
     });
     await listing.save();
   }
 
   res.json({
     success: true,
-    message: 'Review submitted successfully.',
-    data: { booking }
+    message: "Review submitted successfully.",
+    data: { booking },
   });
 });
 
@@ -160,8 +171,8 @@ const createBookingRequest = asyncHandler(async (req, res) => {
       eventType,
       guestCount,
       distanceKm,
-      specialRequests
-    }
+      specialRequests,
+    },
   } = req.body;
 
   // Calculate duration and multi-day details early to determine validation
@@ -175,13 +186,13 @@ const createBookingRequest = asyncHandler(async (req, res) => {
   if (!listingId || !vendorId || !startDate || !endDate || !eventLocation) {
     return res.status(400).json({
       success: false,
-      message: 'Missing required fields'
+      message: "Missing required fields",
     });
   }
   if (!isMultiDay && (!startTime || !endTime)) {
     return res.status(400).json({
       success: false,
-      message: 'Start time and end time are required for single-day bookings.'
+      message: "Start time and end time are required for single-day bookings.",
     });
   }
 
@@ -189,15 +200,16 @@ const createBookingRequest = asyncHandler(async (req, res) => {
   const listing = await Listing.findOne({
     _id: listingId,
     isActive: true,
-    status: 'active'
-  }).populate('vendor')
-    .populate('category', 'name')
-    .populate('subCategory', 'name');
+    status: "active",
+  })
+    .populate("vendor")
+    .populate("category", "name")
+    .populate("subCategory", "name");
 
   if (!listing) {
     return res.status(404).json({
       success: false,
-      message: 'Listing not found or not available'
+      message: "Listing not found or not available",
     });
   }
 
@@ -205,22 +217,37 @@ const createBookingRequest = asyncHandler(async (req, res) => {
   const requestedQty = 1;
   const stock = await checkListingStock(listingId, requestedQty);
   if (!stock.ok) {
-    return res.status(400).json({ success: false, message: stock.message, availableQty: stock.availableQty });
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message: stock.message,
+        availableQty: stock.availableQty,
+      });
   }
 
   // If listing charges per km, require distanceKm in request details
-  if (typeof distanceKm === 'undefined' || isNaN(Number(distanceKm)) || Number(distanceKm) <= 0) {
+  if (
+    typeof distanceKm === "undefined" ||
+    isNaN(Number(distanceKm)) ||
+    Number(distanceKm) <= 0
+  ) {
     return res.status(400).json({
       success: false,
-      message: 'distanceKm is required and must be a positive number for this listing.'
+      message:
+        "distanceKm is required and must be a positive number for this listing.",
     });
   }
 
   // Verify vendor matches (guard for missing vendor)
-  if (!listing.vendor || !listing.vendor._id || listing.vendor._id.toString() !== vendorId) {
+  if (
+    !listing.vendor ||
+    !listing.vendor._id ||
+    listing.vendor._id.toString() !== vendorId
+  ) {
     return res.status(400).json({
       success: false,
-      message: 'Vendor mismatch'
+      message: "Vendor mismatch",
     });
   }
 
@@ -231,12 +258,13 @@ const createBookingRequest = asyncHandler(async (req, res) => {
     new Date(endDate),
     null, // excludeBookingId
     startTime, // pass startTime for time slot validation
-    endTime    // pass endTime for time slot validation
+    endTime // pass endTime for time slot validation
   );
   if (!isAvailable) {
     return res.status(409).json({
       success: false,
-      message: 'Selected dates/times are not available. The time slot may be outside available hours or already booked.'
+      message:
+        "Selected dates/times are not available. The time slot may be outside available hours or already booked.",
     });
   }
 
@@ -264,15 +292,23 @@ const createBookingRequest = asyncHandler(async (req, res) => {
   // Fetch platform fee from Settings
   const settings = await Settings.findOne();
   let platformFeePercent = 0.015; // default 1.5%
-  if (settings && typeof settings.bookingItemPlatformFee === 'number') {
+  if (settings && typeof settings.bookingItemPlatformFee === "number") {
     platformFeePercent = settings.bookingItemPlatformFee;
   }
 
   // Calculate pricing using utility
-  const pricingResult = calculateFullBookingPrice(listing, { startDate, endDate, startTime, endTime, distanceKm });
+  const pricingResult = calculateFullBookingPrice(listing, {
+    startDate,
+    endDate,
+    startTime,
+    endTime,
+    distanceKm,
+  });
 
   if (pricingResult && pricingResult.error) {
-    return res.status(pricingResult.status || 400).json({ success: false, message: pricingResult.error });
+    return res
+      .status(pricingResult.status || 400)
+      .json({ success: false, message: pricingResult.error });
   }
 
   const bookingPrice = pricingResult.bookingPrice;
@@ -289,24 +325,23 @@ const createBookingRequest = asyncHandler(async (req, res) => {
 
   // Calculate platform fee as percentage of booking price
 
-
   // Transform eventType and specialRequests to multilingual format if they are strings
   let processedEventType = eventType;
   let processedSpecialRequests = specialRequests;
 
   // If eventType is a string, convert to multilingual object
-  if (typeof eventType === 'string') {
+  if (typeof eventType === "string") {
     processedEventType = {
       en: eventType,
-      nl: eventType // Use same value for Dutch, can be translated later
+      nl: eventType, // Use same value for Dutch, can be translated later
     };
   }
 
   // If specialRequests is a string, convert to multilingual object
-  if (typeof specialRequests === 'string') {
+  if (typeof specialRequests === "string") {
     processedSpecialRequests = {
       en: specialRequests,
-      nl: specialRequests // Use same value for Dutch, can be translated later
+      nl: specialRequests, // Use same value for Dutch, can be translated later
     };
   }
   // Create booking request with multi-day support
@@ -323,7 +358,8 @@ const createBookingRequest = asyncHandler(async (req, res) => {
       title: listing.title,
       subtitle: listing.subtitle,
       description: listing.description,
-      featuredImage: listing.images && listing.images.length > 0 ? listing.images[0] : '',
+      featuredImage:
+        listing.images && listing.images.length > 0 ? listing.images[0] : "",
       images: listing.images || [],
       pricing: {
         type: listing.pricing.type,
@@ -331,36 +367,40 @@ const createBookingRequest = asyncHandler(async (req, res) => {
         extratimeCost: listing.pricing.extratimeCost || 0,
         securityFee: listing.pricing.securityFee || 0,
         pricePerKm: listing.pricing.pricePerKm || 0,
-        days: result
+        days: result,
       },
-      category: listing.category ? {
-        _id: listing.category._id,
-        name: listing.category.name
-      } : '',
-      subCategory: listing.subCategory ? {
-        _id: listing.subCategory._id,
-        name: listing.subCategory.name
-      } : '',
+      category: listing.category
+        ? {
+            _id: listing.category._id,
+            name: listing.category.name,
+          }
+        : "",
+      subCategory: listing.subCategory
+        ? {
+            _id: listing.subCategory._id,
+            name: listing.subCategory.name,
+          }
+        : "",
       serviceDetails: {
-        serviceType: listing.serviceDetails?.serviceType
+        serviceType: listing.serviceDetails?.serviceType,
       },
       location: {
         fullAddress: listing.location?.fullAddress,
         coordinates: {
           latitude: listing.location?.coordinates?.latitude,
-          longitude: listing.location?.coordinates?.longitude
-        }
+          longitude: listing.location?.coordinates?.longitude,
+        },
       },
       contact: {
         phone: listing.contact?.phone,
         email: listing.contact?.email,
-        website: listing.contact?.website
+        website: listing.contact?.website,
       },
       features: listing.features || [],
       rating: {
         average: listing.rating?.average || 0,
-        totalReviews: listing.rating?.totalReviews || 0
-      }
+        totalReviews: listing.rating?.totalReviews || 0,
+      },
     },
     details: {
       startDate,
@@ -370,7 +410,7 @@ const createBookingRequest = asyncHandler(async (req, res) => {
         hours: dailyHours,
         days: diffDays,
         totalHours: totalHours,
-        isMultiDay: isMultiDay
+        isMultiDay: isMultiDay,
       },
       eventLocation,
       eventType: processedEventType,
@@ -393,10 +433,10 @@ const createBookingRequest = asyncHandler(async (req, res) => {
       platformFee: platformFee,
       // Optionally add dailyRate for multi-day
       ...(isMultiDay && {
-        dailyRate: Math.round(bookingPrice / diffDays)
-      })
+        dailyRate: Math.round(bookingPrice / diffDays),
+      }),
     },
-    platformFee
+    platformFee,
   });
 
   await bookingRequest.save();
@@ -404,38 +444,48 @@ const createBookingRequest = asyncHandler(async (req, res) => {
   // Notify vendor of new booking request
   try {
     const vendor = await Vendor.findById(bookingRequest.vendorId);
-    const client = await User.findById(bookingRequest.userId).select('firstName lastName');
+    const client = await User.findById(bookingRequest.userId).select(
+      "firstName lastName"
+    );
 
     if (vendor && vendor.userId) {
-      const clientName = client ? `${client.firstName} ${client.lastName}` : 'A client';
-      const listingTitle = listing.title || 'your listing';
-      const bookingDates = `${startDate}${endDate !== startDate ? ` to ${endDate}` : ''}`;
+      const clientName = client
+        ? `${client.firstName} ${client.lastName}`
+        : "A client";
+      const listingTitle = listing.title || "your listing";
+      const bookingDates = `${startDate}${
+        endDate !== startDate ? ` to ${endDate}` : ""
+      }`;
 
       await notificationController.createNotification({
         user: vendor.userId, // vendor's user account receives notification
         bookingId: bookingRequest._id,
-        message: `New booking request from ${clientName} for "${listingTitle}" on ${bookingDates}. Tracking ID: ${bookingRequest.trackingId}`
+        message: `New booking request from ${clientName} for "${listingTitle}" on ${bookingDates}. Tracking ID: ${bookingRequest.trackingId}`,
       });
     }
   } catch (e) {
-    console.error('Failed to create vendor notification for new booking:', e);
+    console.error("Failed to create vendor notification for new booking:", e);
   }
   // Populate the response (listing details are now stored directly in listingDetails field)
   await bookingRequest.populate([
-    { path: 'userId', select: 'firstName lastName email contactNumber' },
-    { path: 'vendorId', select: 'businessName businessEmail businessPhone' }
+    { path: "userId", select: "firstName lastName email contactNumber" },
+    { path: "vendorId", select: "businessName businessEmail businessPhone" },
   ]);
 
   // Determine subcategory payment policy (escrow/upfront)
   const policy = await getListingPaymentPolicy(listing);
-  const upfrontAmount = policy.escrowEnabled && policy.upfrontFeePercent > 0
-    ? Math.round((totalPrice * policy.upfrontFeePercent / 100) * 100) / 100
-    : 0;
-  const remainingAmount = Math.max(Math.round((totalPrice - upfrontAmount) * 100) / 100, 0);
+  const upfrontAmount =
+    policy.escrowEnabled && policy.upfrontFeePercent > 0
+      ? Math.round(((totalPrice * policy.upfrontFeePercent) / 100) * 100) / 100
+      : 0;
+  const remainingAmount = Math.max(
+    Math.round((totalPrice - upfrontAmount) * 100) / 100,
+    0
+  );
 
   res.status(201).json({
     success: true,
-    message: 'Booking request created successfully',
+    message: "Booking request created successfully",
     data: {
       bookingRequest,
       paymentPolicy: {
@@ -444,9 +494,9 @@ const createBookingRequest = asyncHandler(async (req, res) => {
         upfrontHour: policy.upfrontHour,
         evenlyoProtectFeePercent: policy.evenlyoProtectFeePercent,
         upfrontAmount,
-        remainingAmount
-      }
-    }
+        remainingAmount,
+      },
+    },
   });
 });
 
@@ -459,23 +509,23 @@ const getPendingBookings = asyncHandler(async (req, res) => {
   if (!vendor) {
     return res.status(404).json({
       success: false,
-      message: 'Vendor profile not found'
+      message: "Vendor profile not found",
     });
   }
 
   const pendingBookings = await BookingRequest.find({
     vendorId: vendor._id,
-    status: 'pending'
+    status: "pending",
   })
-    .populate('userId', 'firstName lastName email contactNumber')
+    .populate("userId", "firstName lastName email contactNumber")
     .sort({ createdAt: -1 });
 
   res.json({
     success: true,
     data: {
       bookings: pendingBookings,
-      count: pendingBookings.length
-    }
+      count: pendingBookings.length,
+    },
   });
 });
 
@@ -485,17 +535,17 @@ const getPendingBookings = asyncHandler(async (req, res) => {
 const getAcceptedBookings = asyncHandler(async (req, res) => {
   const acceptedBookings = await BookingRequest.find({
     userId: req.user.id,
-    status: 'accepted'
+    status: "accepted",
   })
-    .populate('vendorId', 'businessName businessEmail businessPhone')
+    .populate("vendorId", "businessName businessEmail businessPhone")
     .sort({ createdAt: -1 });
 
   res.json({
     success: true,
     data: {
       bookings: acceptedBookings,
-      count: acceptedBookings.length
-    }
+      count: acceptedBookings.length,
+    },
   });
 });
 
@@ -509,19 +559,19 @@ const markBookingAsPaid = asyncHandler(async (req, res) => {
   const booking = await BookingRequest.findOne({
     _id: id,
     userId: req.user.id,
-    status: 'accepted'
+    status: "accepted",
   });
 
   if (!booking) {
     return res.status(404).json({
       success: false,
-      message: 'Booking not found or not in accepted status'
+      message: "Booking not found or not in accepted status",
     });
   }
 
-  booking.status = 'paid';
-  booking.paymentStatus = 'paid';
-  booking.paymentMethod = paymentMethod || 'stripe';
+  booking.status = "paid";
+  booking.paymentStatus = "paid";
+  booking.paymentMethod = paymentMethod || "stripe";
 
   if (transactionId) {
     booking.transactionId = transactionId;
@@ -536,25 +586,25 @@ const markBookingAsPaid = asyncHandler(async (req, res) => {
       await notificationController.createNotification({
         user: vendor.userId,
         bookingId: booking._id,
-        message: `A client has paid for a booking.`
+        message: `A client has paid for a booking.`,
       });
     }
   } catch (e) {
-    console.error('Failed to create vendor notification for paid booking:', e);
+    console.error("Failed to create vendor notification for paid booking:", e);
   }
   await booking.save();
 
   await booking.populate([
-    { path: 'vendorId', select: 'businessName businessEmail businessPhone' },
-    { path: 'listingId', select: 'title featuredImage pricing' }
+    { path: "vendorId", select: "businessName businessEmail businessPhone" },
+    { path: "listingId", select: "title featuredImage pricing" },
   ]);
 
   res.json({
     success: true,
-    message: 'Payment confirmed successfully',
+    message: "Payment confirmed successfully",
     data: {
-      booking
-    }
+      booking,
+    },
   });
 });
 
@@ -570,7 +620,10 @@ const getBookingHistory = asyncHandler(async (req, res) => {
   }
 
   const bookings = await BookingRequest.find(filter)
-    .populate('vendorId', 'businessName businessEmail businessPhone businessLogo')
+    .populate(
+      "vendorId",
+      "businessName businessEmail businessPhone businessLogo"
+    )
     .sort({ createdAt: -1 })
     .limit(limit * 1)
     .skip((page - 1) * limit);
@@ -578,7 +631,7 @@ const getBookingHistory = asyncHandler(async (req, res) => {
   const total = await BookingRequest.countDocuments(filter);
 
   // Format bookings with action buttons based on status
-  const formattedBookings = bookings.map(booking => {
+  const formattedBookings = bookings.map((booking) => {
     console.log(booking, "bookingbookingbookingbooking");
 
     const bookingData = {
@@ -589,7 +642,7 @@ const getBookingHistory = asyncHandler(async (req, res) => {
         start: booking.details.startDate,
         end: booking.details.endDate,
         startTime: booking.details.startTime,
-        endTime: booking.details.endTime
+        endTime: booking.details.endTime,
       },
       totalPrice: booking.pricing.totalPrice,
       status: booking.status,
@@ -619,9 +672,9 @@ const getBookingHistory = asyncHandler(async (req, res) => {
       pagination: {
         current: page,
         pages: Math.ceil(total / limit),
-        total
-      }
-    }
+        total,
+      },
+    },
   });
 });
 
@@ -630,116 +683,116 @@ const getClientActionButtons = (status) => {
   const buttons = [];
 
   switch (status) {
-    case 'pending':
+    case "pending":
       buttons.push({
-        action: 'cancel',
-        label: 'Cancel Request',
-        color: 'red',
-        type: 'danger'
+        action: "cancel",
+        label: "Cancel Request",
+        color: "red",
+        type: "danger",
       });
       break;
 
-    case 'accepted':
+    case "accepted":
       buttons.push(
         {
-          action: 'pay',
-          label: 'Make Payment',
-          color: 'purple',
-          type: 'primary'
+          action: "pay",
+          label: "Make Payment",
+          color: "purple",
+          type: "primary",
         },
         {
-          action: 'cancel',
-          label: 'Cancel',
-          color: 'red',
-          type: 'danger'
+          action: "cancel",
+          label: "Cancel",
+          color: "red",
+          type: "danger",
         }
       );
       break;
 
-    case 'paid':
+    case "paid":
       buttons.push({
-        action: 'view_details',
-        label: 'View Details',
-        color: 'blue',
-        type: 'info'
+        action: "view_details",
+        label: "View Details",
+        color: "blue",
+        type: "info",
       });
       break;
 
-    case 'on the way':
+    case "on the way":
       buttons.push({
-        action: 'track',
-        label: 'Track Delivery',
-        color: 'orange',
-        type: 'info'
+        action: "track",
+        label: "Track Delivery",
+        color: "orange",
+        type: "info",
       });
       break;
 
-    case 'received':
+    case "received":
       buttons.push(
         {
-          action: 'mark_finished',
-          label: 'Mark Finished',
-          color: 'green',
-          type: 'success'
+          action: "mark_finished",
+          label: "Mark Finished",
+          color: "green",
+          type: "success",
         },
         {
-          action: 'claim',
-          label: 'Report Issue',
-          color: 'orange',
-          type: 'warning'
+          action: "claim",
+          label: "Report Issue",
+          color: "orange",
+          type: "warning",
         }
       );
       break;
 
-    case 'picked up':
+    case "picked up":
       buttons.push(
         {
-          action: 'mark_complete',
-          label: 'Mark Complete',
-          color: 'green',
-          type: 'success'
+          action: "mark_complete",
+          label: "Mark Complete",
+          color: "green",
+          type: "success",
         },
         {
-          action: 'claim',
-          label: 'Report Issue',
-          color: 'orange',
-          type: 'warning'
+          action: "claim",
+          label: "Report Issue",
+          color: "orange",
+          type: "warning",
         }
       );
       break;
 
-    case 'completed':
+    case "completed":
       buttons.push(
         {
-          action: 'view_invoice',
-          label: 'View Invoice',
-          color: 'blue',
-          type: 'info'
+          action: "view_invoice",
+          label: "View Invoice",
+          color: "blue",
+          type: "info",
         },
         {
-          action: 'leave_review',
-          label: 'Leave Review',
-          color: 'purple',
-          type: 'secondary'
+          action: "leave_review",
+          label: "Leave Review",
+          color: "purple",
+          type: "secondary",
         }
       );
       break;
 
-    case 'claim':
+    case "claim":
       buttons.push({
-        action: 'view_claim',
-        label: 'View Claim Status',
-        color: 'orange',
-        type: 'warning'
+        action: "view_claim",
+        label: "View Claim Status",
+        color: "orange",
+        type: "warning",
       });
       break;
 
-    case 'rejected':
+    case "rejected":
       buttons.push({
-        action: 'view_reason',
-        label: 'View Rejection Reason',
-        color: 'red',
-        type: 'danger'
+        action: "view_reason",
+        label: "View Rejection Reason",
+        color: "red",
+        type: "danger",
       });
       break;
 
@@ -761,7 +814,7 @@ const getVendorBookingHistory = asyncHandler(async (req, res) => {
   if (!vendor) {
     return res.status(404).json({
       success: false,
-      message: 'Vendor profile not found'
+      message: "Vendor profile not found",
     });
   }
 
@@ -771,7 +824,7 @@ const getVendorBookingHistory = asyncHandler(async (req, res) => {
   }
 
   const bookings = await BookingRequest.find(filter)
-    .populate('userId', 'firstName lastName email contactNumber')
+    .populate("userId", "firstName lastName email contactNumber")
     .sort({ createdAt: -1 })
     .limit(limit * 1)
     .skip((page - 1) * limit);
@@ -779,7 +832,7 @@ const getVendorBookingHistory = asyncHandler(async (req, res) => {
   const total = await BookingRequest.countDocuments(filter);
 
   // Format bookings with action buttons based on status for vendor
-  const formattedBookings = bookings.map(booking => {
+  const formattedBookings = bookings.map((booking) => {
     const bookingData = {
       _id: booking._id,
       trackingId: booking.trackingId,
@@ -787,7 +840,7 @@ const getVendorBookingHistory = asyncHandler(async (req, res) => {
         start: booking.details.startDate,
         end: booking.details.endDate,
         startTime: booking.details.startTime,
-        endTime: booking.details.endTime
+        endTime: booking.details.endTime,
       },
       totalPrice: booking.pricing.totalPrice,
       status: booking.status,
@@ -803,7 +856,7 @@ const getVendorBookingHistory = asyncHandler(async (req, res) => {
       specialRequests: booking.details.specialRequests,
       paymentStatus: booking.paymentStatus,
       rejectionReason: booking.rejectionReason,
-      claimDetails: booking.claimDetails
+      claimDetails: booking.claimDetails,
     };
 
     return bookingData;
@@ -816,9 +869,9 @@ const getVendorBookingHistory = asyncHandler(async (req, res) => {
       pagination: {
         current: page,
         pages: Math.ceil(total / limit),
-        total
-      }
-    }
+        total,
+      },
+    },
   });
 });
 
@@ -829,17 +882,17 @@ const markBookingReceived = asyncHandler(async (req, res) => {
   const booking = await BookingRequest.findOne({
     _id: req.params.id,
     userId: req.user.id,
-    status: 'on_the_way'
+    status: "on_the_way",
   });
 
   if (!booking) {
     return res.status(404).json({
       success: false,
-      message: 'Booking not found or not eligible for this action'
+      message: "Booking not found or not eligible for this action",
     });
   }
 
-  booking.status = 'received';
+  booking.status = "received";
   await booking.save();
 
   // Notify vendor that booking is received
@@ -849,16 +902,19 @@ const markBookingReceived = asyncHandler(async (req, res) => {
       await notificationController.createNotification({
         user: vendor.userId,
         bookingId: booking._id,
-        message: `A client has marked the booking as received.`
+        message: `A client has marked the booking as received.`,
       });
     }
   } catch (e) {
-    console.error('Failed to create vendor notification for received booking:', e);
+    console.error(
+      "Failed to create vendor notification for received booking:",
+      e
+    );
   }
   res.json({
     success: true,
-    message: 'Booking marked as received',
-    data: { booking }
+    message: "Booking marked as received",
+    data: { booking },
   });
 });
 
@@ -869,17 +925,17 @@ const markBookingFinished = asyncHandler(async (req, res) => {
   const booking = await BookingRequest.findOne({
     _id: req.params.id,
     userId: req.user.id,
-    status: { $in: ['received', 'picked_up'] }
+    status: { $in: ["received", "picked_up"] },
   });
 
   if (!booking) {
     return res.status(404).json({
       success: false,
-      message: 'Booking not found or not eligible for this action'
+      message: "Booking not found or not eligible for this action",
     });
   }
 
-  booking.status = 'finished';
+  booking.status = "finished";
   await booking.save();
 
   // Notify vendor that booking is completed
@@ -889,26 +945,32 @@ const markBookingFinished = asyncHandler(async (req, res) => {
       await notificationController.createNotification({
         user: vendor.userId,
         bookingId: booking._id,
-        message: `A booking has been marked as completed.`
+        message: `A booking has been marked as completed.`,
       });
     }
   } catch (e) {
-    console.error('Failed to create vendor notification for completed booking:', e);
+    console.error(
+      "Failed to create vendor notification for completed booking:",
+      e
+    );
   }
 
   // Notify admins that booking is completed
   try {
     await notificationController.createAdminNotification({
       message: `A booking has been marked as completed by the client.`,
-      bookingId: booking._id
+      bookingId: booking._id,
     });
   } catch (e) {
-    console.error('Failed to create admin notification for completed booking:', e);
+    console.error(
+      "Failed to create admin notification for completed booking:",
+      e
+    );
   }
   res.json({
     success: true,
-    message: 'Booking marked as complete',
-    data: { booking }
+    message: "Booking marked as complete",
+    data: { booking },
   });
 });
 
@@ -921,37 +983,37 @@ const createClaim = asyncHandler(async (req, res) => {
   if (!reason || !reason.en) {
     return res.status(400).json({
       success: false,
-      message: 'Claim reason is required'
+      message: "Claim reason is required",
     });
   }
 
   if (!claimType) {
     return res.status(400).json({
       success: false,
-      message: 'Claim type is required'
+      message: "Claim type is required",
     });
   }
 
   const booking = await BookingRequest.findOne({
     _id: req.params.id,
     userId: req.user.id,
-    status: { $in: ['received', 'finished', 'paid'] }
+    status: { $in: ["received", "finished", "paid"] },
   });
 
   if (!booking) {
     return res.status(404).json({
       success: false,
-      message: 'Booking not eligible for Complaint'
+      message: "Booking not eligible for Complaint",
     });
   }
 
-  booking.status = 'claim';
+  booking.status = "claim";
   booking.claimDetails = {
     reason: reason,
     claimType: claimType,
-    claimedBy: 'client',
+    claimedBy: "client",
     claimedAt: new Date(),
-    status: 'pending'
+    status: "pending",
   };
 
   await booking.save();
@@ -960,8 +1022,8 @@ const createClaim = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    message: 'Claim created successfully. Admin will review and contact you.',
-    data: { booking }
+    message: "Claim created successfully. Admin will review and contact you.",
+    data: { booking },
   });
 });
 
@@ -972,13 +1034,13 @@ const cancelBooking = asyncHandler(async (req, res) => {
   const booking = await BookingRequest.findOne({
     _id: req.params.id,
     userId: req.user.id,
-    status: { $in: ['pending', 'accepted', 'paid'] }
+    status: { $in: ["pending", "accepted", "paid"] },
   });
 
   if (!booking) {
     return res.status(404).json({
       success: false,
-      message: 'Booking not found or not eligible for cancellation.'
+      message: "Booking not found or not eligible for cancellation.",
     });
   }
 
@@ -989,39 +1051,40 @@ const cancelBooking = asyncHandler(async (req, res) => {
   if (diffMinutes > 30) {
     return res.status(400).json({
       success: false,
-      message: 'Cancellation period expired. You can only cancel within 30 minutes of booking.'
+      message:
+        "Cancellation period expired. You can only cancel within 30 minutes of booking.",
     });
   }
 
   // Accept cancellation reason from request body (optional)
   let reason = req.body && req.body.reason;
   let notes = {
-    en: 'Booking cancelled by client',
-    nl: 'Boeking geannuleerd door klant'
+    en: "Booking cancelled by client",
+    nl: "Boeking geannuleerd door klant",
   };
   if (reason) {
-    if (typeof reason === 'object' && (reason.en || reason.nl)) {
+    if (typeof reason === "object" && (reason.en || reason.nl)) {
       notes = {
         en: reason.en || notes.en,
-        nl: reason.nl || notes.nl
+        nl: reason.nl || notes.nl,
       };
-    } else if (typeof reason === 'string') {
+    } else if (typeof reason === "string") {
       notes = {
         en: reason,
-        nl: reason // Use same for Dutch, can be translated later
+        nl: reason, // Use same for Dutch, can be translated later
       };
     }
   }
 
-  booking.status = 'cancelled';
+  booking.status = "cancelled";
   booking.statusHistory.push({
-    status: 'cancelled',
+    status: "cancelled",
     updatedBy: {
       userId: req.user.id,
-      userType: 'client',
-      name: req.user.firstName + ' ' + req.user.lastName
+      userType: "client",
+      name: req.user.firstName + " " + req.user.lastName,
     },
-    notes: notes
+    notes: notes,
   });
   await booking.save();
 
@@ -1029,8 +1092,8 @@ const cancelBooking = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    message: 'Booking cancelled successfully.',
-    data: { booking }
+    message: "Booking cancelled successfully.",
+    data: { booking },
   });
 });
 // @desc    Get booking details
@@ -1038,34 +1101,53 @@ const cancelBooking = asyncHandler(async (req, res) => {
 // @access  Private (User/Vendor)
 const getBookingDetails = asyncHandler(async (req, res) => {
   const booking = await BookingRequest.findById(req.params.id)
-    .populate('userId', 'firstName lastName email contactNumber')
-    .populate('vendorId', 'businessName businessEmail businessPhone');
+    .populate("userId", "firstName lastName email contactNumber")
+    .populate("vendorId", "businessName businessEmail businessPhone");
 
   if (!booking) {
     return res.status(404).json({
       success: false,
-      message: 'Booking not found'
+      message: "Booking not found",
     });
   }
 
   // Check if user has access to this booking
   const vendor = await Vendor.findOne({ userId: req.user.id });
-  const bookingUserIdStr = booking.userId && booking.userId._id ? booking.userId._id.toString() : (booking.userId ? booking.userId.toString() : '');
-  const bookingVendorIdStr = booking.vendorId && booking.vendorId._id ? booking.vendorId._id.toString() : (booking.vendorId ? booking.vendorId.toString() : '');
-  const vendorIdStr = vendor && vendor._id ? vendor._id.toString() : '';
+  const bookingUserIdStr =
+    booking.userId && booking.userId._id
+      ? booking.userId._id.toString()
+      : booking.userId
+      ? booking.userId.toString()
+      : "";
+  const bookingVendorIdStr =
+    booking.vendorId && booking.vendorId._id
+      ? booking.vendorId._id.toString()
+      : booking.vendorId
+      ? booking.vendorId.toString()
+      : "";
+  const vendorIdStr = vendor && vendor._id ? vendor._id.toString() : "";
 
-  const hasAccess = (bookingUserIdStr && bookingUserIdStr === req.user.id) || (vendorIdStr && bookingVendorIdStr && bookingVendorIdStr === vendorIdStr);
+  const hasAccess =
+    (bookingUserIdStr && bookingUserIdStr === req.user.id) ||
+    (vendorIdStr && bookingVendorIdStr && bookingVendorIdStr === vendorIdStr);
 
   if (!hasAccess) {
     return res.status(403).json({
       success: false,
-      message: 'Access denied'
+      message: "Access denied",
     });
   }
 
   // Determine user type and get appropriate action buttons
-  const isVendor = vendor && booking.vendorId && booking.vendorId._id && vendor._id && booking.vendorId._id.toString() === vendor._id.toString();
-  const actionButtons = isVendor ? getVendorActionButtons(booking.status) : getClientActionButtons(booking.status);
+  const isVendor =
+    vendor &&
+    booking.vendorId &&
+    booking.vendorId._id &&
+    vendor._id &&
+    booking.vendorId._id.toString() === vendor._id.toString();
+  const actionButtons = isVendor
+    ? getVendorActionButtons(booking.status)
+    : getClientActionButtons(booking.status);
 
   const bookingData = {
     _id: booking._id,
@@ -1074,7 +1156,7 @@ const getBookingDetails = asyncHandler(async (req, res) => {
       start: booking.details.startDate,
       end: booking.details.endDate,
       startTime: booking.details.startTime,
-      endTime: booking.details.endTime
+      endTime: booking.details.endTime,
     },
     totalPrice: booking.pricing.totalPrice,
     status: booking.status,
@@ -1091,12 +1173,12 @@ const getBookingDetails = asyncHandler(async (req, res) => {
     rejectionReason: booking.rejectionReason,
     claimDetails: booking.claimDetails,
     deliveryDetails: booking.deliveryDetails,
-    feedback: booking.feedback
+    feedback: booking.feedback,
   };
 
   res.json({
     success: true,
-    data: { booking: bookingData }
+    data: { booking: bookingData },
   });
 });
 
@@ -1105,34 +1187,50 @@ const getBookingDetails = asyncHandler(async (req, res) => {
 // @access  Private (User/Vendor)
 const getBookingSummary = asyncHandler(async (req, res) => {
   const booking = await BookingRequest.findById(req.params.id)
-    .populate('userId', 'firstName lastName contactNumber')
-    .populate('vendorId', 'businessName businessPhone')
-    .populate('listingId');
+    .populate("userId", "firstName lastName contactNumber")
+    .populate("vendorId", "businessName businessPhone")
+    .populate("listingId");
 
   if (!booking) {
     return res.status(404).json({
       success: false,
-      message: 'Booking not found'
+      message: "Booking not found",
     });
   }
 
   // Access control: allow client who created booking or vendor who owns it
   const vendor = await Vendor.findOne({ userId: req.user.id });
-  const bookingUserIdStr = booking.userId && booking.userId._id ? booking.userId._id.toString() : (booking.userId ? booking.userId.toString() : '');
-  const bookingVendorIdStr = booking.vendorId && booking.vendorId._id ? booking.vendorId._id.toString() : (booking.vendorId ? booking.vendorId.toString() : '');
-  const vendorIdStr = vendor && vendor._id ? vendor._id.toString() : '';
+  const bookingUserIdStr =
+    booking.userId && booking.userId._id
+      ? booking.userId._id.toString()
+      : booking.userId
+      ? booking.userId.toString()
+      : "";
+  const bookingVendorIdStr =
+    booking.vendorId && booking.vendorId._id
+      ? booking.vendorId._id.toString()
+      : booking.vendorId
+      ? booking.vendorId.toString()
+      : "";
+  const vendorIdStr = vendor && vendor._id ? vendor._id.toString() : "";
 
-  const hasAccess = (bookingUserIdStr && bookingUserIdStr === req.user.id) || (vendorIdStr && bookingVendorIdStr && bookingVendorIdStr === vendorIdStr);
+  const hasAccess =
+    (bookingUserIdStr && bookingUserIdStr === req.user.id) ||
+    (vendorIdStr && bookingVendorIdStr && bookingVendorIdStr === vendorIdStr);
 
   if (!hasAccess) {
     return res.status(403).json({
       success: false,
-      message: 'Access denied'
+      message: "Access denied",
     });
   }
 
-  const clientName = booking.userId ? `${booking.userId.firstName || ''} ${booking.userId.lastName || ''}`.trim() : '';
-  const clientPhone = booking.userId ? (booking.userId.contactNumber || '') : '';
+  const clientName = booking.userId
+    ? `${booking.userId.firstName || ""} ${
+        booking.userId.lastName || ""
+      }`.trim()
+    : "";
+  const clientPhone = booking.userId ? booking.userId.contactNumber || "" : "";
 
   // Build listing object with requested fields
   let listingObj = null;
@@ -1141,43 +1239,66 @@ const getBookingSummary = asyncHandler(async (req, res) => {
     // Title fallback: if title is a string, wrap into {en,nl}
     let titleObj = listing.title;
     if (!titleObj) {
-      titleObj = { en: '', nl: '' };
-    } else if (typeof titleObj === 'string') {
+      titleObj = { en: "", nl: "" };
+    } else if (typeof titleObj === "string") {
       titleObj = { en: titleObj, nl: titleObj };
     } else {
       // Ensure both en and nl exist
       titleObj = {
-        en: titleObj.en || '',
-        nl: titleObj.nl || (titleObj.en || '')
+        en: titleObj.en || "",
+        nl: titleObj.nl || titleObj.en || "",
       };
     }
 
     listingObj = {
       title: titleObj,
       location: {
-        fullAddress: listing.location && listing.location.fullAddress ? listing.location.fullAddress : '',
-        coordinates: listing.location && listing.location.coordinates ? listing.location.coordinates : { latitude: null, longitude: null }
+        fullAddress:
+          listing.location && listing.location.fullAddress
+            ? listing.location.fullAddress
+            : "",
+        coordinates:
+          listing.location && listing.location.coordinates
+            ? listing.location.coordinates
+            : { latitude: null, longitude: null },
       },
-      images: (Array.isArray(listing.images) && listing.images.length > 0) ? listing.images[0] : (listing.images ? (typeof listing.images === 'string' ? listing.images : '') : '')
+      images:
+        Array.isArray(listing.images) && listing.images.length > 0
+          ? listing.images[0]
+          : listing.images
+          ? typeof listing.images === "string"
+            ? listing.images
+            : ""
+          : "",
     };
   }
 
   // Booking location: eventLocation (string) + coordinates if present in listing.location
   const bookingLocation = {
-    eventLocation: booking.details && booking.details.eventLocation ? booking.details.eventLocation : '',
+    eventLocation:
+      booking.details && booking.details.eventLocation
+        ? booking.details.eventLocation
+        : "",
   };
 
   const summary = {
     trackingId: booking.trackingId,
     clientName: clientName,
     clientPhone: clientPhone,
-    totalPrice: booking.pricing && typeof booking.pricing.totalPrice !== 'undefined' ? booking.pricing.totalPrice : booking.pricing && booking.pricing.bookingPrice ? booking.pricing.bookingPrice : (booking.pricing && booking.pricing.totalPrice ? booking.pricing.totalPrice : null),
-    statusHistory: booking.statusHistory || []
+    totalPrice:
+      booking.pricing && typeof booking.pricing.totalPrice !== "undefined"
+        ? booking.pricing.totalPrice
+        : booking.pricing && booking.pricing.bookingPrice
+        ? booking.pricing.bookingPrice
+        : booking.pricing && booking.pricing.totalPrice
+        ? booking.pricing.totalPrice
+        : null,
+    statusHistory: booking.statusHistory || [],
   };
 
   const direction = {
     listing: listingObj,
-    bookingLocation: bookingLocation
+    bookingLocation: bookingLocation,
   };
 
   res.json({ success: true, data: { summary, direction } });
@@ -1185,34 +1306,50 @@ const getBookingSummary = asyncHandler(async (req, res) => {
 
 const TrackBooking = asyncHandler(async (req, res) => {
   const booking = await BookingRequest.findById(req.params.id)
-    .populate('userId', 'firstName lastName contactNumber')
-    .populate('vendorId', 'businessName businessPhone')
-    .populate('listingId');
+    .populate("userId", "firstName lastName contactNumber")
+    .populate("vendorId", "businessName businessPhone")
+    .populate("listingId");
 
   if (!booking) {
     return res.status(404).json({
       success: false,
-      message: 'Booking not found'
+      message: "Booking not found",
     });
   }
 
   // Access control: allow client who created booking or vendor who owns it
   const vendor = await Vendor.findOne({ userId: req.user.id });
-  const bookingUserIdStr = booking.userId && booking.userId._id ? booking.userId._id.toString() : (booking.userId ? booking.userId.toString() : '');
-  const bookingVendorIdStr = booking.vendorId && booking.vendorId._id ? booking.vendorId._id.toString() : (booking.vendorId ? booking.vendorId.toString() : '');
-  const vendorIdStr = vendor && vendor._id ? vendor._id.toString() : '';
+  const bookingUserIdStr =
+    booking.userId && booking.userId._id
+      ? booking.userId._id.toString()
+      : booking.userId
+      ? booking.userId.toString()
+      : "";
+  const bookingVendorIdStr =
+    booking.vendorId && booking.vendorId._id
+      ? booking.vendorId._id.toString()
+      : booking.vendorId
+      ? booking.vendorId.toString()
+      : "";
+  const vendorIdStr = vendor && vendor._id ? vendor._id.toString() : "";
 
-  const hasAccess = (bookingUserIdStr && bookingUserIdStr === req.user.id) || (vendorIdStr && bookingVendorIdStr && bookingVendorIdStr === vendorIdStr);
+  const hasAccess =
+    (bookingUserIdStr && bookingUserIdStr === req.user.id) ||
+    (vendorIdStr && bookingVendorIdStr && bookingVendorIdStr === vendorIdStr);
 
   if (!hasAccess) {
     return res.status(403).json({
       success: false,
-      message: 'Access denied'
+      message: "Access denied",
     });
   }
 
-  const clientName = booking.userId ? `${booking.userId.firstName || ''} ${booking.userId.lastName || ''}`.trim() : '';
-  const clientPhone = booking.userId ? (booking.userId.contactNumber || '') : '';
+  const clientName = booking.userId
+    ? `${booking.userId.firstName || ""} ${
+        booking.userId.lastName || ""
+      }`.trim()
+    : "";
+  const clientPhone = booking.userId ? booking.userId.contactNumber || "" : "";
 
   // Build listing object with requested fields
   let listingObj = null;
@@ -1221,74 +1358,205 @@ const TrackBooking = asyncHandler(async (req, res) => {
     // Title fallback: if title is a string, wrap into {en,nl}
     let titleObj = listing.title;
     if (!titleObj) {
-      titleObj = { en: '', nl: '' };
-    } else if (typeof titleObj === 'string') {
+      titleObj = { en: "", nl: "" };
+    } else if (typeof titleObj === "string") {
       titleObj = { en: titleObj, nl: titleObj };
     } else {
       // Ensure both en and nl exist
       titleObj = {
-        en: titleObj.en || '',
-        nl: titleObj.nl || (titleObj.en || '')
+        en: titleObj.en || "",
+        nl: titleObj.nl || titleObj.en || "",
       };
     }
 
     listingObj = {
       title: titleObj,
       location: {
-        fullAddress: listing.location && listing.location.fullAddress ? listing.location.fullAddress : '',
-        coordinates: listing.location && listing.location.coordinates ? listing.location.coordinates : { latitude: null, longitude: null }
+        fullAddress:
+          listing.location && listing.location.fullAddress
+            ? listing.location.fullAddress
+            : "",
+        coordinates:
+          listing.location && listing.location.coordinates
+            ? listing.location.coordinates
+            : { latitude: null, longitude: null },
       },
-      images: (Array.isArray(listing.images) && listing.images.length > 0) ? listing.images[0] : (listing.images ? (typeof listing.images === 'string' ? listing.images : '') : '')
+      images:
+        Array.isArray(listing.images) && listing.images.length > 0
+          ? listing.images[0]
+          : listing.images
+          ? typeof listing.images === "string"
+            ? listing.images
+            : ""
+          : "",
     };
   }
 
   // Booking location: eventLocation (string) + coordinates if present in listing.location
   const bookingLocation = {
-    eventLocation: booking.details && booking.details.eventLocation ? booking.details.eventLocation : '',
+    eventLocation:
+      booking.details && booking.details.eventLocation
+        ? booking.details.eventLocation
+        : "",
   };
 
   // Only return direction object with listing.title, listing.location, listing.images, and bookingLocation.eventLocation
   const directionOnly = {
-    listing: listingObj ? {
-      title: listingObj.title,
-      location: listingObj.location,
-      images: listingObj.images
-    } : null,
+    listing: listingObj
+      ? {
+          title: listingObj.title,
+          location: listingObj.location,
+          images: listingObj.images,
+        }
+      : null,
     bookingLocation: {
-      eventLocation: bookingLocation.eventLocation || ''
-    }
+      eventLocation: bookingLocation.eventLocation || "",
+    },
   };
 
   res.json({ success: true, data: { direction: directionOnly } });
 });
 
+// const fetchBookingRequest = asyncHandler(async (req, res) => {
+//   const { status, vendorId } = req.body;
 
-const fetchBookingRequest = asyncHandler(async (req, res) => {
-  const { status, vendorId } = req.body;
+//   let obj = {};
+//   if (vendorId) obj.vendorId = vendorId;
+//   if (status) obj.status = status;
 
-  let obj = {}
-  if (vendorId) obj.vendorId = new mongoose.Types.ObjectId(vendorId);
-  if (status) obj.status = status;
+//   const findBookingRequest = await Booking.find(obj).populate({
+//     path: "userId",
+//     model: "User",
+//     select: "firstName lastName email",
+//   });
+  const fetchBookingRequest = asyncHandler(async (req, res) => {
+    const { status, vendorId } = req.body;
 
-  console.log(obj,"objobj");
-  
-  const findBookingRequest = await Booking.find(obj);
-  console.log(findBookingRequest, "findBookingRequestfindBookingRequest");
+    let obj = {};
+    if (vendorId) obj.vendorId = new mongoose.Types.ObjectId(vendorId);
+    if (status) obj.status = status;
 
-  if (!findBookingRequest || findBookingRequest.length === 0) {
+    console.log(obj, "objobj");
+
+    const findBookingRequest = await Booking.find(obj);
+    console.log(findBookingRequest, "findBookingRequestfindBookingRequest");
+
+    if (!findBookingRequest || findBookingRequest.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot find a booking request!",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: findBookingRequest,
+      message: "Booking requests fetched successfully",
+    });
+  });
+
+const fetchBookingRequestByDate = asyncHandler(async (req, res) => {
+  console.log("=== START fetchBookingRequestByDate ===");
+  console.log("req.body:", req.body);
+
+  const { date, vendorId, userId } = req.body;
+
+  console.log("Extracted date:", date);
+  console.log("Extracted vendorId:", vendorId);
+  console.log("Extracted userId:", userId);
+
+  if (!date) {
+    console.log("Date validation failed - no date provided");
     return res.status(400).json({
       success: false,
-      message: 'Cannot find a booking request!'
+      message: "Date is required",
     });
   }
 
-  return res.status(200).json({
-    success: true,
-    data: findBookingRequest,
-    message: 'Booking requests fetched successfully'
-  });
-});
+  const obj = {};
+  if (vendorId) obj.vendorId = vendorId;
+  if (userId) obj.userId = userId;
 
+  console.log("Initial query object:", obj);
+
+  try {
+    const inputDateString = date.split("T")[0];
+    console.log("Input date string:", inputDateString);
+
+    console.log("Fetching all bookings for filters...");
+    const allBookings = await Booking.find(obj);
+    console.log("Total bookings found:", allBookings.length);
+
+    if (allBookings.length > 0) {
+      console.log("All booking start dates:");
+      allBookings.forEach((booking, index) => {
+        const startDateStr = booking.details?.startDate
+          ? new Date(booking.details.startDate).toISOString().split("T")[0]
+          : "N/A";
+        console.log(`Booking ${index + 1}: ${startDateStr}`, booking._id);
+      });
+    }
+
+    const filteredBookings = allBookings.filter((booking) => {
+      if (!booking.details || !booking.details.startDate) {
+        console.log("Booking missing details.startDate:", booking._id);
+        return false;
+      }
+
+      const bookingDateStr = new Date(booking.details.startDate)
+        .toISOString()
+        .split("T")[0];
+      const matches = bookingDateStr === inputDateString;
+      console.log(
+        `Booking ${booking._id}: ${bookingDateStr} === ${inputDateString}? ${matches}`
+      );
+      return matches;
+    });
+
+    console.log("Filtered bookings count:", filteredBookings.length);
+
+    if (filteredBookings.length === 0) {
+      console.log("No bookings found - returning 404");
+      return res.status(404).json({
+        success: false,
+        message: "No booking requests found starting on the specified date",
+      });
+    }
+
+    const populatedBookings = await Booking.populate(filteredBookings, {
+      path: "userId",
+      model: "User",
+      select: "firstName lastName email",
+    });
+
+    console.log("Populated bookings:", populatedBookings.length);
+
+    populatedBookings.sort((a, b) => {
+      const timeA = a.details?.startTime || "00:00";
+      const timeB = b.details?.startTime || "00:00";
+      if (timeA < timeB) return -1;
+      if (timeA > timeB) return 1;
+      return 0;
+    });
+
+    console.log("Returning success response");
+    return res.status(200).json({
+      success: true,
+      data: populatedBookings,
+      count: populatedBookings.length,
+      message: "Booking requests fetched successfully",
+    });
+  } catch (error) {
+    console.log("ERROR CAUGHT:", error);
+    console.log("Error message:", error.message);
+    console.log("Error stack:", error.stack);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+});
 
 module.exports = {
   createBookingRequest,
@@ -1307,55 +1575,96 @@ module.exports = {
   getBookingSummary,
   TrackBooking,
   fetchBookingRequest,
+  fetchBookingRequestByDate,
 };
-
 
 // @desc    Get simplified booking details for client/vendor
 // @route   GET /api/booking/:id/details
 // @access  Private (User/Vendor)
 const getBookingSimpleDetails = asyncHandler(async (req, res) => {
   const booking = await BookingRequest.findById(req.params.id)
-    .populate('vendorId')
-    .populate('listingId');
+    .populate("vendorId")
+    .populate("listingId");
 
   if (!booking) {
-    return res.status(404).json({ success: false, message: 'Booking not found' });
+    return res
+      .status(404)
+      .json({ success: false, message: "Booking not found" });
   }
 
   // Access control: allow client who created booking or vendor who owns it
   const vendor = await Vendor.findOne({ userId: req.user.id });
-  const bookingUserIdStr = booking.userId && booking.userId._id ? booking.userId._id.toString() : (booking.userId ? booking.userId.toString() : '');
-  const bookingVendorIdStr = booking.vendorId && booking.vendorId._id ? booking.vendorId._id.toString() : (booking.vendorId ? booking.vendorId.toString() : '');
-  const vendorIdStr = vendor && vendor._id ? vendor._id.toString() : '';
+  const bookingUserIdStr =
+    booking.userId && booking.userId._id
+      ? booking.userId._id.toString()
+      : booking.userId
+      ? booking.userId.toString()
+      : "";
+  const bookingVendorIdStr =
+    booking.vendorId && booking.vendorId._id
+      ? booking.vendorId._id.toString()
+      : booking.vendorId
+      ? booking.vendorId.toString()
+      : "";
+  const vendorIdStr = vendor && vendor._id ? vendor._id.toString() : "";
 
-  const hasAccess = (bookingUserIdStr && bookingUserIdStr === req.user.id) || (vendorIdStr && bookingVendorIdStr && bookingVendorIdStr === vendorIdStr);
+  const hasAccess =
+    (bookingUserIdStr && bookingUserIdStr === req.user.id) ||
+    (vendorIdStr && bookingVendorIdStr && bookingVendorIdStr === vendorIdStr);
 
   if (!hasAccess) {
-    return res.status(403).json({ success: false, message: 'Access denied' });
+    return res.status(403).json({ success: false, message: "Access denied" });
   }
 
   // Vendor info
-  const vendorName = booking.vendorId ? (booking.vendorId.businessName || `${booking.vendorId.firstName || ''} ${booking.vendorId.lastName || ''}`.trim()) : '';
-  const vendorLogo = booking.vendorId ? (booking.vendorId.businessLogo || booking.vendorId.logo || '') : '';
-  const vendorDescription = booking.vendorId ? (booking.vendorId.description || booking.vendorId.businessDescription || '') : '';
+  const vendorName = booking.vendorId
+    ? booking.vendorId.businessName ||
+      `${booking.vendorId.firstName || ""} ${
+        booking.vendorId.lastName || ""
+      }`.trim()
+    : "";
+  const vendorLogo = booking.vendorId
+    ? booking.vendorId.businessLogo || booking.vendorId.logo || ""
+    : "";
+  const vendorDescription = booking.vendorId
+    ? booking.vendorId.description || booking.vendorId.businessDescription || ""
+    : "";
 
   // Listing title and location
-  let listingTitle = '';
+  let listingTitle = "";
   if (booking.listingId) {
-    if (typeof booking.listingId.title === 'string') listingTitle = booking.listingId.title;
-    else if (booking.listingId.title && booking.listingId.title.en) listingTitle = booking.listingId.title.en;
+    if (typeof booking.listingId.title === "string")
+      listingTitle = booking.listingId.title;
+    else if (booking.listingId.title && booking.listingId.title.en)
+      listingTitle = booking.listingId.title.en;
   }
 
-  const listingLocation = booking.listingId && booking.listingId.location ? booking.listingId.location : { fullAddress: '', coordinates: { latitude: null, longitude: null } };
+  const listingLocation =
+    booking.listingId && booking.listingId.location
+      ? booking.listingId.location
+      : { fullAddress: "", coordinates: { latitude: null, longitude: null } };
 
   // Booking pricing: try totalPrice then bookingPrice
-  const bookingTotalPrice = booking.pricing && (typeof booking.pricing.totalPrice !== 'undefined') ? booking.pricing.totalPrice : (booking.pricing && booking.pricing.bookingPrice ? booking.pricing.bookingPrice : null);
+  const bookingTotalPrice =
+    booking.pricing && typeof booking.pricing.totalPrice !== "undefined"
+      ? booking.pricing.totalPrice
+      : booking.pricing && booking.pricing.bookingPrice
+      ? booking.pricing.bookingPrice
+      : null;
 
   const result = {
-    startDate: booking.details && booking.details.startDate ? booking.details.startDate : '',
-    endDate: booking.details && booking.details.endDate ? booking.details.endDate : '',
-    startTime: booking.details && booking.details.startTime ? booking.details.startTime : '',
-    endTime: booking.details && booking.details.endTime ? booking.details.endTime : '',
+    startDate:
+      booking.details && booking.details.startDate
+        ? booking.details.startDate
+        : "",
+    endDate:
+      booking.details && booking.details.endDate ? booking.details.endDate : "",
+    startTime:
+      booking.details && booking.details.startTime
+        ? booking.details.startTime
+        : "",
+    endTime:
+      booking.details && booking.details.endTime ? booking.details.endTime : "",
     vendorName,
     vendorLogo,
     vendorDescription,
@@ -1363,7 +1672,12 @@ const getBookingSimpleDetails = asyncHandler(async (req, res) => {
     bookingTotalPrice,
     listingLocation,
     // Ensure listing images is always an array
-    listingImages: booking.listingId && booking.listingId.images ? (Array.isArray(booking.listingId.images) ? booking.listingId.images : [booking.listingId.images]) : []
+    listingImages:
+      booking.listingId && booking.listingId.images
+        ? Array.isArray(booking.listingId.images)
+          ? booking.listingId.images
+          : [booking.listingId.images]
+        : [],
   };
 
   res.json({ success: true, data: result });

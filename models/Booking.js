@@ -114,7 +114,7 @@ const bookingRequestSchema = new mongoose.Schema({
       }
     }
   },
-  details: { // Updated field name to match requirements
+  details: { 
     startDate: {
       type: Date,
       required: true

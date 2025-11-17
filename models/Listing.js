@@ -13,17 +13,17 @@ const listingSchema = new mongoose.Schema({
     nl: { type: String, trim: true, required: true, maxlength: 100 }
   },
   subtitle: {
-    en: { type: String, trim: true,  },
-    nl: { type: String, trim: true,  }
+    en: { type: String, trim: true, },
+    nl: { type: String, trim: true, }
 
   },
   description: {
-    en: { type: String, trim: true, required: true,  },
-    nl: { type: String, trim: true, required: true,  }
+    en: { type: String, trim: true, required: true, },
+    nl: { type: String, trim: true, required: true, }
   },
   vendor: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Vendor',
+    ref: 'User',
     required: true
   },
   category: {
@@ -71,9 +71,9 @@ const listingSchema = new mongoose.Schema({
     }
   },
   images: {
-      type: [String],
-      default: []
-    },
+    type: [String],
+    default: []
+  },
   contact: {
     phone: {
       type: String,
@@ -92,7 +92,7 @@ const listingSchema = new mongoose.Schema({
     }
   },
   location: {
-    fullAddress: String,
+    userAddress: String,
     coordinates: {
       latitude: {
         type: Number,
@@ -141,7 +141,7 @@ const listingSchema = new mongoose.Schema({
   },
   rating: {
     average: {
-      type: Number, 
+      type: Number,
       min: 0,
       max: 5,
       default: 0
@@ -196,17 +196,17 @@ const listingSchema = new mongoose.Schema({
     description: 'Indicates if the listing is popular based on certain criteria (e.g., high bookings, high ratings, etc.)'
   },
 },
-{ 
-  timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
-});
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+  });
 
 
 
 
 // Pre-save middleware
-listingSchema.pre('save', function(next) {
+listingSchema.pre('save', function (next) {
   // Update the sort order based on rating and bookings if not manually set
   if (this.isModified('rating') || this.isModified('bookings')) {
     this.sortOrder = (this.rating.average * 20) + (this.bookings.completed * 0.1);
@@ -243,12 +243,12 @@ listingSchema.index({ 'rating.average': -1, 'bookings.completed': -1 });
 listingSchema.index({ 'title.en': 'text', 'title.nl': 'text', 'description.en': 'text', 'description.nl': 'text', tags: 'text' });
 
 // Compound index for category-based filtering
-listingSchema.index({ 
-  category: 1, 
-  subCategory: 1, 
-  'location.city': 1, 
-  isActive: 1, 
-  status: 1 
+listingSchema.index({
+  category: 1,
+  subCategory: 1,
+  'location.city': 1,
+  isActive: 1,
+  status: 1
 });
 
 module.exports = mongoose.model('Listing', listingSchema);

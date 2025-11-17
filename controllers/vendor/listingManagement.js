@@ -5,7 +5,6 @@ const Booking = require("../../models/Booking");
 const { toMultilingualText } = require("../../utils/textUtils");
 const { createActivityLog } = require("../../utils/activityLogger");
 
-
 const filterByCategory = async (req, res) => {
   try {
     const { category, subCategory } = req.query;
@@ -31,7 +30,6 @@ const filterByCategory = async (req, res) => {
       message: "Results fetched successfully",
       data: results,
     });
-
   } catch (error) {
     console.error("Filter Error:", error);
     res.status(500).json({
@@ -43,10 +41,7 @@ const filterByCategory = async (req, res) => {
 
 const toggleListingStatus = async (req, res) => {
   try {
-    const vendorId =
-      req.vendor?._id || req.user?._id || req.user?.vendorId || req.user?.id;
-    const listingId = req.params.id;
-
+    const vendorId = req.user?.id;
     if (!vendorId) {
       return res.status(400).json({
         success: false,
@@ -55,7 +50,10 @@ const toggleListingStatus = async (req, res) => {
     }
 
     // Find the listing and ensure it belongs to the vendor
-    const listing = await Listing.findOne({ _id: listingId, vendor: vendorId });
+    const listing = await Listing.findOne({
+      _id: req.params.id,
+      vendor: vendorId,
+    });
     if (!listing) {
       return res.status(404).json({
         success: false,
@@ -84,7 +82,6 @@ const toggleListingStatus = async (req, res) => {
 
 // GET /api/vendor/listings/overview
 const getVendorListingsOverview = async (req, res) => {
-  console.log(req.user, "req.userreq.userreq.userreq.user");
   try {
     const vendorId = req.user?.id;
     if (!vendorId) {
@@ -136,35 +133,40 @@ const getVendorListingsOverview = async (req, res) => {
     // listingTable: all listings with required details
     // console.log(listings,"listingslistingslistings");
 
-    const listingTable = listings.map(listing => ({
+    const listingTable = listings.map((listing) => ({
       ...listing.toObject(),
       listingId: listing._id,
-      image: listing.images[0] || '',
-      title: listing.title?.en || listing.title,
-      description: listing.description?.en || listing.description,
-      category: listing.category?.name?.en || '',
-      subCategory: listing.subCategory?.name?.en || '',
+      image: listing.images[0] || "",
+      title: listing.title || listing.title,
+      description: listing.description || listing.description,
+      category: listing.category || "",
+      subCategory: listing.subCategory || "",
       pricing: listing.pricing,
       date: listing.createdAt,
       status: listing.status,
     }));
 
     const uniqueCategories = await Listing.distinct("category");
-    console.log(uniqueCategories, "uniqueCategoriesuniqueCategoriesuniqueCategories");
+    console.log(
+      uniqueCategories,
+      "uniqueCategoriesuniqueCategoriesuniqueCategories"
+    );
 
     res.json({
       success: true,
       stats: {
         totalMainCategories: uniqueCategories.length,
         totalSubCategories: subCategorySet.size,
-        totalListings
+        totalListings,
       },
       listingOverview,
-      listingTable
+      listingTable,
     });
   } catch (err) {
-    console.error('Vendor listing overview error:', err);
-    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+    console.error("Vendor listing overview error:", err);
+    res
+      .status(500)
+      .json({ success: false, message: "Server error", error: err.message });
   }
 };
 
@@ -175,6 +177,7 @@ const getVendorListingsOverview = async (req, res) => {
 const createListing = async (req, res) => {
   try {
     const listingData = req.body;
+    console.log(listingData, "listingDatalistingData");
 
     // Validate required fields before processing
     if (
@@ -210,9 +213,9 @@ const createListing = async (req, res) => {
     }
 
     // Set vendor ID from authenticated user
-    console.log(req.user, "REQQSDASDASD")
-    const vendorId = req?.user?.id
-    console.log(vendorId, "vendorIdvendorIdvendorIdvendorIdvendorId")
+    console.log(req.user, "REQQSDASDASD");
+    const vendorId = req?.user?.id;
+    console.log(vendorId, "vendorIdvendorIdvendorIdvendorIdvendorId");
     if (!vendorId) {
       return res.status(400).json({
         success: false,
@@ -224,7 +227,7 @@ const createListing = async (req, res) => {
     if (!listingData.vendor) {
       listingData.vendor = vendorId;
     }
-    console.log(listingData, "listingDatalistingData_beforeeeeeeeee")
+    console.log(listingData, "listingDatalistingData_beforeeeeeeeee");
     // Handle images array
     if (Array.isArray(listingData.images)) {
       listingData.images = listingData.images.filter(
@@ -340,29 +343,30 @@ const createListing = async (req, res) => {
     let activityLog = await createActivityLog({
       heading: "New Listing Created",
       type: "booking_created",
-      description: `Created a new listing: "${listingData?.title?.en || listingData?.title
-        }"`,
+      description: `Created a new listing: "${
+        listingData?.title?.en || listingData?.title
+      }"`,
       vendorId,
     });
     res.status(201).json({
       success: true,
-      message: 'Listing created successfully',
-      data: populatedListing
+      message: "Listing created successfully",
+      data: populatedListing,
     });
   } catch (error) {
-    console.error('Error creating listing:', error);
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
+    console.error("Error creating listing:", error);
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map((err) => err.message);
       return res.status(400).json({
         success: false,
-        message: 'Validation error',
-        errors
+        message: "Validation error",
+        errors,
       });
     }
     res.status(500).json({
       success: false,
-      message: 'Error creating listing',
-      error: error.message
+      message: "Error creating listing",
+      error: error.message,
     });
   }
 };
@@ -371,6 +375,7 @@ const createListing = async (req, res) => {
 // @desc    Update an existing listing
 // @route   PUT /api/listings/:id
 // @access  Private (Vendor only)
+
 const updateListing = async (req, res) => {
   try {
     const { id } = req.params;
@@ -478,6 +483,7 @@ const updateListing = async (req, res) => {
         };
       }
     }
+    console.log(updateData, "updateDataupdateDataupdateDataupdateData");
 
     // --- Merge pricing updates with existing pricing ---
     if (updateData.pricing) {
@@ -571,7 +577,7 @@ const updateListing = async (req, res) => {
 // @access  Private (Vendor only)
 const deleteListing = async (req, res) => {
   try {
-    const vendorId =req.user?.id;
+    const vendorId = req.user?.id;
     const listingId = req.params.id;
 
     if (!vendorId) {
@@ -652,5 +658,5 @@ module.exports = {
   createListing,
   updateListing,
   deleteListing,
-  filterByCategory
+  filterByCategory,
 };

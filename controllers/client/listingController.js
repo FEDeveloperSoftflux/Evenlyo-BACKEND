@@ -1,14 +1,14 @@
-
-const Listing = require('../../models/Listing');
-const Category = require('../../models/Category');
-const SubCategory = require('../../models/SubCategory');
-const Vendor = require('../../models/Vendor');
-const BookingRequest = require('../../models/Booking');
-const ServiceItem = require('../../models/Item');
-const Cart = require('../../models/Cart');
-const { verifyAccessToken } = require('../../utils/jwtUtils');
-const Item = require('../../models/Item');
-const User = require('../../models/User');
+const Listing = require("../../models/Listing");
+const Category = require("../../models/Category");
+const SubCategory = require("../../models/SubCategory");
+const Vendor = require("../../models/Vendor");
+const BookingRequest = require("../../models/Booking");
+const ServiceItem = require("../../models/Item");
+const Cart = require("../../models/Cart");
+const { verifyAccessToken } = require("../../utils/jwtUtils");
+const Item = require("../../models/Item");
+const User = require("../../models/User");
+const { default: mongoose } = require("mongoose");
 // @desc    Get calendar data (booked and available days/times) for a listing
 // @route   GET /api/listing/:id/calendar
 // @access  Public
@@ -16,28 +16,32 @@ const getListingCalendar = async (req, res) => {
   try {
     const { id } = req.params;
     // Find listing and get availability info
-    const listing = await Listing.findById(id).select('availability');
+    const listing = await Listing.findById(id).select("availability");
     if (!listing) {
-      return res.status(404).json({ success: false, message: 'Listing not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Listing not found" });
     }
 
     // Get all bookings for this listing that are not cancelled/rejected
     const bookings = await BookingRequest.find({
       listingId: id,
-      status: { $nin: ['rejected', 'cancelled'] }
-    }).select('details.startDate details.endDate details.startTime details.endTime');
+      status: { $nin: ["rejected", "cancelled"] },
+    }).select(
+      "details.startDate details.endDate details.startTime details.endTime"
+    );
 
     // Collect all booked date ranges with time
     const bookedSlots = [];
-    bookings.forEach(b => {
+    bookings.forEach((b) => {
       const start = new Date(b.details.startDate);
       const end = new Date(b.details.endDate);
       let current = new Date(start);
       while (current <= end) {
         bookedSlots.push({
-          date: current.toISOString().split('T')[0],
+          date: current.toISOString().split("T")[0],
           startTime: b.details.startTime,
-          endTime: b.details.endTime
+          endTime: b.details.endTime,
         });
         current.setDate(current.getDate() + 1);
       }
@@ -45,17 +49,22 @@ const getListingCalendar = async (req, res) => {
 
     // Remove duplicate booked slots (same date, time)
     const uniqueBookedSlots = Array.from(
-      new Map(bookedSlots.map(slot => [slot.date + slot.startTime + slot.endTime, slot])).values()
+      new Map(
+        bookedSlots.map((slot) => [
+          slot.date + slot.startTime + slot.endTime,
+          slot,
+        ])
+      ).values()
     );
 
     // Prepare available days with time slots
-    const availableDays = (listing.availability?.availableDays || []);
-    const availableTimeSlots = (listing.availability?.availableTimeSlots || []);
+    const availableDays = listing.availability?.availableDays || [];
+    const availableTimeSlots = listing.availability?.availableTimeSlots || [];
 
     // For each available day, attach available time slots
-    const availableSchedule = availableDays.map(day => ({
+    const availableSchedule = availableDays.map((day) => ({
       day,
-      timeSlots: availableTimeSlots
+      timeSlots: availableTimeSlots,
     }));
 
     res.json({
@@ -63,12 +72,15 @@ const getListingCalendar = async (req, res) => {
       data: {
         listingId: id,
         availableSchedule,
-        bookedSlots: uniqueBookedSlots
-      }
+        bookedSlots: uniqueBookedSlots,
+      },
     });
   } catch (error) {
-    console.error('Error fetching listing calendar:', error);
-    res.status(500).json({ success: false, message: 'Server error while fetching calendar' });
+    console.error("Error fetching listing calendar:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching calendar",
+    });
   }
 };
 
@@ -87,17 +99,17 @@ const getListings = async (req, res) => {
       maxPrice,
       pricingType,
       city,
-      sortBy = 'sortOrder',
-      sortOrder = 'desc',
-      status = 'active',
+      sortBy = "sortOrder",
+      sortOrder = "desc",
+      status = "active",
       isFeatured,
-      isAvailable
+      isAvailable,
     } = req.query;
 
     // Build query object
     const query = {
       status: status,
-      isActive: true
+      isActive: true,
     };
 
     // Filter by category
@@ -112,16 +124,16 @@ const getListings = async (req, res) => {
 
     // Filter by city
     if (city) {
-      query['location.city'] = { $regex: city, $options: 'i' };
+      query["location.city"] = { $regex: city, $options: "i" };
     }
 
     // Search by title, description, or tags
     if (search) {
       query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { shortDescription: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } }
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+        { shortDescription: { $regex: search, $options: "i" } },
+        { tags: { $in: [new RegExp(search, "i")] } },
       ];
     }
 
@@ -131,17 +143,17 @@ const getListings = async (req, res) => {
 
       if (minPrice) {
         priceQuery.$or.push(
-          { 'pricing.perHour': { $gte: parseFloat(minPrice) } },
-          { 'pricing.perDay': { $gte: parseFloat(minPrice) } },
-          { 'pricing.perEvent': { $gte: parseFloat(minPrice) } }
+          { "pricing.perHour": { $gte: parseFloat(minPrice) } },
+          { "pricing.perDay": { $gte: parseFloat(minPrice) } },
+          { "pricing.perEvent": { $gte: parseFloat(minPrice) } }
         );
       }
 
       if (maxPrice) {
         priceQuery.$or.push(
-          { 'pricing.perHour': { $lte: parseFloat(maxPrice) } },
-          { 'pricing.perDay': { $lte: parseFloat(maxPrice) } },
-          { 'pricing.perEvent': { $lte: parseFloat(maxPrice) } }
+          { "pricing.perHour": { $lte: parseFloat(maxPrice) } },
+          { "pricing.perDay": { $lte: parseFloat(maxPrice) } },
+          { "pricing.perEvent": { $lte: parseFloat(maxPrice) } }
         );
       }
 
@@ -153,17 +165,17 @@ const getListings = async (req, res) => {
 
     // Filter by pricing type
     if (pricingType) {
-      query['pricing.type'] = pricingType;
+      query["pricing.type"] = pricingType;
     }
 
     // Filter by featured status
     if (isFeatured !== undefined) {
-      query.isFeatured = isFeatured === 'true';
+      query.isFeatured = isFeatured === "true";
     }
 
     // Filter by availability
     if (isAvailable !== undefined) {
-      query['availability.isAvailable'] = isAvailable === 'true';
+      query["availability.isAvailable"] = isAvailable === "true";
     }
 
     // Calculate pagination
@@ -171,29 +183,35 @@ const getListings = async (req, res) => {
 
     // Build sort object
     const sortOptions = {};
-    if (sortBy === 'price') {
+    if (sortBy === "price") {
       // Sort by lowest available price option
-      sortOptions['pricing.perHour'] = sortOrder === 'desc' ? -1 : 1;
-    } else if (sortBy === 'rating') {
-      sortOptions['ratings.average'] = sortOrder === 'desc' ? -1 : 1;
-    } else if (sortBy === 'popularity') {
-      sortOptions['bookings.completed'] = sortOrder === 'desc' ? -1 : 1;
+      sortOptions["pricing.perHour"] = sortOrder === "desc" ? -1 : 1;
+    } else if (sortBy === "rating") {
+      sortOptions["ratings.average"] = sortOrder === "desc" ? -1 : 1;
+    } else if (sortBy === "popularity") {
+      sortOptions["bookings.completed"] = sortOrder === "desc" ? -1 : 1;
     } else {
-      sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+      sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
     }
 
     // Get listings with populated vendor and category information
     const listingsDocs = await Listing.find(query)
-      .populate('vendor', '_id businessName businessLocation userId businessLogo')
-      .populate('category', 'name icon')
-      .populate('subCategory', 'name icon escrowEnabled upfrontFeePercent upfrontHour evenlyoProtectFeePercent')
+      .populate(
+        "vendor",
+        "_id businessName businessLocation userId businessLogo"
+      )
+      .populate("category", "name icon")
+      .populate(
+        "subCategory",
+        "name icon escrowEnabled upfrontFeePercent upfrontHour evenlyoProtectFeePercent"
+      )
       .sort(sortOptions)
       .skip(skip)
       .limit(parseInt(limit))
-      .select('-seo -__v -contact.email -contact.phone'); // Hide contact info in list view
+      .select("-seo -__v -contact.email -contact.phone"); // Hide contact info in list view
 
     // Attach payment policy (from subcategory) to each listing
-    const listings = listingsDocs.map(doc => {
+    const listings = listingsDocs.map((doc) => {
       const obj = doc.toObject();
       const sc = obj.subCategory || {};
       obj.paymentPolicy = {
@@ -212,15 +230,15 @@ const getListings = async (req, res) => {
         current: parseInt(page),
         pages: Math.ceil(total / limit),
         total,
-        limit: parseInt(limit)
-      }
+        limit: parseInt(limit),
+      },
     });
   } catch (error) {
-    console.error('Error fetching listings:', error);
+    console.error("Error fetching listings:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching listings',
-      error: error.message
+      message: "Error fetching listings",
+      error: error.message,
     });
   }
 };
@@ -231,15 +249,21 @@ const getListings = async (req, res) => {
 const getListingById = async (req, res) => {
   try {
     const listing = await Listing.findById(req.params.id)
-      .populate('vendor', '_id businessName  businessDescription businessEmail businessPhone businessWebsite userId businessLogo')
-      .populate('category', 'name icon description')
-      .populate('subCategory', 'name icon description escrowEnabled upfrontFeePercent upfrontHour evenlyoProtectFeePercent')
-      .populate('reviews.clientId', 'firstName lastName profileImage');
+      .populate(
+        "vendor",
+        "_id email contactNumber firstName lastName accountType address"
+      )
+      .populate("category", "name icon description")
+      .populate(
+        "subCategory",
+        "name icon description escrowEnabled upfrontFeePercent upfrontHour evenlyoProtectFeePercent"
+      )
+      .populate("reviews.clientId", "firstName lastName profileImage");
 
-    if (!listing || !listing.isActive || listing.status !== 'active') {
+    if (!listing || !listing.isActive || listing.status !== "active") {
       return res.status(404).json({
         success: false,
-        message: 'Listing not found'
+        message: "Listing not found",
       });
     }
 
@@ -254,27 +278,27 @@ const getListingById = async (req, res) => {
       escrowEnabled: !!sc.escrowEnabled,
       upfrontFeePercent: Number(sc.upfrontFeePercent || 0),
       upfrontHour: Number(sc.upfrontHour || 0),
-      evenlyoProtectFeePercent: Number(sc.evenlyoProtectFeePercent || 0)
+      evenlyoProtectFeePercent: Number(sc.evenlyoProtectFeePercent || 0),
     };
 
     res.json({
       success: true,
-      data
+      data,
     });
   } catch (error) {
-    console.error('Error fetching listing:', error);
+    console.error("Error fetching listing:", error);
 
-    if (error.name === 'CastError') {
+    if (error.name === "CastError") {
       return res.status(400).json({
         success: false,
-        message: 'Invalid listing ID'
+        message: "Invalid listing ID",
       });
     }
 
     res.status(500).json({
       success: false,
-      message: 'Error fetching listing',
-      error: error.message
+      message: "Error fetching listing",
+      error: error.message,
     });
   }
 };
@@ -288,9 +312,9 @@ const getFeaturedListings = async (req, res) => {
 
     const query = {
       isFeatured: true,
-      status: 'active',
+      status: "active",
       isActive: true,
-      'availability.isAvailable': true
+      "availability.isAvailable": true,
     };
 
     // Filter by category if provided
@@ -299,23 +323,23 @@ const getFeaturedListings = async (req, res) => {
     }
 
     const listings = await Listing.find(query)
-      .populate('vendor', '_id businessName businessLocation')
-      .populate('category', 'name icon')
-      .populate('subCategory', 'name icon')
-      .sort({ 'ratings.average': -1, 'bookings.completed': -1, sortOrder: -1 })
+      .populate("vendor", "_id businessName businessLocation")
+      .populate("category", "name icon")
+      .populate("subCategory", "name icon")
+      .sort({ "ratings.average": -1, "bookings.completed": -1, sortOrder: -1 })
       .limit(parseInt(limit))
-      .select('-seo -__v');
+      .select("-seo -__v");
 
     res.json({
       success: true,
-      data: listings
+      data: listings,
     });
   } catch (error) {
-    console.error('Error fetching featured listings:', error);
+    console.error("Error fetching featured listings:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching featured listings',
-      error: error.message
+      message: "Error fetching featured listings",
+      error: error.message,
     });
   }
 };
@@ -328,9 +352,9 @@ const getPopularListings = async (req, res) => {
     const { limit = 8, categoryId } = req.query;
 
     const query = {
-      status: 'active',
+      status: "active",
       isActive: true,
-      popular: true
+      popular: true,
     };
 
     // Filter by category if provided
@@ -339,18 +363,21 @@ const getPopularListings = async (req, res) => {
     }
 
     const listings = await Listing.find(query)
-      .populate('vendor', '_id businessName businessLocation')
-      .populate('category', 'name icon')
-      .populate('subCategory', 'name icon')
-      .sort({ 'bookings.completed': -1, views: -1, 'ratings.average': -1 })
+      .populate("vendor", "_id businessName businessLocation")
+      .populate("category", "name icon")
+      .populate("subCategory", "name icon")
+      .sort({ "bookings.completed": -1, views: -1, "ratings.average": -1 })
       .limit(parseInt(limit))
-      .select('-seo -__v');
+      .select("-seo -__v");
 
     // Ensure fields are not null
-    const sanitizedListings = listings.map(listing => {
+    const sanitizedListings = listings.map((listing) => {
       const obj = listing.toObject();
       // If images is null or contains only null, set to []
-      if (!Array.isArray(obj.images) || obj.images.every(img => img == null)) {
+      if (
+        !Array.isArray(obj.images) ||
+        obj.images.every((img) => img == null)
+      ) {
         obj.images = [];
       }
       // If vendor is null, set to empty object
@@ -363,14 +390,14 @@ const getPopularListings = async (req, res) => {
     });
     res.json({
       success: true,
-      data: sanitizedListings
+      data: sanitizedListings,
     });
   } catch (error) {
-    console.error('Error fetching popular listings:', error);
+    console.error("Error fetching popular listings:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching popular listings',
-      error: error.message
+      message: "Error fetching popular listings",
+      error: error.message,
     });
   }
 };
@@ -394,17 +421,17 @@ const searchListings = async (req, res) => {
       subCategoryId,
       city,
       pricingType,
-      sortBy = 'relevance',
-      sortOrder = 'desc'
+      sortBy = "relevance",
+      sortOrder = "desc",
     } = req.query;
 
-    console.log('Search query:', { q, title, location, date, dateTime });
+    console.log("Search query:", { q, title, location, date, dateTime });
 
     // Build query object
     const query = {
-      status: 'active',
+      status: "active",
       isActive: true,
-      'availability.isAvailable': true
+      "availability.isAvailable": true,
     };
 
     // Handle different search types
@@ -417,12 +444,14 @@ const searchListings = async (req, res) => {
 
     // Specific title search
     if (title && title.trim().length > 0) {
-      searchConditions.push({ title: { $regex: title, $options: 'i' } });
+      searchConditions.push({ title: { $regex: title, $options: "i" } });
     }
 
     // Location search
     if (location && location.trim().length > 0) {
-      searchConditions.push({ 'location.fullAddress': { $regex: location, $options: 'i' } });
+      searchConditions.push({
+        "location.fullAddress": { $regex: location, $options: "i" },
+      });
     }
 
     // Date availability search (day of week)
@@ -433,28 +462,30 @@ const searchListings = async (req, res) => {
         if (!dateRegex.test(date)) {
           return res.status(400).json({
             success: false,
-            message: 'Invalid date format. Please use YYYY-MM-DD format.'
+            message: "Invalid date format. Please use YYYY-MM-DD format.",
           });
         }
 
         // Parse date manually to avoid timezone issues
-        const [year, month, day] = date.split('-').map(Number);
+        const [year, month, day] = date.split("-").map(Number);
         const searchDate = new Date(year, month - 1, day); // month is 0-indexed
 
         if (isNaN(searchDate.getTime())) {
           return res.status(400).json({
             success: false,
-            message: 'Invalid date. Please provide a valid date.'
+            message: "Invalid date. Please provide a valid date.",
           });
         }
 
-        const dayOfWeek = searchDate.toLocaleString('en-US', { weekday: 'short' }).toLowerCase();
-        searchConditions.push({ 'availability.availableDays': dayOfWeek });
+        const dayOfWeek = searchDate
+          .toLocaleString("en-US", { weekday: "short" })
+          .toLowerCase();
+        searchConditions.push({ "availability.availableDays": dayOfWeek });
       } catch (error) {
-        console.error('Date parsing error:', error);
+        console.error("Date parsing error:", error);
         return res.status(400).json({
           success: false,
-          message: 'Invalid date format. Please use YYYY-MM-DD format.'
+          message: "Invalid date format. Please use YYYY-MM-DD format.",
         });
       }
     }
@@ -467,42 +498,46 @@ const searchListings = async (req, res) => {
         if (!dateTimeRegex.test(dateTime)) {
           return res.status(400).json({
             success: false,
-            message: 'Invalid dateTime format. Please use ISO 8601 format (e.g., 2024-01-15T14:30:00).'
+            message:
+              "Invalid dateTime format. Please use ISO 8601 format (e.g., 2024-01-15T14:30:00).",
           });
         }
 
         // Parse dateTime manually to avoid timezone issues
-        const [datePart, timePart] = dateTime.split('T');
-        const [year, month, day] = datePart.split('-').map(Number);
-        const [hour, minute] = timePart.split(':').map(Number);
+        const [datePart, timePart] = dateTime.split("T");
+        const [year, month, day] = datePart.split("-").map(Number);
+        const [hour, minute] = timePart.split(":").map(Number);
 
         const searchDateTime = new Date(year, month - 1, day, hour, minute);
 
         if (isNaN(searchDateTime.getTime())) {
           return res.status(400).json({
             success: false,
-            message: 'Invalid dateTime. Please provide a valid date and time.'
+            message: "Invalid dateTime. Please provide a valid date and time.",
           });
         }
 
-        const dayOfWeek = searchDateTime.toLocaleString('en-US', { weekday: 'short' }).toLowerCase();
+        const dayOfWeek = searchDateTime
+          .toLocaleString("en-US", { weekday: "short" })
+          .toLowerCase();
         const timeString = searchDateTime.toTimeString().slice(0, 5); // HH:MM format
 
         // Check if the day is available and time slot matches
         searchConditions.push({
-          'availability.availableDays': dayOfWeek,
-          'availability.availableTimeSlots': {
+          "availability.availableDays": dayOfWeek,
+          "availability.availableTimeSlots": {
             $elemMatch: {
               startTime: { $lte: timeString },
-              endTime: { $gte: timeString }
-            }
-          }
+              endTime: { $gte: timeString },
+            },
+          },
         });
       } catch (error) {
-        console.error('DateTime parsing error:', error);
+        console.error("DateTime parsing error:", error);
         return res.status(400).json({
           success: false,
-          message: 'Invalid dateTime format. Please use ISO 8601 format (e.g., 2024-01-15T14:30:00).'
+          message:
+            "Invalid dateTime format. Please use ISO 8601 format (e.g., 2024-01-15T14:30:00).",
         });
       }
     }
@@ -519,45 +554,45 @@ const searchListings = async (req, res) => {
     } else if (!q && !title && !location && !date && !dateTime) {
       return res.status(400).json({
         success: false,
-        message: 'At least one search parameter is required (q, title, location, date, or dateTime)'
+        message:
+          "At least one search parameter is required (q, title, location, date, or dateTime)",
       });
     }
 
     // Apply additional filters
     if (categoryId) query.category = categoryId;
     if (subCategoryId) query.subCategory = subCategoryId;
-    if (city) query['location.city'] = { $regex: city, $options: 'i' };
-    if (pricingType) query['pricing.type'] = pricingType;
-
+    if (city) query["location.city"] = { $regex: city, $options: "i" };
+    if (pricingType) query["pricing.type"] = pricingType;
 
     const skip = (page - 1) * limit;
 
     // Build sort object
     const sortOptions = {};
-    if (sortBy === 'relevance') {
+    if (sortBy === "relevance") {
       // Only use text score if we have a text search (q parameter)
       if (q && q.trim().length > 0) {
-        sortOptions.score = { $meta: 'textScore' };
+        sortOptions.score = { $meta: "textScore" };
       } else {
         // For non-text searches, sort by default sortOrder field
         sortOptions.sortOrder = -1;
       }
-    } else if (sortBy === 'price') {
-      sortOptions['pricing.amount'] = sortOrder === 'desc' ? -1 : 1;
-    } else if (sortBy === 'rating') {
-      sortOptions['ratings.average'] = sortOrder === 'desc' ? -1 : 1;
+    } else if (sortBy === "price") {
+      sortOptions["pricing.amount"] = sortOrder === "desc" ? -1 : 1;
+    } else if (sortBy === "rating") {
+      sortOptions["ratings.average"] = sortOrder === "desc" ? -1 : 1;
     } else {
-      sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+      sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
     }
 
     const listings = await Listing.find(query)
-      .populate('vendor', '_id businessName businessLocation')
-      .populate('category', 'name icon')
-      .populate('subCategory', 'name icon')
+      .populate("vendor", "_id businessName businessLocation")
+      .populate("category", "name icon")
+      .populate("subCategory", "name icon")
       .sort(sortOptions)
       .skip(skip)
       .limit(parseInt(limit))
-      .select('-seo -__v');
+      .select("-seo -__v");
 
     const total = await Listing.countDocuments(query);
 
@@ -565,25 +600,25 @@ const searchListings = async (req, res) => {
       success: true,
       data: listings,
       searchCriteria: {
-        generalQuery: q || '',
-        title: title || '',
-        location: location || '',
-        date: date || '',
-        dateTime: dateTime || ''
+        generalQuery: q || "",
+        title: title || "",
+        location: location || "",
+        date: date || "",
+        dateTime: dateTime || "",
       },
       pagination: {
         current: parseInt(page),
         pages: Math.ceil(total / limit),
         total,
-        limit: parseInt(limit)
-      }
+        limit: parseInt(limit),
+      },
     });
   } catch (error) {
-    console.error('Error searching listings:', error);
+    console.error("Error searching listings:", error);
     res.status(500).json({
       success: false,
-      message: 'Error searching listings',
-      error: error.message
+      message: "Error searching listings",
+      error: error.message,
     });
   }
 };
@@ -594,25 +629,31 @@ const searchListings = async (req, res) => {
 const getListingsByVendor = async (req, res) => {
   try {
     const { vendorId } = req.params;
-    const { page = 1, limit = 12, sortBy = 'createdAt', sortOrder = 'desc', status = 'active' } = req.query;
-    console.log(vendorId,"vendorIdvendorIdvendorId");
-    
+    const {
+      page = 1,
+      limit = 12,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+      status = "active",
+    } = req.query;
+    console.log(vendorId, "vendorIdvendorIdvendorId");
+
     // Verify vendor exists
     const vendor = await User.findById({ _id: vendorId });
     if (!vendor) {
       return res.status(404).json({
         success: false,
-        message: 'Vendor not'
+        message: "Vendor not",
       });
     }
 
     const query = {
       vendor: vendorId,
-      isActive: true
+      isActive: true,
     };
 
     // Add status filter
-    if (status !== 'all') {
+    if (status !== "all") {
       query.status = status;
     }
 
@@ -620,23 +661,22 @@ const getListingsByVendor = async (req, res) => {
 
     // Build sort object
     const sortOptions = {};
-    if (sortBy === 'price') {
-      sortOptions['pricing.amount'] = sortOrder === 'desc' ? -1 : 1;
-    } else if (sortBy === 'rating') {
-      sortOptions['ratings.average'] = sortOrder === 'desc' ? -1 : 1;
+    if (sortBy === "price") {
+      sortOptions["pricing.amount"] = sortOrder === "desc" ? -1 : 1;
+    } else if (sortBy === "rating") {
+      sortOptions["ratings.average"] = sortOrder === "desc" ? -1 : 1;
     } else {
-      sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+      sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
     }
-    console.log(query,"queryqueryquery");
-    
+    console.log(query, "queryqueryquery");
 
     const listings = await Listing.find(query)
-      .populate('category', 'name icon')
-      .populate('subCategory', 'name icon')
+      .populate("category", "name icon")
+      .populate("subCategory", "name icon")
       .sort(sortOptions)
       .skip(skip)
       .limit(parseInt(limit))
-      .select('-seo -__v');
+      .select("-seo -__v");
 
     const total = await Listing.countDocuments(query);
 
@@ -646,21 +686,21 @@ const getListingsByVendor = async (req, res) => {
       vendor: {
         _id: vendor._id,
         businessName: vendor.businessName,
-        businessLocation: vendor.businessLocation
+        businessLocation: vendor.businessLocation,
       },
       pagination: {
         current: parseInt(page),
         pages: Math.ceil(total / limit),
         total,
-        limit: parseInt(limit)
-      }
+        limit: parseInt(limit),
+      },
     });
   } catch (error) {
-    console.error('Error fetching listings by vendor:', error);
+    console.error("Error fetching listings by vendor:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching listings by vendor',
-      error: error.message
+      message: "Error fetching listings by vendor",
+      error: error.message,
     });
   }
 };
@@ -676,7 +716,7 @@ const checkListingAvailability = async (req, res) => {
     if (!start || !end) {
       return res.status(400).json({
         success: false,
-        message: 'Start and end dates are required'
+        message: "Start and end dates are required",
       });
     }
 
@@ -687,14 +727,14 @@ const checkListingAvailability = async (req, res) => {
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid date format'
+        message: "Invalid date format",
       });
     }
 
     if (startDate >= endDate) {
       return res.status(400).json({
         success: false,
-        message: 'Start date must be before end date'
+        message: "Start date must be before end date",
       });
     }
 
@@ -702,13 +742,13 @@ const checkListingAvailability = async (req, res) => {
     const listing = await Listing.findOne({
       _id: id,
       isActive: true,
-      status: 'active'
-    }).select('title pricing.multiDayDiscount');
+      status: "active",
+    }).select("title pricing.multiDayDiscount");
 
     if (!listing) {
       return res.status(404).json({
         success: false,
-        message: 'Listing not found or not available'
+        message: "Listing not found or not available",
       });
     }
 
@@ -722,14 +762,16 @@ const checkListingAvailability = async (req, res) => {
     // Check for overlapping bookings that are not rejected or cancelled
     const overlappingBookings = await BookingRequest.find({
       listingId: id,
-      status: { $nin: ['rejected', 'cancelled'] },
+      status: { $nin: ["rejected", "cancelled"] },
       $or: [
         {
-          'details.startDate': { $lte: checkEnd },
-          'details.endDate': { $gte: checkStart }
-        }
-      ]
-    }).select('details.startDate details.endDate status trackingId details.duration');
+          "details.startDate": { $lte: checkEnd },
+          "details.endDate": { $gte: checkStart },
+        },
+      ],
+    }).select(
+      "details.startDate details.endDate status trackingId details.duration"
+    );
 
     const isAvailable = overlappingBookings.length === 0;
 
@@ -747,17 +789,17 @@ const checkListingAvailability = async (req, res) => {
           start: startDate.toISOString(),
           end: endDate.toISOString(),
           days: diffDays,
-          isMultiDay: isMultiDay
+          isMultiDay: isMultiDay,
         },
         isAvailable,
-        conflictingBookings: overlappingBookings.map(booking => ({
+        conflictingBookings: overlappingBookings.map((booking) => ({
           trackingId: booking.trackingId,
           startDate: booking.details.startDate,
           endDate: booking.details.endDate,
           status: booking.status,
-          isMultiDay: booking.details.duration?.isMultiDay || false
-        }))
-      }
+          isMultiDay: booking.details.duration?.isMultiDay || false,
+        })),
+      },
     };
 
     // Add multi-day discount info if applicable
@@ -767,12 +809,12 @@ const checkListingAvailability = async (req, res) => {
         eligible: diffDays >= discount.minDays,
         percent: discount.percent,
         minDays: discount.minDays,
-        description: discount.description
+        description: discount.description,
       };
     }
 
     // Detailed day-by-day availability if requested
-    if (detailed === 'true' && isMultiDay) {
+    if (detailed === "true" && isMultiDay) {
       const dailyAvailability = [];
       const currentDate = new Date(checkStart);
 
@@ -781,17 +823,17 @@ const checkListingAvailability = async (req, res) => {
         const dayEnd = new Date(currentDate);
         dayEnd.setHours(23, 59, 59, 999);
 
-        const dayConflicts = overlappingBookings.filter(booking => {
+        const dayConflicts = overlappingBookings.filter((booking) => {
           const bookingStart = new Date(booking.details.startDate);
           const bookingEnd = new Date(booking.details.endDate);
           return bookingStart <= dayEnd && bookingEnd >= dayStart;
         });
 
         dailyAvailability.push({
-          date: dayStart.toISOString().split('T')[0],
+          date: dayStart.toISOString().split("T")[0],
           available: dayConflicts.length === 0,
           conflicts: dayConflicts.length,
-          conflictingBookings: dayConflicts.map(b => b.trackingId)
+          conflictingBookings: dayConflicts.map((b) => b.trackingId),
         });
 
         currentDate.setDate(currentDate.getDate() + 1);
@@ -801,12 +843,11 @@ const checkListingAvailability = async (req, res) => {
     }
 
     res.json(response);
-
   } catch (error) {
-    console.error('Error checking availability:', error);
+    console.error("Error checking availability:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error while checking availability'
+      message: "Server error while checking availability",
     });
   }
 };
@@ -821,23 +862,24 @@ const filterListings = async (req, res) => {
       subCategoryId,
       page = 1,
       limit = 12,
-      sortBy = 'ratings.average',
-      sortOrder = 'desc'
+      sortBy = "ratings.average",
+      sortOrder = "desc",
     } = req.query;
 
     // Validate that at least one filter is provided
     if (!categoryId && !subCategoryId) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide either categoryId or subCategoryId to filter listings'
+        message:
+          "Please provide either categoryId or subCategoryId to filter listings",
       });
     }
 
     // Build query object
     const query = {
-      status: 'active',
+      status: "active",
       isActive: true,
-      'availability.isAvailable': true
+      "availability.isAvailable": true,
     };
 
     // Filter by category AND/OR subcategory
@@ -858,34 +900,36 @@ const filterListings = async (req, res) => {
 
     // Build sort object
     const sortOptions = {};
-    if (sortBy === 'price') {
+    if (sortBy === "price") {
       // Sort by pricing per event (most common)
-      sortOptions['pricing.perEvent'] = sortOrder === 'desc' ? -1 : 1;
-    } else if (sortBy === 'rating') {
-      sortOptions['ratings.average'] = sortOrder === 'desc' ? -1 : 1;
-    } else if (sortBy === 'popularity') {
-      sortOptions['bookings.completed'] = sortOrder === 'desc' ? -1 : 1;
-    } else if (sortBy === 'newest') {
-      sortOptions['createdAt'] = sortOrder === 'desc' ? -1 : 1;
+      sortOptions["pricing.perEvent"] = sortOrder === "desc" ? -1 : 1;
+    } else if (sortBy === "rating") {
+      sortOptions["ratings.average"] = sortOrder === "desc" ? -1 : 1;
+    } else if (sortBy === "popularity") {
+      sortOptions["bookings.completed"] = sortOrder === "desc" ? -1 : 1;
+    } else if (sortBy === "newest") {
+      sortOptions["createdAt"] = sortOrder === "desc" ? -1 : 1;
     } else {
-      sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+      sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
     }
 
     // Get listings with essential information
     const listings = await Listing.find(query)
-      .populate('vendor', 'businessName businessLocation rating')
-      .populate('category', 'name')
-      .populate('subCategory', 'name')
+      .populate("vendor", "businessName businessLocation rating")
+      .populate("category", "name")
+      .populate("subCategory", "name")
       .sort(sortOptions)
       .skip(skip)
       .limit(parseInt(limit))
-      .select('title description pricing location ratings images media.featuredImage');
+      .select(
+        "title description pricing location ratings images media.featuredImage"
+      );
 
     // Get total count for pagination
     const total = await Listing.countDocuments(query);
 
     // Format the response data
-    const formattedListings = listings.map(listing => {
+    const formattedListings = listings.map((listing) => {
       // Get the main pricing (prefer per event, then per day, then per hour)
       let pricingPerEvent = null;
       if (listing.pricing.perEvent) {
@@ -894,24 +938,25 @@ const filterListings = async (req, res) => {
         pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perDay}/day`;
       } else if (listing.pricing.perHour) {
         pricingPerEvent = `${listing.pricing.currency} ${listing.pricing.perHour}/hour`;
-      }
-      else {
-        pricingPerEvent = 'Quote on request';
+      } else {
+        pricingPerEvent = "Quote on request";
       }
 
       return {
         id: listing._id,
         title: listing.title,
         description: listing.description,
-        vendorName: listing.vendor?.businessName || 'Unknown Vendor',
+        vendorName: listing.vendor?.businessName || "Unknown Vendor",
         rating: listing.ratings?.average || 0,
         ratingCount: listing.ratings?.count || 0,
         pricingPerEvent,
-        location: `${listing.location.city}${listing.location.region ? ', ' + listing.location.region : ''}`,
-        featuredImage: listing.images?.[0] || '',
+        location: `${listing.location.city}${
+          listing.location.region ? ", " + listing.location.region : ""
+        }`,
+        featuredImage: listing.images?.[0] || "",
         images: listing.images || [],
         category: listing.category?.name,
-        subCategory: listing.subCategory?.name
+        subCategory: listing.subCategory?.name,
       };
     });
 
@@ -922,22 +967,21 @@ const filterListings = async (req, res) => {
         current: parseInt(page),
         pages: Math.ceil(total / limit),
         total,
-        limit: parseInt(limit)
+        limit: parseInt(limit),
       },
       filter: {
-        categoryId: categoryId || '',
-        subCategoryId: subCategoryId || '',
+        categoryId: categoryId || "",
+        subCategoryId: subCategoryId || "",
         sortBy,
-        sortOrder
-      }
+        sortOrder,
+      },
     });
-
   } catch (error) {
-    console.error('Error filtering listings:', error);
+    console.error("Error filtering listings:", error);
     res.status(500).json({
       success: false,
-      message: 'Error filtering listings',
-      error: error.message
+      message: "Error filtering listings",
+      error: error.message,
     });
   }
 };
@@ -956,8 +1000,8 @@ const getListingsAndVendorsByCategory = async (req, res) => {
       includeListings = true,
       includeVendors = true,
       includeSaleItems = true,
-      sortBy = 'createdAt',
-      sortOrder = 'desc'
+      sortBy = "createdAt",
+      sortOrder = "desc",
     } = req.query;
 
     // Use either subCategoryId or subcategoryId (for compatibility)
@@ -967,22 +1011,27 @@ const getListingsAndVendorsByCategory = async (req, res) => {
     if (!categoryId && !finalSubCategoryId) {
       return res.status(400).json({
         success: false,
-        message: 'Either categoryId or subCategoryId/subcategoryId is required'
+        message: "Either categoryId or subCategoryId/subcategoryId is required",
       });
     }
 
     // Validate that at least one type of data is requested
-    if (includeListings === 'false' && includeVendors === 'false' && includeSaleItems === 'false') {
+    if (
+      includeListings === "false" &&
+      includeVendors === "false" &&
+      includeSaleItems === "false"
+    ) {
       return res.status(400).json({
         success: false,
-        message: 'At least one of includeListings, includeVendors, or includeSaleItems must be true'
+        message:
+          "At least one of includeListings, includeVendors, or includeSaleItems must be true",
       });
     }
 
     // Build query object for listings
     const listingQuery = {
-      status: 'active',
-      isActive: true
+      status: "active",
+      isActive: true,
     };
 
     // Filter by category
@@ -1000,12 +1049,12 @@ const getListingsAndVendorsByCategory = async (req, res) => {
 
     // Build sort object
     const sortOptions = {};
-    if (sortBy === 'rating') {
-      sortOptions['ratings.average'] = sortOrder === 'desc' ? -1 : 1;
-    } else if (sortBy === 'popularity') {
-      sortOptions['bookings.completed'] = sortOrder === 'desc' ? -1 : 1;
+    if (sortBy === "rating") {
+      sortOptions["ratings.average"] = sortOrder === "desc" ? -1 : 1;
+    } else if (sortBy === "popularity") {
+      sortOptions["bookings.completed"] = sortOrder === "desc" ? -1 : 1;
     } else {
-      sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+      sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
     }
 
     const results = {};
@@ -1017,8 +1066,9 @@ const getListingsAndVendorsByCategory = async (req, res) => {
     } else if (req.userId) {
       currentUserId = req.userId;
     } else {
-      const authHeader = req.headers['authorization'] || req.headers['Authorization'];
-      if (authHeader && authHeader.startsWith('Bearer ')) {
+      const authHeader =
+        req.headers["authorization"] || req.headers["Authorization"];
+      if (authHeader && authHeader.startsWith("Bearer ")) {
         try {
           const token = authHeader.substring(7);
           const decoded = verifyAccessToken(token);
@@ -1032,7 +1082,9 @@ const getListingsAndVendorsByCategory = async (req, res) => {
     // Fetch cart for logged-in user (if any)
     let cartItems = [];
     if (currentUserId) {
-      const cartDoc = await Cart.findOne({ userId: currentUserId }).select('items');
+      const cartDoc = await Cart.findOne({ userId: currentUserId }).select(
+        "items"
+      );
       if (cartDoc && Array.isArray(cartDoc.items)) {
         cartItems = [cartDoc];
       }
@@ -1042,20 +1094,27 @@ const getListingsAndVendorsByCategory = async (req, res) => {
     let cartItemList = [];
     let cartListingIdSet = new Set();
     if (cartItems && cartItems.length > 0) {
-      cartItems.forEach(cart => {
+      cartItems.forEach((cart) => {
         if (Array.isArray(cart.items)) {
-          cart.items.forEach(item => {
+          cart.items.forEach((item) => {
             // Use raw listingId for matching
             if (item.listingId) {
               cartListingIdSet.add(String(item.listingId));
             }
             cartItemList.push({
               listingId: item.listingId?._id || item.listingId || null,
-              serviceItemId: item.serviceItemId?._id || item.serviceItemId || null,
+              serviceItemId:
+                item.serviceItemId?._id || item.serviceItemId || null,
               quantity: item.quantity || 1,
-              title: item.listingId?.title || item.serviceItemId?.title || '',
-              image: item.listingId?.images?.[0] || item.serviceItemId?.images?.[0] || '',
-              price: item.listingId?.pricing?.perEvent || item.serviceItemId?.sellingPrice || '',
+              title: item.listingId?.title || item.serviceItemId?.title || "",
+              image:
+                item.listingId?.images?.[0] ||
+                item.serviceItemId?.images?.[0] ||
+                "",
+              price:
+                item.listingId?.pricing?.perEvent ||
+                item.serviceItemId?.sellingPrice ||
+                "",
             });
           });
         }
@@ -1063,25 +1122,31 @@ const getListingsAndVendorsByCategory = async (req, res) => {
     }
 
     // Fetch listings if requested
-    if (includeListings === 'true' || includeListings === true) {
+    if (includeListings === "true" || includeListings === true) {
       const listings = await Listing.find(listingQuery)
-        .populate('vendor', '_id businessName businessLocation businessLogo bannerImage userId')
-        .populate('category', 'name icon')
-        .populate('subCategory', 'name icon')
+        .populate(
+          "vendor",
+          "_id businessName businessLocation businessLogo bannerImage userId"
+        )
+        .populate("category", "name icon")
+        .populate("subCategory", "name icon")
         .sort(sortOptions)
         .skip(skip)
         .limit(parseInt(limit))
-        .select('-seo -__v -contact.email -contact.phone');
+        .select("-seo -__v -contact.email -contact.phone");
 
       // Use cartListingIdSet for quick lookup
-      console.log('Cart listing IDs:', Array.from(cartListingIdSet));
-      console.log('Listings returned:', listings.map(l => String(l._id)));
+      console.log("Cart listing IDs:", Array.from(cartListingIdSet));
+      console.log(
+        "Listings returned:",
+        listings.map((l) => String(l._id))
+      );
 
       // Add isFavourite boolean to each listing (compare as strings)
-      const listingsWithCartFlag = listings.map(listing => {
+      const listingsWithCartFlag = listings.map((listing) => {
         const obj = listing.toObject();
         obj.isFavourite = cartListingIdSet.has(String(listing._id));
-        if ('isFavorite' in obj) {
+        if ("isFavorite" in obj) {
           delete obj.isFavorite;
         }
         if (!obj.isFavourite) {
@@ -1100,16 +1165,16 @@ const getListingsAndVendorsByCategory = async (req, res) => {
           current: parseInt(page),
           pages: Math.ceil(totalListings / limit),
           total: totalListings,
-          limit: parseInt(limit)
-        }
+          limit: parseInt(limit),
+        },
       };
     }
 
     // Fetch vendors if requested
-    if (includeVendors === 'true' || includeVendors === true) {
+    if (includeVendors === "true" || includeVendors === true) {
       // Build vendor query based on their mainCategories and subCategories fields
       const vendorQuery = {
-        isApproved: true // Use isApproved instead of isActive for vendors
+        isApproved: true, // Use isApproved instead of isActive for vendors
       };
 
       // Build query conditions
@@ -1120,20 +1185,20 @@ const getListingsAndVendorsByCategory = async (req, res) => {
         queryConditions.push({
           $and: [
             { mainCategories: { $in: [categoryId] } },
-            { subCategories: { $in: [finalSubCategoryId] } }
-          ]
+            { subCategories: { $in: [finalSubCategoryId] } },
+          ],
         });
       }
       // If only category is provided
       else if (categoryId) {
         queryConditions.push({
-          mainCategories: { $in: [categoryId] }
+          mainCategories: { $in: [categoryId] },
         });
       }
       // If only subcategory is provided
       else if (finalSubCategoryId) {
         queryConditions.push({
-          subCategories: { $in: [finalSubCategoryId] }
+          subCategories: { $in: [finalSubCategoryId] },
         });
       }
 
@@ -1142,21 +1207,24 @@ const getListingsAndVendorsByCategory = async (req, res) => {
         vendorQuery.$or = queryConditions;
       }
 
-      console.log('Vendor Query:', JSON.stringify(vendorQuery, null, 2));
+      console.log("Vendor Query:", JSON.stringify(vendorQuery, null, 2));
 
       const vendorSortOptions = {};
-      vendorSortOptions[sortBy === 'rating' ? 'rating.average' : sortBy] = sortOrder === 'desc' ? -1 : 1;
+      vendorSortOptions[sortBy === "rating" ? "rating.average" : sortBy] =
+        sortOrder === "desc" ? -1 : 1;
 
       const vendors = await Vendor.find(vendorQuery)
-        .populate('userId', 'firstName lastName email profileImage')
-        .populate('mainCategories', 'name icon')
-        .populate('subCategories', 'name icon')
+        .populate("userId", "firstName lastName email profileImage")
+        .populate("mainCategories", "name icon")
+        .populate("subCategories", "name icon")
         .sort(vendorSortOptions)
         .skip(skip)
         .limit(parseInt(limit))
-        .select('-__v -businessEmail -businessPhone -passportDetails -kvkNumber'); // Hide sensitive info
+        .select(
+          "-__v -businessEmail -businessPhone -passportDetails -kvkNumber"
+        ); // Hide sensitive info
 
-      console.log('Found Vendors:', vendors.length);
+      console.log("Found Vendors:", vendors.length);
 
       const totalVendors = await Vendor.countDocuments(vendorQuery);
 
@@ -1166,13 +1234,13 @@ const getListingsAndVendorsByCategory = async (req, res) => {
           current: parseInt(page),
           pages: Math.ceil(totalVendors / limit),
           total: totalVendors,
-          limit: parseInt(limit)
-        }
+          limit: parseInt(limit),
+        },
       };
     }
 
     // Fetch sale items if requested
-    if (includeSaleItems === 'true' || includeSaleItems === true) {
+    if (includeSaleItems === "true" || includeSaleItems === true) {
       // Build sale items query based on mainCategory and subCategory fields
       const saleItemsQuery = {};
 
@@ -1188,23 +1256,26 @@ const getListingsAndVendorsByCategory = async (req, res) => {
 
       // Build sort options for sale items
       const saleItemsSortOptions = {};
-      if (sortBy === 'price') {
-        saleItemsSortOptions['sellingPrice'] = sortOrder === 'desc' ? -1 : 1;
+      if (sortBy === "price") {
+        saleItemsSortOptions["sellingPrice"] = sortOrder === "desc" ? -1 : 1;
       } else {
-        saleItemsSortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+        saleItemsSortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
       }
 
-      console.log('Sale Items Query:', JSON.stringify(saleItemsQuery, null, 2));
+      console.log("Sale Items Query:", JSON.stringify(saleItemsQuery, null, 2));
 
       const saleItems = await ServiceItem.find(saleItemsQuery)
-        .populate('vendor', '_id businessName businessLocation businessLogo bannerImage userId')
-        .populate('linkedListing', 'title')
+        .populate(
+          "vendor",
+          "_id businessName businessLocation businessLogo bannerImage userId"
+        )
+        .populate("linkedListing", "title")
         .sort(saleItemsSortOptions)
         .skip(skip)
         .limit(parseInt(limit))
-        .select('-__v');
+        .select("-__v");
 
-      console.log('Found Sale Items:', saleItems.length);
+      console.log("Found Sale Items:", saleItems.length);
 
       const totalSaleItems = await ServiceItem.countDocuments(saleItemsQuery);
 
@@ -1214,16 +1285,27 @@ const getListingsAndVendorsByCategory = async (req, res) => {
           current: parseInt(page),
           pages: Math.ceil(totalSaleItems / limit),
           total: totalSaleItems,
-          limit: parseInt(limit)
-        }
+          limit: parseInt(limit),
+        },
       };
     }
 
     // Get category and subcategory info for context
-    const categoryInfo = categoryId ? await Category.findById(categoryId).select('name icon description') : '';
-    const subCategoryInfo = finalSubCategoryId ? await SubCategory.findById(finalSubCategoryId).populate('mainCategory', 'name').select('name icon description mainCategory') : '';
-    const otherSaleItems = await Item.find({ mainCategory: null, subCategory: null })
-      .populate('vendor', '_id businessName businessLocation businessLogo bannerImage userId')
+    const categoryInfo = categoryId
+      ? await Category.findById(categoryId).select("name icon description")
+      : "";
+    const subCategoryInfo = finalSubCategoryId
+      ? await SubCategory.findById(finalSubCategoryId)
+          .populate("mainCategory", "name")
+          .select("name icon description mainCategory")
+      : "";
+    const otherSaleItems = await Item.find({
+      mainCategory: null,
+      subCategory: null,
+    }).populate(
+      "vendor",
+      "_id businessName businessLocation businessLogo bannerImage userId"
+    );
     console.log(otherSaleItems, "otherSaleItemsotherSaleItems");
 
     res.json({
@@ -1232,15 +1314,14 @@ const getListingsAndVendorsByCategory = async (req, res) => {
       cartItems: cartItemList,
       categoryInfo,
       subCategoryInfo,
-      otherSaleItems
+      otherSaleItems,
     });
-
   } catch (error) {
-    console.error('Error fetching listings and vendors by category:', error);
+    console.error("Error fetching listings and vendors by category:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching listings and vendors by category',
-      error: error.message
+      message: "Error fetching listings and vendors by category",
+      error: error.message,
     });
   }
 };
@@ -1255,5 +1336,5 @@ module.exports = {
   checkListingAvailability,
   getListingCalendar,
   filterListings,
-  getListingsAndVendorsByCategory
+  getListingsAndVendorsByCategory,
 };

@@ -11,9 +11,7 @@ const { requireAuth, requireAdmin, requireActiveAdmin } = require('../../middlew
 // @desc    Get admin booking analytics with stats cards and all bookings
 // @access  Private (Admin)
 router.get('/analytics', 
-  requireAuth, 
   requireAdmin, 
-  requireActiveAdmin, 
   getAdminBookingAnalytics
 );
 

@@ -105,7 +105,7 @@ exports.loginEmployee = async (req, res) => {
     if (!employee) {
       return res.status(404).json({
         success: false,
-        message: "Employee not found"
+        message: "Invalid email or password"
       });
     }
 

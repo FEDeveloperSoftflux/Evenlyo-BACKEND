@@ -12,6 +12,6 @@ router.get('/overview', requireAuth, getVendorItemsOverview);
 router.put('/update/:itemId', requireAuth, updateItem);
 router.get('/item-detail/:itemId', requireAuth, itemDetailById);
 router.put('/update-listing/:itemId', requireAuth, requireVendor, updateItemListing);
-router.delete('/delete/:itemId', requireAuth, requireVendor, deleteItem);
+router.delete('/delete/:itemId', requireAuth, deleteItem);
 
 module.exports = router;
