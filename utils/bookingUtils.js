@@ -336,6 +336,10 @@ const calculateFullBookingPrice = (listing, opts = {}) => {
   }
 };
 
+
+
+
+
 // Helper function to get detailed availability information
 const getAvailabilityDetails = async (listingId, startDate, endDate, excludeBookingId = null, startTime = null, endTime = null) => {
   const isAvailable = await checkAvailability(listingId, startDate, endDate, excludeBookingId, startTime, endTime);

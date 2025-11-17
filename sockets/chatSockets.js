@@ -124,13 +124,41 @@ function chatSocket(io) {
           "offerObject.uniqueId": uniqueId,
         });
 
+        if (!message) {
+          return socket.emit("accept_offer_error", {
+            message: "Offer not found",
+          });
+        }
+
         const updateMessage = await Message.findOneAndUpdate(
           { "offerObject.uniqueId": uniqueId },
           { offerObject: offerObject },
           { new: true }
         );
 
+        if (!updateMessage) {
+          return socket.emit("accept_offer_error", {
+            message: "Offer not found",
+          });
+        }
+
         console.log("UPDATE_MESSAGE", updateMessage);
+
+        // const finalItems = offerObject?.items?.map((item) => {
+        //   return {
+        //     listingId: item._id,
+        //     vendorId: item.vendor,
+        //     startDate: item.startDate,
+        //     endDate: item.endDate,
+        //     startTime: item.startTime,
+        //     endTime: item.endTime,
+        //     eventLocation: item.eventLocation,
+        //     eventType: item.eventType || "",
+        //     guestCount: item.guestCount || 0,
+        //     distanceKm: item.distanceKm || 0,
+        //     specialRequests: item.specialRequests || "",
+        //   };
+        // });
 
         io.to(message.conversationId).emit("offer_accepted", updateMessage);
       } catch (error) {
