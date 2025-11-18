@@ -1,5 +1,7 @@
 const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
+const createBookingRequest = require("../utils/bookingRequest");
+const mongoose = require("mongoose");
 
 function chatSocket(io) {
   io.on("connection", (socket) => {
@@ -118,13 +120,18 @@ function chatSocket(io) {
     });
 
     socket.on("accept_offer", async (offerObject) => {
+      const session = await mongoose.startSession();
+      session.startTransaction();
+
       try {
         const uniqueId = offerObject?.uniqueId;
         const message = await Message.findOne({
           "offerObject.uniqueId": uniqueId,
-        });
+        }).session(session);
 
         if (!message) {
+          await session.abortTransaction();
+          await session.endSession();
           return socket.emit("accept_offer_error", {
             message: "Offer not found",
           });
@@ -134,36 +141,71 @@ function chatSocket(io) {
           { "offerObject.uniqueId": uniqueId },
           { offerObject: offerObject },
           { new: true }
-        );
+        ).session(session);
 
         if (!updateMessage) {
+          await session.abortTransaction();
+          await session.endSession();
           return socket.emit("accept_offer_error", {
             message: "Offer not found",
           });
         }
 
-        console.log("UPDATE_MESSAGE", updateMessage);
+        if (offerObject?.items?.length === 0) {
+          await session.abortTransaction();
+          await session.endSession();
+          return socket.emit("accept_offer_error", {
+            message: "No items found",
+          });
+        }
 
-        // const finalItems = offerObject?.items?.map((item) => {
-        //   return {
-        //     listingId: item._id,
-        //     vendorId: item.vendor,
-        //     startDate: item.startDate,
-        //     endDate: item.endDate,
-        //     startTime: item.startTime,
-        //     endTime: item.endTime,
-        //     eventLocation: item.eventLocation,
-        //     eventType: item.eventType || "",
-        //     guestCount: item.guestCount || 0,
-        //     distanceKm: item.distanceKm || 0,
-        //     specialRequests: item.specialRequests || "",
-        //   };
-        // });
+        const finalItems = offerObject.items.map((item) => ({
+          userId: offerObject.userId,
+          listingId: item._id,
+          vendorId: item.vendor,
+          startDate: item.startDate,
+          endDate: item.endDate,
+          startTime: item.startTime,
+          endTime: item.endTime,
+          eventLocation: item.eventLocation,
+          eventType: item.eventType || "",
+          guestCount: item.guestCount || 0,
+          distanceKm: item.distanceKm || 0,
+          specialRequests: item.specialRequest || "",
+          totalAmount: item.total,
+          securityFee: item.securityFee,
+        }));
+
+        console.log("finalItemsfinalItems", finalItems);
+
+        for (let item of finalItems) {
+          await createBookingRequest(item, session);
+        }
+
+        // All booking requests created successfully - commit transaction
+        await session.commitTransaction();
+        await session.endSession();
 
         io.to(message.conversationId).emit("offer_accepted", updateMessage);
       } catch (error) {
         console.error("Error accepting offer:", error.message);
-        socket.emit("accept_offer_error", { message: "Error accepting offer" });
+
+        try {
+          await session.abortTransaction();
+        } catch (abortError) {
+          console.error("Error aborting transaction:", abortError.message);
+        }
+
+        try {
+          await session.endSession();
+        } catch (endError) {
+          console.error("Error ending session:", endError.message);
+        }
+
+        socket.emit("accept_offer_error", {
+          message: error.message || "Error accepting offer",
+          error: error.message,
+        });
       }
     });
 
