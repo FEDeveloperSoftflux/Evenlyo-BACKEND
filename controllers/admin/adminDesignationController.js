@@ -51,7 +51,7 @@ exports.deleteDesignation = async (req, res) => {
     const isAssigned = await AdminEmployee.findOne({ designationID: designationId });
     if (isAssigned) {
       return res.status(400).json({
-        error: "Cannot delete this designation. It is assigned to one or more employees.",
+        message: "Cannot delete this designation. It is assigned to one or more employees.",
       });
     }
     const designation = await AdminDesignation.findByIdAndDelete(req.params.id);
