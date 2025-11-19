@@ -1,4 +1,5 @@
 const AdminDesignation = require('../../models/AdminDesignation');
+const AdminEmployee = require('../../models/AdminEmployee');
 
 // Create designation
 exports.createDesignation = async (req, res) => {
@@ -46,9 +47,16 @@ exports.updateDesignation = async (req, res) => {
 // Delete designation
 exports.deleteDesignation = async (req, res) => {
   try {
+    const designationId = req.params.id;
+    const isAssigned = await AdminEmployee.findOne({ designationID: designationId });
+    if (isAssigned) {
+      return res.status(400).json({
+        error: "Cannot delete this designation. It is assigned to one or more employees.",
+      });
+    }
     const designation = await AdminDesignation.findByIdAndDelete(req.params.id);
     if (!designation) return res.status(404).json({ error: 'Not found' });
-    res.json({ message: 'Deleted' });
+    res.json({ message: 'Designation Deleted Successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

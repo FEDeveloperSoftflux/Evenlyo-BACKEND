@@ -202,7 +202,7 @@ exports.deleteEmployee = async (req, res) => {
   try {
     const employee = await AdminEmployee.findByIdAndDelete(req.params.id);
     if (!employee) return res.status(404).json({ error: 'Not found' });
-    res.json({ message: 'Deleted' });
+    res.json({ message: 'Employee Deleted Successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

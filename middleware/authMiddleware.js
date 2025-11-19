@@ -36,7 +36,6 @@ const requireAuth = async (req, res, next) => {
     // Super admin shortcut (legacy env-based)
     // Verify user still exists in database. Accept Employee/AdminEmployee tokens too.
     let user = await User.findById(baseUser.id);
-
     if (user && !user.isActive) {
       return res.status(401).json({ success: false, message: 'User not found or deactivated' });
     }
@@ -92,7 +91,7 @@ const requireAuth = async (req, res, next) => {
 
     // Build request user object for regular User
     req.user = {
-      id: user._id ? user._id : user?.id,
+      id: user?._id ? user?._id : user?.id,
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,

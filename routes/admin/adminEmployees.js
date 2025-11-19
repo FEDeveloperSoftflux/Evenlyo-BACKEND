@@ -8,8 +8,8 @@ router.get('/admin/fetch-employees', adminEmployeeController.getEmployees);
 router.post('/admin/create-employee', adminEmployeeController.createEmployee);
 router.post('/admin/login-employee', adminEmployeeController.loginEmployee);
 router.get('/:id', adminEmployeeController.getEmployee);
-router.put('/:id', adminEmployeeController.updateEmployee);
-router.delete('/:id', adminEmployeeController.deleteEmployee);
+router.put('/admin/update-employee/:id', adminEmployeeController.updateEmployee);
+router.delete('/admin/delete-employee/:id', adminEmployeeController.deleteEmployee);
 
 // Toggle employee status
 router.patch('/:id/toggle-status', adminEmployeeController.toggleEmployeeStatus);
