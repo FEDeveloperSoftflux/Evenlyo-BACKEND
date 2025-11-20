@@ -132,7 +132,7 @@ app.use("/api/settings", require("./routes/settings"));
 app.use("/api/support", require("./routes/client/support"));
 app.use("/api/notifications", require("./routes/notifications"));
 app.use("/api/vendor", require("./routes/client/vendors"));
-app.use("/api/items", require("./routes/client/Items"));
+// app.use("/api/items", require("./routes/client/Items"));
 app.use("/api/client/purchases", require("./routes/client/purchases"));
 app.use("/api/faqs", require("./routes/client/faqs"));
 app.use("/api", require("./routes/client/saleItemPurchase"));
@@ -191,17 +191,21 @@ app.use((err, req, res, next) => {
 });
 
 
-// const UserModel = require("./models/User");
+// const ItemModel = require("./models/Item");
 
 // async function addCreatedByIdToUsers() {
 //   try {
-//     const result = await UserModel.updateMany(
-//       { createdById: { $exists: false } }, // only update if key not present
-//       { $set: { createdById: null } }
+//     const result = await ItemModel.updateMany(
+//       { location: { $exists: false } },   // or your condition
+//       {
+//         $set: {
+//           location: {
+//             fullAddress: "",
+//             coordinates: { latitude: 0, longitude: 0 }
+//           }
+//         }
+//       }
 //     );
-
-//     console.log(`✅ Updated ${result.modifiedCount} users.`);
-//     process.exit(0);
 //   } catch (error) {
 //     console.error("❌ Error:", error);
 //     process.exit(1);

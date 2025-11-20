@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const {
-    getPurchaseHistory,
-} = require('../../controllers/client/purchaseController');
+    createSaleItemOrder
+} = require('../../controllers/client/saleItemPurchaseController');
 const { requireAuth, requireClient } = require('../../middleware/authMiddleware');
 
 /**
@@ -10,7 +10,8 @@ const { requireAuth, requireClient } = require('../../middleware/authMiddleware'
  * @desc    Get user's purchase history
  * @access  Private
  */
-router.get('/history', requireAuth, requireClient, getPurchaseHistory);
+// router.get('/history', requireAuth, getPurchaseHistory);
+router.post('/place-order', requireAuth, createSaleItemOrder);
 
 
 module.exports = router;

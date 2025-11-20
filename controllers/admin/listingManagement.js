@@ -3,7 +3,7 @@ const SubCategory = require('../../models/SubCategory');
 const Listing = require('../../models/Listing');
 const Booking = require('../../models/Booking');
 const Item = require('../../models/Item');
-const Purchase = require('../../models/Purchase');
+const Purchase = require('../../models/SaleItemPurchase');
 
 const getAllListingManagementData = async (req, res) => {
   try {

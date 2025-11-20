@@ -1,314 +1,336 @@
 
-const Item = require('../../models/Item');
-const Purchase = require('../../models/Purchase');
-const stripe = require('../../config/stripe');
-const PaymentIntent = require('../../models/PaymentIntent');
-const ServiceItemStockLog = require('../../models/ServiceItemStockLog');
-const logger = require('../../utils/logger');
+// const Item = require('../../models/Item');
+// const Purchase = require('../../models/Purchase');
+// const stripe = require('../../config/stripe');
+// const PaymentIntent = require('../../models/PaymentIntent');
+// const ServiceItemStockLog = require('../../models/ServiceItemStockLog');
+// const logger = require('../../utils/logger');
 
-// Create payment intent for item purchase
-const createItemPaymentIntent = async (req, res) => {
-    try {
-        const { itemId, quantity, location } = req.body;
-        const currency = 'usd'; // Fixed currency
-        
-        if (!itemId || !quantity || quantity <= 0 || !location) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Required itemId, quantity, or location.' 
-            });
-        }
+// // Create payment intent for item purchase
+// const createItemPaymentIntent = async (req, res) => {
+//     try {
+//         const { itemId, quantity, location } = req.body;
+//         const currency = 'usd'; // Fixed currency
 
-        const item = await Item.findById(itemId);
-        if (!item) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Item not found.' 
-            });
-        }
+//         if (!itemId || !quantity || quantity <= 0 || !location) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: 'Required itemId, quantity, or location.'
+//             });
+//         }
 
-        if (item.stockQuantity < quantity) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Not enough stock available.' 
-            });
-        }
+//         const item = await Item.findById(itemId);
+//         if (!item) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: 'Item not found.'
+//             });
+//         }
 
-        // Get platform fee from settings
-        const Settings = require('../../models/Settings');
-        const settings = await Settings.findOne();
-        const platformFee = (settings.salesItemPlatformFee)/100;
+//         if (item.stockQuantity < quantity) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: 'Not enough stock available.'
+//             });
+//         }
 
-        logger.info('Payment intent calculation', { 
-          platformFee, 
-          itemId, 
-          quantity, 
-          sellingPrice: item.sellingPrice 
-        });
-        
-        // Calculate total price with platform fee
-        const platformPrice = (quantity * item.sellingPrice) * platformFee;
-        const totalPrice = (quantity * item.sellingPrice) + platformPrice;
+//         // Get platform fee from settings
+//         const Settings = require('../../models/Settings');
+//         const settings = await Settings.findOne();
+//         const platformFee = (settings.salesItemPlatformFee) / 100;
 
-        logger.info('Price breakdown', { 
-          totalPrice, 
-          platformPrice, 
-          itemPrice: quantity * item.sellingPrice 
-        });
-        const amount = Math.round(totalPrice * 100); // Convert to cents for Stripe
+//         logger.info('Payment intent calculation', {
+//             platformFee,
+//             itemId,
+//             quantity,
+//             sellingPrice: item.sellingPrice
+//         });
 
-        // Prepare metadata for Stripe
-        const metadata = {
-            itemId: String(itemId),
-            itemName: item.title.en || item.title,
-            quantity: String(quantity),
-            location: location,
-            userId: String(req.user.id),
-            userName: req.user.firstName + ' ' + req.user.lastName,
-            platformPrice: String(platformPrice.toFixed(2)),
-            totalPrice: String(totalPrice.toFixed(2)),
-            vendorId: String(item.vendor),
-            type: 'item_purchase'
-        };
+//         // Calculate total price with platform fee
+//         const platformPrice = (quantity * item.sellingPrice) * platformFee;
+//         const totalPrice = (quantity * item.sellingPrice) + platformPrice;
 
-        // Create Stripe payment intent
-        const paymentIntent = await stripe.paymentIntents.create({
-            amount,
-            currency,
-            automatic_payment_methods: { enabled: true },
-            metadata,
-        });
+//         logger.info('Price breakdown', {
+//             totalPrice,
+//             platformPrice,
+//             itemPrice: quantity * item.sellingPrice
+//         });
+//         const amount = Math.round(totalPrice * 100); // Convert to cents for Stripe
 
-        // Store payment intent in database
-        const dbPaymentIntent = await PaymentIntent.create({
-            stripeIntentId: paymentIntent.id,
-            clientSecret: paymentIntent.client_secret,
-            status: paymentIntent.status,
-            amount: totalPrice,
-            currency,
-            quantity,
-            metadata: {
-                itemId,
-                itemName: item.title.en || item.title,
-                quantity,
-                location,
-                userId: req.user.id,
-                userName: req.user.firstName + ' ' + req.user.lastName,
-                vendorId: item.vendor,
-                type: 'item_purchase'
-            }
-        });
+//         // Prepare metadata for Stripe
+//         const metadata = {
+//             itemId: String(itemId),
+//             itemName: item.title.en || item.title,
+//             quantity: String(quantity),
+//             location: location,
+//             userId: String(req.user.id),
+//             userName: req.user.firstName + ' ' + req.user.lastName,
+//             platformPrice: String(platformPrice.toFixed(2)),
+//             totalPrice: String(totalPrice.toFixed(2)),
+//             vendorId: String(item.vendor),
+//             type: 'item_purchase'
+//         };
 
-        return res.status(201).json({
-            success: true,
-            internalId: dbPaymentIntent.internalId,
-            client_secret: paymentIntent.client_secret,
-            stripeId: paymentIntent.id,
-            item: {
-                id: item._id,
-                title: item.title,
-                sellingPrice: item.sellingPrice,
-                quantity: quantity,
-                totalPrice: totalPrice
-            }
-        });
+//         // Create Stripe payment intent
+//         const paymentIntent = await stripe.paymentIntents.create({
+//             amount,
+//             currency,
+//             automatic_payment_methods: { enabled: true },
+//             metadata,
+//         });
 
-    } catch (error) {
-        return res.status(500).json({ 
-            success: false, 
-            message: error.message 
-        });
-    }
-};
+//         // Store payment intent in database
+//         const dbPaymentIntent = await PaymentIntent.create({
+//             stripeIntentId: paymentIntent.id,
+//             clientSecret: paymentIntent.client_secret,
+//             status: paymentIntent.status,
+//             amount: totalPrice,
+//             currency,
+//             quantity,
+//             metadata: {
+//                 itemId,
+//                 itemName: item.title.en || item.title,
+//                 quantity,
+//                 location,
+//                 userId: req.user.id,
+//                 userName: req.user.firstName + ' ' + req.user.lastName,
+//                 vendorId: item.vendor,
+//                 type: 'item_purchase'
+//             }
+//         });
 
-// Complete item purchase after payment confirmation
-const buyItem = async (req, res) => {
-    try {
-        const { paymentIntentId } = req.body;
-        
-        if (!paymentIntentId) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Payment intent ID is required.' 
-            });
-        }
+//         return res.status(201).json({
+//             success: true,
+//             internalId: dbPaymentIntent.internalId,
+//             client_secret: paymentIntent.client_secret,
+//             stripeId: paymentIntent.id,
+//             item: {
+//                 id: item._id,
+//                 title: item.title,
+//                 sellingPrice: item.sellingPrice,
+//                 quantity: quantity,
+//                 totalPrice: totalPrice
+//             }
+//         });
 
-        // Find the payment intent in database
-        const dbPaymentIntent = await PaymentIntent.findOne({ 
-            internalId: paymentIntentId 
-        });
-        
-        if (!dbPaymentIntent) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Payment intent not found.' 
-            });
-        }
+//     } catch (error) {
+//         return res.status(500).json({
+//             success: false,
+//             message: error.message
+//         });
+//     }
+// };
 
-        // Verify payment status with Stripe
-        const stripePaymentIntent = await stripe.paymentIntents.retrieve(
-            dbPaymentIntent.stripeIntentId
-        );
+// // Complete item purchase after payment confirmation
+// const buyItem = async (req, res) => {
+//     try {
+//         const { paymentIntentId } = req.body;
 
-        if (stripePaymentIntent.status !== 'succeeded') {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Payment not completed yet.' 
-            });
-        }
+//         if (!paymentIntentId) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: 'Payment intent ID is required.'
+//             });
+//         }
 
-        // Check if this purchase has already been processed
-        const existingPurchase = await Purchase.findOne({ 
-            paymentIntentId: paymentIntentId 
-        });
-        
-        if (existingPurchase) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'This purchase has already been processed.' 
-            });
-        }
+//         // Find the payment intent in database
+//         const dbPaymentIntent = await PaymentIntent.findOne({
+//             internalId: paymentIntentId
+//         });
 
-        // Extract metadata from payment intent
-        const metadata = dbPaymentIntent.metadata;
-        const itemId = metadata.itemId;
-        const quantity = parseInt(metadata.quantity);
-        const location = metadata.location;
+//         if (!dbPaymentIntent) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: 'Payment intent not found.'
+//             });
+//         }
 
-        // Get item details
-        const item = await Item.findById(itemId);
-        if (!item) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Item not found.' 
-            });
-        }
+//         // Verify payment status with Stripe
+//         const stripePaymentIntent = await stripe.paymentIntents.retrieve(
+//             dbPaymentIntent.stripeIntentId
+//         );
 
-        // Check stock availability
-        if (item.stockQuantity < quantity) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Not enough stock available.' 
-            });
-        }
+//         if (stripePaymentIntent.status !== 'succeeded') {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: 'Payment not completed yet.'
+//             });
+//         }
 
-        // Reduce stock
-        item.stockQuantity -= quantity;
-        await item.save();
+//         // Check if this purchase has already been processed
+//         const existingPurchase = await Purchase.findOne({
+//             paymentIntentId: paymentIntentId
+//         });
 
-        // Log checkout for the purchased quantity
-        try {
-            await ServiceItemStockLog.create({
-                item: item._id,
-                type: 'checkout',
-                quantity,
-                note: 'Stock decreased due to purchase',
-                createdBy: req.user?._id
-            });
-        } catch (e) {
-            logger.warn('Failed to log service item checkout', { error: e.message, itemId });
-        }
+//         if (existingPurchase) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: 'This purchase has already been processed.'
+//             });
+//         }
 
-        // Get vendor info
-        const vendorId = item.vendor;
-        let vendorName = '';
-        let vendorRef = null;
-        
-        if (vendorId) {
-            const Vendor = require('../../models/Vendor');
-            const vendor = await Vendor.findById(vendorId);
-            if (vendor) {
-                vendorName = vendor.businessName || '';
-                vendorRef = vendor._id;
-            }
-        }
+//         // Extract metadata from payment intent
+//         const metadata = dbPaymentIntent.metadata;
+//         const itemId = metadata.itemId;
+//         const quantity = parseInt(metadata.quantity);
+//         const location = metadata.location;
 
-        // Create purchase record
-        const purchase = new Purchase({
-            item: itemId,
-            itemName: item.title.en || item.title,
-            user: req.user.id,
-            userName: req.user.firstName + ' ' + req.user.lastName,
-            vendor: vendorRef,
-            vendorName,
-            quantity,
-            location,
-            totalPrice: dbPaymentIntent.amount,
-            paymentIntentId: paymentIntentId,
-            stripePaymentIntentId: dbPaymentIntent.stripeIntentId
-        });
-        await purchase.save();
+//         // Get item details
+//         const item = await Item.findById(itemId);
+//         if (!item) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: 'Item not found.'
+//             });
+//         }
 
-        // Update payment intent status
-        dbPaymentIntent.status = 'completed';
-        await dbPaymentIntent.save();
+//         // Check stock availability
+//         if (item.stockQuantity < quantity) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: 'Not enough stock available.'
+//             });
+//         }
 
-        return res.status(200).json({ 
-            success: true, 
-            message: 'Item purchased successfully.', 
-            item: {
-                id: item._id,
-                title: item.title,
-                sellingPrice: item.sellingPrice
-            },
-            purchase 
-        });
+//         // Reduce stock
+//         item.stockQuantity -= quantity;
+//         await item.save();
 
-    } catch (error) {
-        return res.status(500).json({ 
-            success: false, 
-            message: error.message 
-        });
-    }
-};
+//         // Log checkout for the purchased quantity
+//         try {
+//             await ServiceItemStockLog.create({
+//                 item: item._id,
+//                 type: 'checkout',
+//                 quantity,
+//                 note: 'Stock decreased due to purchase',
+//                 createdBy: req.user?._id
+//             });
+//         } catch (e) {
+//             logger.warn('Failed to log service item checkout', { error: e.message, itemId });
+//         }
 
-// Get items by selected category and subcategory
-const getItemsByCategory = async (req, res) => {
-    try {
-        const { categoryId, subCategoryId } = req.query;
-        const subCat = (subCategoryId && typeof subCategoryId === 'string') ? subCategoryId.trim() : '';
+//         // Get vendor info
+//         const vendorId = item.vendor;
+//         let vendorName = '';
+//         let vendorRef = null;
 
-        // Only query when at least one filter is provided. If neither filter is present,
-        // return empty arrays to avoid returning all items accidentally.
-        const hasCategory = categoryId && typeof categoryId === 'string' && categoryId.trim() !== '';
-        const hasSubCategory = Boolean(subCat);
+//         if (vendorId) {
+//             const Vendor = require('../../models/Vendor');
+//             const vendor = await Vendor.findById(vendorId);
+//             if (vendor) {
+//                 vendorName = vendor.businessName || '';
+//                 vendorRef = vendor._id;
+//             }
+//         }
 
-        if (!hasCategory && !hasSubCategory) {
-            return res.status(200).json({ success: true, items: {}, other: {} });
-        }
+//         // Create purchase record
+//         const purchase = new Purchase({
+//             item: itemId,
+//             itemName: item.title.en || item.title,
+//             user: req.user.id,
+//             userName: req.user.firstName + ' ' + req.user.lastName,
+//             vendor: vendorRef,
+//             vendorName,
+//             quantity,
+//             location,
+//             totalPrice: dbPaymentIntent.amount,
+//             paymentIntentId: paymentIntentId,
+//             stripePaymentIntentId: dbPaymentIntent.stripeIntentId
+//         });
+//         await purchase.save();
 
-        // Build a single filter that applies both category and subCategory (AND behavior)
-        const filteredFilter = {};
-        if (hasCategory) filteredFilter.mainCategory = categoryId.trim();
-        if (hasSubCategory) filteredFilter.subCategory = subCat;
+//         // Update payment intent status
+//         dbPaymentIntent.status = 'completed';
+//         await dbPaymentIntent.save();
 
-        // Fetch filtered items
-        const filteredItems = await Item.find(filteredFilter);
+//         return res.status(200).json({
+//             success: true,
+//             message: 'Item purchased successfully.',
+//             item: {
+//                 id: item._id,
+//                 title: item.title,
+//                 sellingPrice: item.sellingPrice
+//             },
+//             purchase
+//         });
 
-        // Build aggregation to match 'other' items where mainCategory or subCategory is missing, null, or empty string.
-        // Use aggregation so we can safely check for empty strings without forcing Mongoose to cast to ObjectId.
-        const otherPipeline = [
-            { $match: {
-                $or: [
-                    { mainCategory: { $exists: false } },
-                    { mainCategory: null },
-                    { mainCategory: '' },
-                    { subCategory: { $exists: false } },
-                    { subCategory: null },
-                    { subCategory: '' }
-                ]
-            } },
-        ];
+//     } catch (error) {
+//         return res.status(500).json({
+//             success: false,
+//             message: error.message
+//         });
+//     }
+// };
 
-        const data = await Item.aggregate(otherPipeline);
+// // Get items by selected category and subcategory
+// const getItemsByCategory = async (req, res) => {
+//     try {
+//         const { categoryId, subCategoryId } = req.query;
+//         const subCat = (subCategoryId && typeof subCategoryId === 'string') ? subCategoryId.trim() : '';
 
-        return res.status(200).json({ success: true, items: { data: filteredItems }, other: { data } });
-    } catch (error) {
-        return res.status(500).json({ success: false, message: error.message });
-    }
-};
-module.exports = {
-    createItemPaymentIntent,
-    buyItem,
-    getItemsByCategory
-};
+//         const hasCategory = categoryId && typeof categoryId === 'string' && categoryId.trim() !== '';
+//         const hasSubCategory = Boolean(subCat);
+
+//         if (!hasCategory && !hasSubCategory) {
+//             return res.status(200).json({ success: true, items: {}, other: {} });
+//         }
+
+//         // 🔹 Build filter
+//         const filteredFilter = {};
+//         if (hasCategory) filteredFilter.mainCategory = categoryId.trim();
+//         if (hasSubCategory) filteredFilter.subCategory = subCat;
+
+//         // 🔹 Fetch filtered items WITH vendor populated
+//         const filteredItems = await Item.find(filteredFilter)
+//             .populate("vendor");
+
+//         console.log(filteredItems, "filteredItemsfilteredItemsfilteredItemsfilteredItems");
+
+//         // 🔹 Aggregation for other items + vendor details
+//         const otherPipeline = [
+//             {
+//                 $match: {
+//                     $or: [
+//                         { mainCategory: { $exists: false } },
+//                         { mainCategory: null },
+//                         { mainCategory: '' },
+//                         { subCategory: { $exists: false } },
+//                         { subCategory: null },
+//                         { subCategory: '' }
+//                     ]
+//                 }
+//             },
+//             {
+//                 $lookup: {
+//                     from: "users",          // your Vendor collection name
+//                     localField: "vendor",
+//                     foreignField: "_id",
+//                     as: "vendor"
+//                 }
+//             },
+//             {
+//                 $unwind: {
+//                     path: "$vendor",
+//                     preserveNullAndEmptyArrays: true
+//                 }
+//             }
+//         ];
+
+//         const otherItems = await Item.aggregate(otherPipeline);
+
+//         return res.status(200).json({
+//             success: true,
+//             items: { data: filteredItems },
+//             other: { data: otherItems }
+//         });
+
+//     } catch (error) {
+//         return res.status(500).json({ success: false, message: error.message });
+//     }
+// };
+
+// module.exports = {
+//     createItemPaymentIntent,
+//     buyItem,
+//     getItemsByCategory
+// };

@@ -2,7 +2,7 @@ const User = require('../../models/User');
 const Vendor = require('../../models/Vendor');
 const Listing = require('../../models/Listing');
 const Booking = require('../../models/Booking');
-const Purchase = require('../../models/Purchase');
+const Purchase = require('../../models/SaleItemPurchase');
 const Item = require('../../models/Item');
 
 // --- Admin Dashboard Stats ---

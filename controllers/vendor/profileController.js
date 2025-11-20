@@ -57,6 +57,7 @@ const getProfile = async (req, res) => {
         mainCategories: mappedMainCategories,
         subCategories: mappedSubCategories,
         tagline: vendor.tagline,
+        deliveryCharges: vendor.userId.deliveryCharges
       };
     } else {
       profile = {
@@ -75,7 +76,7 @@ const getProfile = async (req, res) => {
         subCategories: mappedSubCategories,
         tagline: vendor.tagline,
         description: vendor.description,
-
+        deliveryCharges: vendor.userId.deliveryCharges
       };
     }
     return res.json(profile);
@@ -246,6 +247,25 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const updateDeliveryCharges = async (req, res) => {
+  try {
+    const updatedData = await User.findOneAndUpdate(
+      { _id: req.user.id },
+      req.body,
+      {
+        new: true,
+      }
+    );
+    return res.json({
+      data: updatedData,
+      message: "Personal profile updated successfully",
+    });
+  }
+  catch (err) {
+    errorHelper(res, err);
+  }
+}
+
 const getMainCategoriesbyVendorId = async (req, res) => {
   try {
     const { vendorId } = req.params;
@@ -312,4 +332,5 @@ module.exports = {
   updateProfile,
   subCategoryFromCategory,
   getMainCategoriesbyVendorId,
+  updateDeliveryCharges
 };

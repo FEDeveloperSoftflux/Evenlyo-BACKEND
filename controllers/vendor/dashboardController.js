@@ -4,7 +4,7 @@ const Listing = require('../../models/Listing');
 const SaleItems = require('../../models/Item.js');
 const User = require('../../models/User');
 const Vendor = require('../../models/Vendor');
-const Purchase = require('../../models/Purchase');
+const Purchase = require('../../models/SaleItemPurchase.js');
 const ActivityLog = require('../../models/ActivityLog.js');
 
 // Vendor Dashboard Analytics Controller

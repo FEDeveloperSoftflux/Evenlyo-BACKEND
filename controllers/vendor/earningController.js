@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const Booking = require('../../models/Booking');
-const Purchase = require('../../models/Purchase');
+const Purchase = require('../../models/SaleItemPurchase');
 const Listing = require('../../models/Listing');
 const Item = require('../../models/Item');
 const Category = require('../../models/Category');

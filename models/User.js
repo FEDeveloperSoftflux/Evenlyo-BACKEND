@@ -127,6 +127,10 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Role',
     required: false
+  },
+  deliveryCharges: {
+    type: Number,
+    default: 0
   }
 },
   { timestamps: true });

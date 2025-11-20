@@ -16,7 +16,7 @@ const serviceItemSchema = new mongoose.Schema({
   },
   vendor: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Vendor',
+    ref: 'User',
     required: true
   },
   linkedListing: {
@@ -42,11 +42,31 @@ const serviceItemSchema = new mongoose.Schema({
   image: {
     type: String,
     required: true
+  },
+  extraDeliveryCharges: {
+    type: Number,
+    default: 0
+  },
+  location: {
+    type: {
+      fullAddress: String,
+      coordinates: {
+        lat: Number,
+        lng: Number
+      }
+    },
+    default: {
+      fullAddress: "",
+      coordinates: {
+        lat: 0,
+        lng: 0
+      }
+    }
   }
-}, { timestamps: true }); 
+}, { timestamps: true });
 
 // Hook to set 'Others' if category/subcategory is not selected
-serviceItemSchema.pre('save', function(next) {
+serviceItemSchema.pre('save', function (next) {
   if (!this.mainCategory) {
     this.mainCategoryName = 'Others';
   }
