@@ -48,8 +48,8 @@ const SaleOrderPurchase = new mongoose.Schema(
         totalKms: { type: String, default: 0 },
         status: {
             type: String,
-            enum: ["pending", "processing", "completed", "cancelled"],
-            default: "pending",
+            enum: ["Order Placed", "On the way", "Delivered"],
+            default: "Order Placed",
         },
     },
     { timestamps: true }

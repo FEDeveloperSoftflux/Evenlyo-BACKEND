@@ -132,7 +132,7 @@ app.use("/api/settings", require("./routes/settings"));
 app.use("/api/support", require("./routes/client/support"));
 app.use("/api/notifications", require("./routes/notifications"));
 app.use("/api/vendor", require("./routes/client/vendors"));
-// app.use("/api/items", require("./routes/client/Items"));
+app.use("/api/items", require("./routes/client/Items"));
 app.use("/api/client/purchases", require("./routes/client/purchases"));
 app.use("/api/faqs", require("./routes/client/faqs"));
 app.use("/api", require("./routes/client/saleItemPurchase"));

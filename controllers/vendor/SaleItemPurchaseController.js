@@ -56,82 +56,21 @@ const createSaleItemOrder = async (req, res) => {
 const getSaleItemHistory = async (req, res) => {
     try {
         const { id } = req.user
-        const allData = await SaleItem.find({ customerId: id })
-        res.status(200).send({
-            message: "Orders fetched Successfully",
-            order: allData,
-        });
-    } catch (err) {
-        res.status(500).send({ message: err.message });
-    }
-}
-
-const getSaleItemHistoryForVendor = async (req, res) => {
-    try {
-        const { id } = req.user
-        console.log(req.user, "req.userreq.user");
-
+        console.log(id,"idididid");
+        
         const allData = await SaleItem.find({ vendorId: id })
         res.status(200).send({
             message: "Orders fetched Successfully",
             order: allData,
         });
     } catch (err) {
+        console.log(err,"ERR");
+        
         res.status(500).send({ message: err.message });
     }
 }
 
-const updateSaleItemOrderStatus = async (req, res) => {
-    try {
-        const { orderId } = req.params;
-        const { status } = req.body;
-
-        // Allowed statuses
-        const allowedStatuses = [
-            "Order Placed",
-            "On the way",
-            "Delivered"
-        ];
-
-        // Validate status
-        if (!allowedStatuses.includes(status)) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid status provided"
-            });
-        }
-
-        // Find and update the order
-        const updatedOrder = await SaleItem.findByIdAndUpdate(
-            orderId,
-            { status },
-            { new: true }
-        );
-
-        if (!updatedOrder) {
-            return res.status(404).json({
-                success: false,
-                message: "Order not found"
-            });
-        }
-
-        res.status(200).json({
-            success: true,
-            message: "Order status updated successfully",
-            order: updatedOrder
-        });
-
-    } catch (err) {
-        res.status(500).json({
-            success: false,
-            message: err.message
-        });
-    }
-};
-
 module.exports = {
     createSaleItemOrder,
-    getSaleItemHistory,
-    getSaleItemHistoryForVendor,
-    updateSaleItemOrderStatus
+    getSaleItemHistory
 }
