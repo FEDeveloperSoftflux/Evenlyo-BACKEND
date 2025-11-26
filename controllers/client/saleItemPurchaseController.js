@@ -1,6 +1,7 @@
 const SaleItem = require('../../models/SaleItemPurchase');
 const Item = require('../../models/Item');
 const mongoose = require('mongoose');
+const { createActivityLog } = require('../../utils/activityLogger');
 
 
 const createSaleItemOrder = async (req, res) => {
@@ -42,6 +43,14 @@ const createSaleItemOrder = async (req, res) => {
             customerId: req.user.id,
         });
 
+        awaitingActivityLog = await createActivityLog({
+            heading: 'New Sale Order Placed',
+            type: 'sale_item_order_placed',
+            description: `Added new sale item: Order has been placed`,
+            vendorId: req.user.id,
+            ActivityType: "sale"
+        });
+
         res.status(200).send({
             message: "Order Created Successfully",
             order: newOrder,
@@ -68,10 +77,12 @@ const getSaleItemHistory = async (req, res) => {
 
 const getSaleItemHistoryForVendor = async (req, res) => {
     try {
-        const { id } = req.user
-        console.log(req.user, "req.userreq.user");
+        const { id } = req.user;
 
         const allData = await SaleItem.find({ vendorId: id })
+            .populate('vendorId', 'firstName lastName email phone image') // select only needed fields
+            .sort({ createdAt: -1 });
+
         res.status(200).send({
             message: "Orders fetched Successfully",
             order: allData,
@@ -79,8 +90,7 @@ const getSaleItemHistoryForVendor = async (req, res) => {
     } catch (err) {
         res.status(500).send({ message: err.message });
     }
-}
-
+};
 const updateSaleItemOrderStatus = async (req, res) => {
     try {
         const { orderId } = req.params;

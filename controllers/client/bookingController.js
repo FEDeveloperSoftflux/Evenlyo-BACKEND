@@ -172,6 +172,7 @@ const createBookingRequest = asyncHandler(async (req, res) => {
       guestCount,
       distanceKm,
       specialRequests,
+      pricingBreakdown
     },
   } = req.body;
 
@@ -260,13 +261,13 @@ const createBookingRequest = asyncHandler(async (req, res) => {
     startTime, // pass startTime for time slot validation
     endTime // pass endTime for time slot validation
   );
-  if (!isAvailable) {
-    return res.status(409).json({
-      success: false,
-      message:
-        "Selected dates/times are not available. The time slot may be outside available hours or already booked.",
-    });
-  }
+  // if (!isAvailable) {
+  //   return res.status(409).json({
+  //     success: false,
+  //     message:
+  //       "Selected dates/times are not available. The time slot may be outside available hours or already booked.",
+  //   });
+  // }
 
   // Calculate hours per day and total hours depending on presence of times and multi-day
   let dailyHours = 0;
@@ -352,6 +353,7 @@ const createBookingRequest = asyncHandler(async (req, res) => {
   // return
   const bookingRequest = new BookingRequest({
     userId: req.user.id,
+    pricingBreakdown,
     vendorId,
     listingId,
     listingDetails: {
@@ -537,7 +539,7 @@ const getAcceptedBookings = asyncHandler(async (req, res) => {
     userId: req.user.id,
     status: "accepted",
   })
-    .populate("vendorId", "businessName businessEmail businessPhone")
+    .populate("vendorId", "firstName lastName")
     .sort({ createdAt: -1 });
 
   res.json({
@@ -644,7 +646,7 @@ const getBookingHistory = asyncHandler(async (req, res) => {
         startTime: booking.details.startTime,
         endTime: booking.details.endTime,
       },
-      totalPrice: booking.pricing.totalPrice,
+      totalPrice: booking?.pricing?.totalPrice,
       status: booking.status,
       vendor: booking.vendorId,
       listing: booking.listingId,

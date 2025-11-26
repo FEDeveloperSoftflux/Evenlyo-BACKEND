@@ -4,6 +4,7 @@ const Listing = require('../../models/Listing');
 const Booking = require('../../models/Booking');
 const Item = require('../../models/Item');
 const Purchase = require('../../models/SaleItemPurchase');
+const ActivityLog = require('../../models/ActivityLog');
 
 const getAllListingManagementData = async (req, res) => {
   try {
@@ -98,6 +99,13 @@ const getAllListingManagementData = async (req, res) => {
         };
       })
     );
+    const activitySaleLog = await ActivityLog.find({ ActivityType: "sale" })
+      .populate("vendorId", "firstName lastName email phone image")   // select only the needed fields
+      .sort({ createdAt: -1 });
+
+    const activityBookingLog = await ActivityLog.find({ ActivityType: "booking" })
+      .populate("vendorId", "firstName lastName email phone image")
+      .sort({ createdAt: -1 })
 
     res.json({
       statsCard: {
@@ -109,6 +117,8 @@ const getAllListingManagementData = async (req, res) => {
       categoryBookings,
       categoryPurchases,
       tableData,
+      activitySaleLog,
+      activityBookingLog
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -123,12 +133,19 @@ const getSubCategoriesByMainCategory = async (req, res) => {
       return res.status(400).json({ error: 'mainCategoryId is required' });
     }
     const subcategories = await SubCategory.find({ mainCategory: mainCategoryId });
+    console.log(subcategories, "subcategoriessubcategories");
+
     const result = subcategories.map(sub => ({
       id: sub._id,
       icon: sub.icon || '',
-      name: sub.name,
-      description: sub.description,
-      status: sub.isActive ? 'active' : 'deactive',
+      name: sub.name.en,
+      description: sub.description.en,
+      isActive: sub.isActive,
+      isUpfrontEnabled:sub.isUpfrontEnabled,
+      upfrontFeePercent:sub.upfrontFeePercent,
+      escrowHours:sub.escrowHours,
+      isEvenlyoProtectEnabled:sub.isEvenlyoProtectEnabled,
+      evenlyoProtectFeePercent:sub.evenlyoProtectFeePercent
     }));
     res.json(result);
   } catch (err) {
@@ -162,137 +179,92 @@ const toggleSubCategoryStatus = async (req, res) => {
 // Create new subcategory
 const createSubCategory = async (req, res) => {
   try {
-    const { name, icon, mainCategoryId, description, escrowEnabled, upfrontFeePercent, upfrontHour, evenlyoProtectFeePercent } = req.body;
-    if (!name || !mainCategoryId) {
-      return res.status(400).json({ error: 'Name and mainCategoryId are required' });
+    const {
+      name,
+      icon,
+      mainCategoryId,
+      description,
+      isUpfrontEnabled,
+      upfrontFeePercent,
+      escrowHours,
+      isEvenlyoProtectEnabled,
+      evenlyoProtectFeePercent,
+      status
+    } = req.body;
+
+    // Validation for escrowHours
+    if (escrowHours === undefined || escrowHours === null) {
+      return res.status(400).json({ message: "escrowHours is required." });
     }
-    // Build subcategory object
-    const subCategoryData = {
-      name: typeof name === 'object' ? name : { en: name, nl: name },
-      icon: icon || '',
+
+    if (typeof escrowHours !== "number" || escrowHours <= 0) {
+      return res.status(400).json({
+        message: "escrowHours must be greater than 0."
+      });
+    }
+
+    const newSubCategory = new SubCategory({
+      name,
+      icon,
       mainCategory: mainCategoryId,
-      description: typeof description === 'object' ? description : { en: description || '', nl: description || '' }
-    };
-
-    // Optional payment fields with validation and defaults
-    if (escrowEnabled !== undefined) subCategoryData.escrowEnabled = Boolean(escrowEnabled);
-    if (upfrontFeePercent !== undefined) {
-      const v = Number(upfrontFeePercent);
-      if (Number.isNaN(v) || v < 0 || v > 100) return res.status(400).json({ error: 'upfrontFeePercent must be between 0 and 100' });
-      subCategoryData.upfrontFeePercent = v;
-    }
-    if (upfrontHour !== undefined) {
-      const v = Number(upfrontHour);
-      if (Number.isNaN(v) || v < 0) return res.status(400).json({ error: 'upfrontHour must be a non-negative number' });
-      subCategoryData.upfrontHour = v;
-    }
-    if (evenlyoProtectFeePercent !== undefined) {
-      const v = Number(evenlyoProtectFeePercent);
-      if (Number.isNaN(v) || v < 0 || v > 100) return res.status(400).json({ error: 'evenlyoProtectFeePercent must be between 0 and 100' });
-      subCategoryData.evenlyoProtectFeePercent = v;
-    }
-    // If escrow is enabled, ensure upfront fields are valid/present
-    if (subCategoryData.escrowEnabled) {
-      const effUpfrontPercent =
-        subCategoryData.upfrontFeePercent !== undefined ? subCategoryData.upfrontFeePercent : 0;
-      const effUpfrontHour =
-        subCategoryData.upfrontHour !== undefined ? subCategoryData.upfrontHour : 0;
-      if (effUpfrontPercent <= 0 || effUpfrontPercent > 100) {
-        return res.status(400).json({ error: 'When escrowEnabled is true, upfrontFeePercent must be between 1 and 100' });
-      }
-      if (effUpfrontHour <= 0) {
-        return res.status(400).json({ error: 'When escrowEnabled is true, upfrontHour must be greater than 0' });
-      }
-    }
-
-    const subcategory = new SubCategory(subCategoryData);
-    await subcategory.save();
-    res.status(201).json({
-      id: subcategory._id,
-      name: subcategory.name,
-      icon: subcategory.icon,
-      mainCategory: subcategory.mainCategory,
-      description: subcategory.description,
-      escrowEnabled: subcategory.escrowEnabled,
-      upfrontFeePercent: subcategory.upfrontFeePercent,
-      upfrontHour: subcategory.upfrontHour,
-      evenlyoProtectFeePercent: subcategory.evenlyoProtectFeePercent,
-      status: subcategory.isActive ? 'active' : 'deactive',
-      message: 'SubCategory created successfully'
+      description,
+      isUpfrontEnabled,
+      upfrontFeePercent,
+      escrowHours,
+      isEvenlyoProtectEnabled,
+      evenlyoProtectFeePercent,
+      status
     });
-  } catch (err) {
-    // Handle duplicate key error for unique name/mainCategory
-    if (err.code === 11000) {
-      return res.status(409).json({ error: 'SubCategory name already exists for this main category' });
-    }
-    res.status(500).json({ error: err.message });
+
+    await newSubCategory.save();
+
+    return res.status(201).json({
+      success: true,
+      message: "Subcategory created successfully",
+      data: newSubCategory
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
   }
 };
 
-// Edit subcategory details by subcategory id
 const editSubCategory = async (req, res) => {
   try {
     const { subCategoryId } = req.params;
-    if (!subCategoryId) {
-      return res.status(400).json({ error: 'subCategoryId is required' });
-    }
-    const subcategory = await SubCategory.findById(subCategoryId);
-    if (!subcategory) {
-      return res.status(404).json({ error: 'SubCategory not found' });
+
+    const body = req.body;
+
+    if (body.escrowHours !== undefined) {
+      const h = Number(body.escrowHours);
+      if (Number.isNaN(h) || h <= 0) {
+        return res.status(400).json({
+          error: "escrowHours must be greater than 0",
+        });
+      }
     }
 
-    const { name, icon, mainCategoryId, description, isActive, escrowEnabled, upfrontFeePercent, upfrontHour, evenlyoProtectFeePercent } = req.body;
+    const updated = await SubCategory.findByIdAndUpdate(
+      subCategoryId,
+      body,
+      { new: true }
+    );
 
-    // Update fields only if provided
-    if (name !== undefined) {
-      subcategory.name = typeof name === 'object' ? name : { en: name, nl: name };
+    if (!updated) {
+      return res.status(404).json({ error: "SubCategory not found" });
     }
-    if (icon !== undefined) subcategory.icon = icon;
-    if (mainCategoryId !== undefined) subcategory.mainCategory = mainCategoryId;
-    if (description !== undefined) {
-      subcategory.description = typeof description === 'object' ? description : { en: description || '', nl: description || '' };
-    }
-    if (isActive !== undefined) subcategory.isActive = Boolean(isActive);
-
-    // Update payment fields if provided
-    if (escrowEnabled !== undefined) subcategory.escrowEnabled = Boolean(escrowEnabled);
-    if (upfrontFeePercent !== undefined) {
-      const v = Number(upfrontFeePercent);
-      if (Number.isNaN(v) || v < 0 || v > 100) return res.status(400).json({ error: 'upfrontFeePercent must be between 0 and 100' });
-      subcategory.upfrontFeePercent = v;
-    }
-    if (upfrontHour !== undefined) {
-      const v = Number(upfrontHour);
-      if (Number.isNaN(v) || v < 0) return res.status(400).json({ error: 'upfrontHour must be a non-negative number' });
-      subcategory.upfrontHour = v;
-    }
-    if (evenlyoProtectFeePercent !== undefined) {
-      const v = Number(evenlyoProtectFeePercent);
-      if (Number.isNaN(v) || v < 0 || v > 100) return res.status(400).json({ error: 'evenlyoProtectFeePercent must be between 0 and 100' });
-      subcategory.evenlyoProtectFeePercent = v;
-    }
-
-    await subcategory.save();
-
-    res.json({
-      id: subcategory._id,
-      name: subcategory.name,
-      icon: subcategory.icon,
-      mainCategory: subcategory.mainCategory,
-      description: subcategory.description,
-      escrowEnabled: subcategory.escrowEnabled,
-      upfrontFeePercent: subcategory.upfrontFeePercent,
-      upfrontHour: subcategory.upfrontHour,
-      evenlyoProtectFeePercent: subcategory.evenlyoProtectFeePercent,
-      status: subcategory.isActive ? 'active' : 'deactive',
-      message: 'SubCategory updated successfully'
+    return res.json({
+      success: true,
+      message: "SubCategory updated successfully",
+      data: updated,
     });
+
   } catch (err) {
-    // Handle duplicate key error for unique name/mainCategory
-    if (err.code === 11000) {
-      return res.status(409).json({ error: 'SubCategory name already exists for this main category' });
-    }
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 

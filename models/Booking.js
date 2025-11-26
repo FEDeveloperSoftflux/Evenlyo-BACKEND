@@ -3,16 +3,16 @@ const mongoose = require('mongoose');
 // BookingRequest Schema - Updated to match requirements
 const bookingRequestSchema = new mongoose.Schema({
   trackingId: {
-  condition: {
-    type: String,
-    enum: ['good', 'fair', 'claim'],
-    default: 'good',
-    required: true
-  },
+    condition: {
+      type: String,
+      enum: ['good', 'fair', 'claim'],
+      default: 'good',
+      required: true
+    },
     type: String,
     unique: true,
     required: true,
-    default: function() {
+    default: function () {
       return 'TRK' + Date.now() + Math.random().toString(36).substr(2, 9).toUpperCase();
     }
   },
@@ -23,7 +23,7 @@ const bookingRequestSchema = new mongoose.Schema({
   },
   vendorId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Vendor',
+    ref: 'User',
     required: true
   },
   listingId: { // Updated from serviceItemId to match requirements
@@ -32,89 +32,10 @@ const bookingRequestSchema = new mongoose.Schema({
     required: true
   },
   listingDetails: {
-    title: {
-      en: { type: String, trim: true, required: true },
-      nl: { type: String, trim: true, required: true }
-    },
-    subtitle: {
-      en: { type: String, trim: true },
-      nl: { type: String, trim: true }
-    },
-    description: {
-      en: { type: String, trim: true },
-      nl: { type: String, trim: true }
-    },
-    images: [{
-      type: String
-    }],
-    pricing: {
-      type: {
-        type: String,
-        required: true
-      },
-      amount: {
-        type: Number,
-        required: true
-      },
-      extratimeCost: {
-        type: Number,
-        default: 0
-      },
-      securityFee: {
-        type: Number,
-        default: 0
-      },
-      pricePerKm: {
-        type: Number,
-        default: 0
-      }
-    },
-    category: {
-      _id: {
-        type: mongoose.Schema.Types.ObjectId
-      },
-      name: {
-        type: String
-      }
-    },
-    subCategory: {
-      _id: {
-        type: mongoose.Schema.Types.ObjectId
-      },
-      name: {
-        type: String
-      }
-    },
-    serviceDetails: {
-      serviceType: {
-        type: String,
-        enum: ['human', 'non_human']
-      }
-    },
-    location: {
-      fullAddress: String,
-      coordinates: {
-        latitude: Number,
-        longitude: Number
-      }
-    },
-    contact: {
-      phone: String,
-      email: String,
-      website: String
-    },
-    rating: {
-      average: {
-        type: Number,
-        default: 0
-      },
-      totalReviews: {
-        type: Number,
-        default: 0
-      }
-    }
+    type: Object,
+    default: null
   },
-  details: { 
+  details: {
     startDate: {
       type: Date,
       required: true
@@ -125,7 +46,7 @@ const bookingRequestSchema = new mongoose.Schema({
     },
     startTime: {
       type: String,
-      required: function() {
+      required: function () {
         // Only required if startDate and endDate are the same (single-day booking)
         return this.details && this.details.startDate && this.details.endDate &&
           new Date(this.details.startDate).toDateString() === new Date(this.details.endDate).toDateString();
@@ -133,7 +54,7 @@ const bookingRequestSchema = new mongoose.Schema({
     },
     endTime: {
       type: String,
-      required: function() {
+      required: function () {
         // Only required if startDate and endDate are the same (single-day booking)
         return this.details && this.details.startDate && this.details.endDate &&
           new Date(this.details.startDate).toDateString() === new Date(this.details.endDate).toDateString();
@@ -216,38 +137,6 @@ const bookingRequestSchema = new mongoose.Schema({
       default: 'email'
     }
   },
-  pricing: {
-    bookingPrice: {
-      type: Number,
-      required: true,
-      min: 0
-    },
-    securityPrice: {
-      type: Number,
-      default: 0,
-      min: 0
-    },
-    extraCharges: {
-      type: Number,
-      default: 0,
-      min: 0
-    },
-    securityFee: {
-      type: Number,
-      default: 0,
-      min: 0
-    },
-    claimAmount: {
-      type: Number,
-      default: 0,
-      min: 0
-    },
-    totalPrice: {
-      type: Number,
-      required: true,
-      min: 0
-    }
-  },
   status: {
     type: String,
     enum: ['pending', 'accepted', 'rejected', 'paid', 'on_the_way', 'received', 'picked_up', 'completed', 'cancelled', 'claim', 'finished', 'received_back'],
@@ -255,12 +144,11 @@ const bookingRequestSchema = new mongoose.Schema({
   },
   paymentStatus: {
     type: String,
-    enum: ['pending', 'paid', 'refunded', 'partially_refunded'],
+    enum: ['pending', 'paid', 'refunded', 'partially_refunded', "upfront_paid"],
     default: 'pending'
   },
   paymentMethod: {
     type: String,
-    enum: ['stripe', 'paypal', 'bank_transfer', 'cash', 'card']
   },
   statusHistory: [{
     status: {
@@ -292,14 +180,7 @@ const bookingRequestSchema = new mongoose.Schema({
   }],
   cancellationDetails: {
     reason: {
-      en: {
-        type: String,
-        trim: true
-      },
-      nl: {
-        type: String,
-        trim: true
-      }
+      type: String,
     },
     requestedBy: {
       type: String,
@@ -313,14 +194,8 @@ const bookingRequestSchema = new mongoose.Schema({
     }
   },
   rejectionReason: {
-    en: {
-      type: String,
-      trim: true
-    },
-    nl: {
-      type: String,
-      trim: true
-    }
+    type: String,
+    default: ''
   },
   claimDetails: {
     reason: {
@@ -359,16 +234,14 @@ const bookingRequestSchema = new mongoose.Schema({
       }
     }
   },
+  pricingBreakdown: {
+    type: Object,
+    default: null
+  },
   feedback: {
     clientFeedback: {
-      en: {
-        type: String,
-        trim: true
-      },
-      nl: {
-        type: String,
-        trim: true
-      }
+      type: String,
+      trim: true
     },
   },
   invoiceUrl: String,
@@ -381,42 +254,53 @@ const bookingRequestSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  isFullyPaid: {
+    type: Boolean
+  },
+  AmountPaid: {
+    type: Number,
+    default: 0
+  },
+  AmountLeft: {
+    type: Number,
+    default: 0
+  }
 }, { timestamps: true });
 
 // Pre-save middleware
-bookingRequestSchema.pre('save', function(next) {
+bookingRequestSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
-  
+
   // Generate tracking ID if not exists
   if (!this.trackingId) {
     this.trackingId = 'TRK' + Date.now() + Math.random().toString(36).substr(2, 9).toUpperCase();
   }
-  
+
   // Calculate multi-day booking details
   if (this.details && this.details.startDate && this.details.endDate) {
     const startDate = new Date(this.details.startDate);
     const endDate = new Date(this.details.endDate);
     const diffTime = Math.abs(endDate - startDate);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Include both start and end dates
-    
+
     // Set multi-day flag
     this.details.duration.isMultiDay = diffDays > 1;
     this.details.duration.days = diffDays;
-    
+
     // If no custom schedule provided and it's multi-day, create default schedule
     if (this.details.duration.isMultiDay && (!this.details.schedule || this.details.schedule.length === 0)) {
       this.details.schedule = [];
       const currentDate = new Date(startDate);
-      
+
       for (let i = 0; i < diffDays; i++) {
         const scheduleDate = new Date(currentDate);
         scheduleDate.setDate(currentDate.getDate() + i);
-        
+
         // Calculate daily hours
         const dailyStartTime = this.details.startTime || '09:00';
         const dailyEndTime = this.details.endTime || '17:00';
         const dailyHours = this.calculateHoursBetween(dailyStartTime, dailyEndTime);
-        
+
         this.details.schedule.push({
           date: scheduleDate,
           startTime: dailyStartTime,
@@ -429,7 +313,7 @@ bookingRequestSchema.pre('save', function(next) {
         });
       }
     }
-    
+
     // Calculate total hours across all days
     if (this.details.schedule && this.details.schedule.length > 0) {
       this.details.duration.totalHours = this.details.schedule.reduce((total, day) => {
@@ -442,7 +326,7 @@ bookingRequestSchema.pre('save', function(next) {
       this.details.duration.totalHours = dailyHours;
     }
   }
-  
+
   // Add status to history if status changed
   if (this.isModified('status') && !this.isNew) {
     this.statusHistory.push({
@@ -454,21 +338,20 @@ bookingRequestSchema.pre('save', function(next) {
       }
     });
   }
-  
+
   next();
 });
 
 // Helper method to calculate hours between two time strings
-bookingRequestSchema.methods.calculateHoursBetween = function(startTime, endTime) {
+bookingRequestSchema.methods.calculateHoursBetween = function (startTime, endTime) {
   const start = new Date(`2000-01-01 ${startTime}`);
   const end = new Date(`2000-01-01 ${endTime}`);
   let diffHours = (end - start) / (1000 * 60 * 60);
-  
+
   // Handle overnight bookings (e.g., 22:00 to 02:00)
   if (diffHours < 0) {
     diffHours += 24;
   }
-  
   return Math.max(diffHours, 0);
 };
 

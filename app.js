@@ -191,28 +191,29 @@ app.use((err, req, res, next) => {
 });
 
 
-// const ItemModel = require("./models/Item");
+const SubCategory = require("./models/SubCategory");
 
-// async function addCreatedByIdToUsers() {
-//   try {
-//     const result = await ItemModel.updateMany(
-//       { location: { $exists: false } },   // or your condition
-//       {
-//         $set: {
-//           location: {
-//             fullAddress: "",
-//             coordinates: { latitude: 0, longitude: 0 }
-//           }
-//         }
-//       }
-//     );
-//   } catch (error) {
-//     console.error("❌ Error:", error);
-//     process.exit(1);
-//   }
-// }
+async function addCreatedByIdToUsers() {
+  try {
+    const result = await SubCategory.updateMany(
+      {},
+      {
+        $set: {
+          isUpfrontEnabled: null,
+          upfrontFeePercent: 20,
+          escrowHours: 10,
+          isEvenlyoProtectEnabled: false,
+          evenlyoProtectFeePercent: null
+        }
+      }
+    );
+  } catch (error) {
+    console.error("❌ Error:", error);
+    process.exit(1);
+  }
+}
 
-// addCreatedByIdToUsers();
+// addCreatedByIdToUsers()
 
 
 module.exports = app;

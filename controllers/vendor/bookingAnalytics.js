@@ -14,7 +14,7 @@ const { createActivityLog } = require("../../utils/activityLogger");
 // GET /api/vendor/bookings/analytics
 const getVendorBookingAnalytics = async (req, res) => {
   console.log("HAHAHAHHA");
-  
+
   try {
     const vendorId = req.user?.id;
     if (!vendorId)
@@ -251,7 +251,7 @@ const rejectBooking = asyncHandler(async (req, res) => {
   }
 
   booking.status = "rejected";
-  booking.rejectionReason = { en: rejectionReason || "No reason provided" };
+  booking.rejectionReason = rejectionReason || "No reason provided"
   await booking.save();
 
   try {
@@ -259,9 +259,8 @@ const rejectBooking = asyncHandler(async (req, res) => {
       vendorId: vendor.userId,
       heading: "Booking Rejected",
       type: "booking_rejected",
-      description: `Booking ${booking.trackingId} has been rejected. Reason: ${
-        rejectionReason || "No reason provided"
-      }`,
+      description: `Booking ${booking.trackingId} has been rejected. Reason: ${rejectionReason || "No reason provided"
+        }`,
       bookingId: booking._id,
       userId: req.user?.id,
     });

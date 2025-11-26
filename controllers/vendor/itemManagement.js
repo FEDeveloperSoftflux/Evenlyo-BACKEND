@@ -159,7 +159,8 @@ const createItem = async (req, res) => {
 				heading: 'New Sale Item Added',
 				type: 'sale_item_added',
 				description: `Added new sale item: "${itemTitle}" with stock quantity of ${stockQuantity}`,
-				vendorId: req.user.id
+				vendorId: req.user.id,
+				ActivityType: "sale"
 			});
 		} catch (error) {
 			console.warn('Failed to create activity log:', error.message);

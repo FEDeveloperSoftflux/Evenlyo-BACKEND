@@ -37,38 +37,8 @@ const listingSchema = new mongoose.Schema({
     required: true
   },
   pricing: {
-    type: {
-      type: String,
-    },
-    amount: {
-      type: Number,
-      min: 0,
-      required: true
-    },
-    extratimeCost: {
-      type: Number,
-      min: 0,
-      default: 0
-    },
-    securityFee: {
-      type: Number,
-      min: 0,
-      default: 0
-    },
-    pricePerKm: {
-      type: Number,
-      min: 0
-    },
-    escrowFee: {
-      type: Number,
-      min: 0,
-      default: 0
-    },
-    totalPrice: {
-      type: Number,
-      min: 0,
-      default: 0,
-    }
+    type: Object,
+    default: null
   },
   images: {
     type: [String],
@@ -206,49 +176,40 @@ const listingSchema = new mongoose.Schema({
 
 
 // Pre-save middleware
-listingSchema.pre('save', function (next) {
-  // Update the sort order based on rating and bookings if not manually set
-  if (this.isModified('rating') || this.isModified('bookings')) {
-    this.sortOrder = (this.rating.average * 20) + (this.bookings.completed * 0.1);
-  }
+// listingSchema.pre('save', function (next) {
+//   // Update the sort order based on rating and bookings if not manually set
+//   if (this.isModified('rating') || this.isModified('bookings')) {
+//     this.sortOrder = (this.rating.average * 20) + (this.bookings.completed * 0.1);
+//   }
 
-  // Automatically set security fee based on service type
-  if (this.isModified('serviceDetails.serviceType') || this.isModified('pricing.securityFee') || this.isNew) {
-    if (this.serviceDetails?.serviceType === 'human') {
-      this.pricing.securityFee = 0;
-    } else if (this.serviceDetails?.serviceType === 'non_human' && (!this.pricing.securityFee || this.pricing.securityFee === 0)) {
-      // Set a default security fee for non-human services if not already set
-      this.pricing.securityFee = 50; // Default €50 security fee for equipment/non-human services
-    }
-  }
+//   // Automatically set security fee based on service type
+//   // Calculate totalPrice before saving
+//   const amount = this.pricing?.amount || 0;
+//   const extratimeCost = this.pricing?.extratimeCost || 0;
+//   const securityFee = this.pricing?.securityFee || 0;
+//   const pricePerKm = this.pricing?.pricePerKm || 0;
+//   const escrowFee = this.pricing?.escrowFee || 0;
+//   this.pricing.totalPrice = amount + extratimeCost + securityFee + escrowFee;
 
-  // Calculate totalPrice before saving
-  const amount = this.pricing?.amount || 0;
-  const extratimeCost = this.pricing?.extratimeCost || 0;
-  const securityFee = this.pricing?.securityFee || 0;
-  const pricePerKm = this.pricing?.pricePerKm || 0;
-  const escrowFee = this.pricing?.escrowFee || 0;
-  this.pricing.totalPrice = amount + extratimeCost + securityFee + escrowFee;
+//   next();
+// });
 
-  next();
-});
+// // Indexes for better performance
+// listingSchema.index({ vendor: 1, status: 1 });
+// listingSchema.index({ category: 1, subCategory: 1, isActive: 1 });
+// listingSchema.index({ 'location.city': 1, isActive: 1 });
+// listingSchema.index({ status: 1, isActive: 1, isFeatured: -1, sortOrder: -1 });
+// listingSchema.index({ tags: 1 });
+// listingSchema.index({ 'rating.average': -1, 'bookings.completed': -1 });
+// listingSchema.index({ 'title.en': 'text', 'title.nl': 'text', 'description.en': 'text', 'description.nl': 'text', tags: 'text' });
 
-// Indexes for better performance
-listingSchema.index({ vendor: 1, status: 1 });
-listingSchema.index({ category: 1, subCategory: 1, isActive: 1 });
-listingSchema.index({ 'location.city': 1, isActive: 1 });
-listingSchema.index({ status: 1, isActive: 1, isFeatured: -1, sortOrder: -1 });
-listingSchema.index({ tags: 1 });
-listingSchema.index({ 'rating.average': -1, 'bookings.completed': -1 });
-listingSchema.index({ 'title.en': 'text', 'title.nl': 'text', 'description.en': 'text', 'description.nl': 'text', tags: 'text' });
-
-// Compound index for category-based filtering
-listingSchema.index({
-  category: 1,
-  subCategory: 1,
-  'location.city': 1,
-  isActive: 1,
-  status: 1
-});
+// // Compound index for category-based filtering
+// listingSchema.index({
+//   category: 1,
+//   subCategory: 1,
+//   'location.city': 1,
+//   isActive: 1,
+//   status: 1
+// });
 
 module.exports = mongoose.model('Listing', listingSchema);

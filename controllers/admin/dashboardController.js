@@ -42,10 +42,10 @@ const getDashboardStats = async (req, res) => {
       
       // Recent purchases (last 3)
       Purchase.find()
-        .populate('user', 'firstName lastName')
+        .populate('customerId', 'firstName lastName')
         .sort({ createdAt: -1 })
         .limit(3)
-        .select('trackingId user itemName location status createdAt totalPrice'),
+        .select('trackingId user itemName location status createdAt totalAmount'),
       
       // Recent clients (last 3)
       User.find({ userType: 'client', isActive: true })
@@ -59,7 +59,8 @@ const getDashboardStats = async (req, res) => {
         .limit(3)
         .select('firstName lastName email')
     ]);
-
+    console.log(totalPurchases,"totalPurchasestotalPurchasestotalPurchases");
+    
     // Format stats cards
     const statsCard = {
       "All Client": totalClients,
@@ -94,10 +95,12 @@ const getDashboardStats = async (req, res) => {
 
     // Format recent purchases
     const formattedRecentPurchases = (recentPurchases || []).map((purchase) => {
+      console.log(purchase,"PUUUUUU");
+      
       let clientName = 'Unknown Client';
       
-      if (purchase.user) {
-        clientName = `${purchase.user.firstName || ''} ${purchase.user.lastName || ''}`.trim();
+      if (purchase.customerId) {
+        clientName = `${purchase.customerId.firstName || ''} ${purchase.customerId.lastName || ''}`.trim();
       }
 
       return {
@@ -106,7 +109,7 @@ const getDashboardStats = async (req, res) => {
         itemName: purchase.itemName,
         location: purchase.location,
         status: purchase.status,
-        totalPrice: purchase.totalPrice,
+        totalPrice: purchase.totalAmount,
         createdAt: purchase.createdAt,
         type: 'purchase'
       };

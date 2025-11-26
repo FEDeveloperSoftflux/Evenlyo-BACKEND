@@ -8,6 +8,7 @@ const Cart = require("../../models/Cart");
 const { verifyAccessToken } = require("../../utils/jwtUtils");
 const Item = require("../../models/Item");
 const User = require("../../models/User");
+const Settings = require("../../models/Settings");
 const { default: mongoose } = require("mongoose");
 // @desc    Get calendar data (booked and available days/times) for a listing
 // @route   GET /api/listing/:id/calendar
@@ -212,6 +213,8 @@ const getListings = async (req, res) => {
 
     // Attach payment policy (from subcategory) to each listing
     const listings = listingsDocs.map((doc) => {
+      console.log(doc, "docdocdocdoc");
+
       const obj = doc.toObject();
       const sc = obj.subCategory || {};
       obj.paymentPolicy = {
@@ -256,11 +259,12 @@ const getListingById = async (req, res) => {
       .populate("category", "name icon description")
       .populate(
         "subCategory",
-        "name icon description escrowEnabled upfrontFeePercent upfrontHour evenlyoProtectFeePercent"
+        "name icon description isUpfrontEnabled upfrontFeePercent escrowHours isEvenlyoProtectEnabled evenlyoProtectFeePercent"
       )
       .populate("reviews.clientId", "firstName lastName profileImage");
+console.log(listing,"listinglistinglisting");
 
-    if (!listing || !listing.isActive || listing.status !== "active") {
+    if (listing.status !== "active") {
       return res.status(404).json({
         success: false,
         message: "Listing not found",
@@ -274,12 +278,12 @@ const getListingById = async (req, res) => {
     // Include contact information for detailed view and attach payment policy from subcategory
     const data = listing.toObject();
     const sc = data.subCategory || {};
-    data.paymentPolicy = {
-      escrowEnabled: !!sc.escrowEnabled,
-      upfrontFeePercent: Number(sc.upfrontFeePercent || 0),
-      upfrontHour: Number(sc.upfrontHour || 0),
-      evenlyoProtectFeePercent: Number(sc.evenlyoProtectFeePercent || 0),
-    };
+    console.log(sc, "scscscscscsc");
+
+    let settings = await Settings.findOne()
+
+    data.paymentPolicy = sc
+    data.settings = settings
 
     res.json({
       success: true,
@@ -950,9 +954,8 @@ const filterListings = async (req, res) => {
         rating: listing.ratings?.average || 0,
         ratingCount: listing.ratings?.count || 0,
         pricingPerEvent,
-        location: `${listing.location.city}${
-          listing.location.region ? ", " + listing.location.region : ""
-        }`,
+        location: `${listing.location.city}${listing.location.region ? ", " + listing.location.region : ""
+          }`,
         featuredImage: listing.images?.[0] || "",
         images: listing.images || [],
         category: listing.category?.name,
@@ -1296,8 +1299,8 @@ const getListingsAndVendorsByCategory = async (req, res) => {
       : "";
     const subCategoryInfo = finalSubCategoryId
       ? await SubCategory.findById(finalSubCategoryId)
-          .populate("mainCategory", "name")
-          .select("name icon description mainCategory")
+        .populate("mainCategory", "name")
+        .select("name icon description mainCategory")
       : "";
     const otherSaleItems = await Item.find({
       mainCategory: null,

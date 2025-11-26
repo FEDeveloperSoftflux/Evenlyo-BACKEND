@@ -4,11 +4,11 @@ const mongoose = require('mongoose');
 const categorySchema = new mongoose.Schema({
 
   name: {
-    en : {
-    type: String,
-    required: true,
-    unique: true,
-    trim: true
+    en: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true
     },
     nl: {
       type: String,
@@ -21,7 +21,7 @@ const categorySchema = new mongoose.Schema({
   icon: {
     type: String,
     validate: {
-      validator: function(v) {
+      validator: function (v) {
         if (!v) return true; // Allow empty/null values
         return /^https:\/\/res\.cloudinary\.com\//.test(v);
       },
@@ -45,11 +45,12 @@ const categorySchema = new mongoose.Schema({
   sortOrder: {
     type: Number,
     default: 0
-  }
+  },
+
 }, { timestamps: true });
 
 // Pre-save middleware
-categorySchema.pre('save', function(next) {
+categorySchema.pre('save', function (next) {
   this.updatedAt = Date.now();
   next();
 });

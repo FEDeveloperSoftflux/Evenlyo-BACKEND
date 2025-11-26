@@ -6,7 +6,8 @@ const {
   getTrackingStats,
   updateBookingStatus,
   getBookingStatusHistory,
-  getBookingStatusHistoryById
+  getBookingStatusHistoryById,
+  getAllSaleItemOrders
 } = require('../../controllers/admin/trackingController');
 const { requireAuth, requireAdmin, requireActiveAdmin } = require('../../middleware/authMiddleware');
 
@@ -16,6 +17,10 @@ const { requireAuth, requireAdmin, requireActiveAdmin } = require('../../middlew
 router.get('/', 
   requireAdmin,
   getAllBookingsTracking
+);
+router.get('/sale', 
+  requireAdmin,
+  getAllSaleItemOrders
 );
 
 // Get tracking statistics for dashboard

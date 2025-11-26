@@ -176,163 +176,54 @@ const getVendorListingsOverview = async (req, res) => {
 // ...existing code...
 const createListing = async (req, res) => {
   try {
-    const listingData = req.body;
-    console.log(listingData, "listingDatalistingData");
+    const data = req.body;
 
-    // Validate required fields before processing
-    if (
-      !listingData.title ||
-      (typeof listingData.title === "string" && !listingData.title.trim())
-    ) {
+    // -------- Validate multilingual title --------
+    if (!data.title || !data.title.en?.trim() || !data.title.nl?.trim()) {
       return res.status(400).json({
         success: false,
-        message: "Validation error",
-        errors: ["Title is required"],
+        message: "Title in both EN and NL is required",
       });
     }
 
-    if (
-      !listingData.description ||
-      (typeof listingData.description === "string" &&
-        !listingData.description.trim())
-    ) {
+    // -------- Validate multilingual description --------
+    if (!data.description || !data.description.en?.trim() || !data.description.nl?.trim()) {
       return res.status(400).json({
         success: false,
-        message: "Validation error",
-        errors: ["Description is required"],
+        message: "Description in both EN and NL is required",
       });
     }
 
-    // Convert text fields to multilingual format using toMultilingualText
-    listingData.title = toMultilingualText(listingData.title);
-    listingData.description = toMultilingualText(listingData.description);
-
-    // Handle optional fields
-    if (listingData.subtitle) {
-      listingData.subtitle = toMultilingualText(listingData.subtitle);
+    // -------- Validate subtitle only if sent --------
+    if (data.subtitle) {
+      if (!data.subtitle.en?.trim() || !data.subtitle.nl?.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Subtitle must have both EN and NL",
+        });
+      }
     }
 
-    // Set vendor ID from authenticated user
-    console.log(req.user, "REQQSDASDASD");
+    // -------- Set vendor from token --------
     const vendorId = req?.user?.id;
-    console.log(vendorId, "vendorIdvendorIdvendorIdvendorIdvendorId");
     if (!vendorId) {
       return res.status(400).json({
         success: false,
-        message: "Vendor not found in request.",
+        message: "Vendor not found in request",
       });
     }
 
-    // If vendor is not set in the listing data, set it from the authenticated user
-    if (!listingData.vendor) {
-      listingData.vendor = vendorId;
-    }
-    console.log(listingData, "listingDatalistingData_beforeeeeeeeee");
-    // Handle images array
-    if (Array.isArray(listingData.images)) {
-      listingData.images = listingData.images.filter(
-        (img) => typeof img === "string" && img.length > 0
-      );
-    } else if (listingData.images && typeof listingData.images === "string") {
-      listingData.images = [listingData.images];
-    }
-    // Fallback: if images is missing or empty, but media.gallery exists, copy gallery to images
-    if (
-      (!listingData.images || listingData.images.length === 0) &&
-      listingData.media &&
-      Array.isArray(listingData.media.gallery)
-    ) {
-      listingData.images = listingData.media.gallery.filter(
-        (img) => typeof img === "string" && img.length > 0
-      );
-    }
+    data.vendor = data.vendor || vendorId;
 
-    // Handle location coordinates - support both lat/lng and latitude/longitude formats
-    if (listingData.location && listingData.location.coordinates) {
-      const coords = listingData.location.coordinates;
+    console.log(data,"datadatadatadatadata");
+    
 
-      // Extract latitude and longitude, handling both formats
-      let latitude =
-        coords.latitude !== undefined ? coords.latitude : coords.lat;
-      let longitude =
-        coords.longitude !== undefined ? coords.longitude : coords.lng;
-
-      // Validate latitude
-      if (latitude !== undefined) {
-        latitude = parseFloat(latitude);
-        if (isNaN(latitude) || latitude < -90 || latitude > 90) {
-          return res.status(400).json({
-            success: false,
-            message: "Invalid latitude: must be a number between -90 and 90",
-          });
-        }
-      }
-
-      // Validate longitude
-      if (longitude !== undefined) {
-        longitude = parseFloat(longitude);
-        if (isNaN(longitude) || longitude < -180 || longitude > 180) {
-          return res.status(400).json({
-            success: false,
-            message: "Invalid longitude: must be a number between -180 and 180",
-          });
-        }
-      }
-
-      // Set the coordinates in the correct format for the model
-      if (latitude !== undefined && longitude !== undefined) {
-        listingData.location.coordinates = {
-          latitude: latitude,
-          longitude: longitude,
-        };
-      }
-    }
-
-    // Automatically set security fee based on service type
-    const serviceType =
-      listingData.serviceDetails?.serviceType || listingData.serviceType;
-    if (serviceType === "human") {
-      if (listingData.pricing) {
-        listingData.pricing.securityFee = 0;
-      }
-    } else if (serviceType === "non_human") {
-      if (
-        listingData.pricing &&
-        (!listingData.pricing.securityFee ||
-          listingData.pricing.securityFee === 0)
-      ) {
-        listingData.pricing.securityFee = 50; // Default security fee for equipment
-      }
-    }
-
-    console.log("listingData", listingData);
-    const listing = new Listing(listingData);
+    // -------- Create listing (no extra logic) --------
+    const listing = new Listing(data);
     await listing.save();
 
-    // Create an initial stock log entry so listing creation is reflected in stock management
-    try {
-      const qty =
-        typeof listing.quantity === "number"
-          ? listing.quantity
-          : Number(listing.quantity) || 0;
-      await StockLog.create({
-        listing: listing._id,
-        type: "stockin",
-        quantity: qty,
-        note: "Initial stock recorded when listing was created",
-        createdBy: req.user?._id,
-      });
-    } catch (e) {
-      // Non-fatal: log but don't fail listing creation
-      console.error(
-        "Failed to create initial stock log for listing",
-        listing._id,
-        e
-      );
-    }
-
-    // Populate the response
-    const populatedListing = await Listing.findById(listing._id)
+    // -------- Populate vendor, category, subCategory --------
+    const populated = await Listing.findById(listing._id)
       .populate(
         "vendor",
         "_id businessName businessLocation businessDescription businessEmail businessPhone businessWebsite gallery userId"
@@ -340,36 +231,21 @@ const createListing = async (req, res) => {
       .populate("category", "name icon description")
       .populate("subCategory", "name icon description");
 
-    let activityLog = await createActivityLog({
-      heading: "New Listing Created",
-      type: "booking_created",
-      description: `Created a new listing: "${
-        listingData?.title?.en || listingData?.title
-      }"`,
-      vendorId,
-    });
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Listing created successfully",
-      data: populatedListing,
+      data: populated,
     });
-  } catch (error) {
-    console.error("Error creating listing:", error);
-    if (error.name === "ValidationError") {
-      const errors = Object.values(error.errors).map((err) => err.message);
-      return res.status(400).json({
-        success: false,
-        message: "Validation error",
-        errors,
-      });
-    }
-    res.status(500).json({
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
       success: false,
       message: "Error creating listing",
-      error: error.message,
+      error: err.message,
     });
   }
 };
+
 // ...existing code...
 
 // @desc    Update an existing listing

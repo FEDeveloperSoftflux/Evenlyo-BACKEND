@@ -8,222 +8,382 @@ const Item = require('../../models/Item');
 // Get all bookings with tracking information for admin
 const getAllBookingsTracking = async (req, res) => {
   try {
+    // Optional query params
     const {
-      status = '',
-      search = '',
-      sortBy = 'createdAt',
-      sortOrder = 'desc'
+      page = 1,
+      limit = 20,
+      status,
+      vendorId,
+      dateFrom,
+      dateTo,
+      searchTrackingId
     } = req.query;
 
-    // Build filter object
-    let filter = {};
+    // Build filter
+    const filter = {};
+    if (status) filter.status = status;
+    if (vendorId) filter.vendorId = vendorId;
+    if (searchTrackingId) filter.trackingId = { $regex: searchTrackingId, $options: 'i' };
 
-    // Filter by status if provided
-    if (status && status !== 'all') {
-      filter.status = status;
+    if (dateFrom || dateTo) {
+      filter.createdAt = {};
+      if (dateFrom) filter.createdAt.$gte = new Date(dateFrom);
+      if (dateTo) filter.createdAt.$lte = new Date(dateTo);
     }
 
-    // Search filter for tracking ID, buyer name, vendor name, or listing name
-    let searchFilter = {};
-    if (search) {
-      searchFilter = {
-        $or: [
-          { trackingId: { $regex: search, $options: 'i' } }
-        ]
-      };
-    }
+    // Pagination
+    const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+    const perPage = Math.max(parseInt(limit, 10) || 20, 1);
+    const skip = (pageNum - 1) * perPage;
 
-    // Combine filters
-    const finalFilter = { ...filter, ...searchFilter };
-
-    // Sort configuration
-    const sortConfig = {};
-    sortConfig[sortBy] = sortOrder === 'desc' ? -1 : 1;
-
-    // Get all bookings and purchases in parallel
-    const [bookings, purchases] = await Promise.all([
-      Booking.find(finalFilter)
-        .populate({
-          path: 'userId',
-          select: 'firstName lastName profileImage email'
-        })
-        .populate({
-          path: 'vendorId',
-          populate: {
-            path: 'userId',
-            select: 'firstName lastName profileImage email'
-          },
-          select: 'businessName businessLogo userId'
-        })
-        .populate({
-          path: 'listingId',
-          select: 'title subtitle location'
-        })
-        .sort(sortConfig)
-        .lean(),
-
-
-
-      // Get all purchases with population
-      Purchase.find(finalFilter)
-        .populate({
-          path: 'user',
-          select: 'firstName lastName profileImage email'
-        })
-        .populate({
-          path: 'vendor',
-          populate: {
-            path: 'userId',
-            select: 'firstName lastName profileImage email'
-          },
-          select: 'businessName businessLogo userId'
-        })
-        .populate({
-          path: 'item',
-          select: 'title mainCategory subCategory'
-        })
-        .sort(sortConfig)
-        .lean()
+    // Query and populate buyer (userId) and seller (vendorId)
+    const [total, bookings] = await Promise.all([
+      Booking.countDocuments(filter),
+      Booking.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(perPage)
+        // adjust the selected fields from user/vendor to match your models (name vs firstName/lastName)
+        .populate('userId', 'firstName lastName email contactNumber profileImage')
+        .populate('vendorId', 'firstName lastName email contactNumber profileImage name') // include `name` in case Vendor model uses it
     ]);
 
+    // Format each booking to return only the requested fields
+    const formatted = bookings.map(b => {
+      console.log(b, "bbbbbbbbb");
 
-    console.log(bookings,purchases, "purchasespurchases")
+      const buyer = b.userId || {};
+      const vendor = b.vendorId || {};
 
-
-    // Get total counts
-    const totalBookings = bookings.length;
-    const totalPurchases = purchases.length;
-
-    // Format the booking tracking data
-    const trackingData = bookings.map(booking => {
-      // Buyer Info
-      const buyerInfo = {
-        name: booking.userId
-          ? `${booking.userId.firstName || ''} ${booking.userId.lastName || ''}`.trim()
-          : 'Unknown Buyer',
-        profilePic: booking.userId?.profileImage || '',
-        email: booking.userId?.email || ''
-      };
-
-      // Vendor Info
-      let vendorInfo = {
-        name: 'Unknown Vendor',
-        profilePic: '',
-        email: ''
-      };
-
-      if (booking.vendorId) {
-        if (booking.vendorId.businessName) {
-          // Business vendor
-          vendorInfo = {
-            name: booking.vendorId.businessName,
-            profilePic: booking.vendorId.businessLogo || '',
-            email: booking.vendorId.userId?.email || ''
-          };
-        } else if (booking.vendorId.userId) {
-          // Personal vendor
-          vendorInfo = {
-            name: `${booking.vendorId.userId.firstName || ''} ${booking.vendorId.userId.lastName || ''}`.trim(),
-            profilePic: booking.vendorId.userId.profileImage || '',
-            email: booking.vendorId.userId.email || ''
-          };
-        }
-      }
+      const buyerName = buyer.name || `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim();
+      const sellerName = vendor.name || `${vendor.firstName || ''} ${vendor.lastName || ''}`.trim();
 
       return {
-        trackingId: booking.trackingId,
-        date: booking.createdAt,
-        buyerInfo,
-        vendorInfo,
-        listingName: booking.listingId?.title || 'Unknown Listing',
-        location: booking.details?.eventLocation || booking.listingId?.location?.fullAddress || 'Location not specified',
-        status: booking.status,
-        bookingId: booking._id,
-        startDate: booking.details?.startDate,
-        endDate: booking.details?.endDate,
-        totalPrice: booking.pricing?.totalPrice,
-        paymentStatus: booking.paymentStatus
+        id: b._id,
+        trackingId: b.trackingId,
+        orderDateTime: b.createdAt, // ISO date
+        buyer: {
+          id: buyer._id || null,
+          name: buyerName || null,
+          email: buyer.email || null,
+          phone: buyer.contactNumber || null,
+          profileImage: buyer.profileImage || null
+        },
+        seller: {
+          id: vendor._id || null,
+          name: sellerName || null,
+          email: vendor.email || null,
+          phone: vendor.contactNumber || null,
+          profileImage: vendor.profileImage || null
+        },
+        // item(s) — BookingRequest has listingId + listingDetails
+        items: {
+          listingId: b.listingId || null,
+          listingDetails: b.listingDetails || null
+        },
+        destination: {
+          eventLocation: b.details?.eventLocation || null,
+          coordinates: b.details?.coordinates || null
+        },
+        status: b.status,
+        paymentStatus: b.paymentStatus,
+        pricing: b.pricing || {},
+        createdAt: b.createdAt,
+        updatedAt: b.updatedAt
       };
     });
 
-    // Format the purchase history data
-    const purchaseHistory = purchases.map(purchase => {
-      // Buyer Info
-      const buyerInfo = {
-        name: purchase.user
-          ? `${purchase.user.firstName || ''} ${purchase.user.lastName || ''}`.trim()
-          : 'Unknown Buyer',
-        profilePic: purchase.user?.profileImage || '',
-        email: purchase.user?.email || ''
-      };
-
-      // Vendor Info
-      let vendorInfo = {
-        name: 'Unknown Vendor',
-        profilePic: '',
-        email: ''
-      };
-
-      if (purchase.vendor) {
-        if (purchase.vendor.businessName) {
-          // Business vendor
-          vendorInfo = {
-            name: purchase.vendor.businessName,
-            profilePic: purchase.vendor.businessLogo || '',
-            email: purchase.vendor.userId?.email || ''
-          };
-        } else if (purchase.vendor.userId) {
-          // Personal vendor
-          vendorInfo = {
-            name: `${purchase.vendor.userId.firstName || ''} ${purchase.vendor.userId.lastName || ''}`.trim(),
-            profilePic: purchase.vendor.userId.profileImage || '',
-            email: purchase.vendor.userId.email || ''
-          };
-        }
-      }
-
-      return {
-        trackingId: purchase.trackingId,
-        date: purchase.createdAt,
-        buyerInfo,
-        vendorInfo,
-        itemName: purchase.itemName || purchase.item?.title || 'Unknown Item',
-        location: purchase.location || 'Location not specified',
-        status: purchase.status,
-        purchaseId: purchase._id,
-        quantity: purchase.quantity,
-        totalPrice: purchase.totalPrice,
-        purchasedAt: purchase.purchasedAt,
-        type: 'purchase'
-      };
-    });
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: 'Booking and purchase tracking data retrieved successfully',
-      data: {
-        trackingData,
-        purchaseHistory,
-        totalBookings,
-        totalPurchases,
-        filters: {
-          status: status || 'all',
-          search,
-          sortBy,
-          sortOrder
-        }
-      }
+      meta: {
+        total,
+        page: pageNum,
+        perPage,
+        totalPages: Math.ceil(total / perPage)
+      },
+      data: formatted
+    });
+  } catch (err) {
+    console.error('getAllBookings error', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// try {
+//   const {
+//     status = '',
+//     search = '',
+//     sortBy = 'createdAt',
+//     sortOrder = 'desc'
+//   } = req.query;
+
+//   // Build filter object
+//   let filter = {};
+
+//   // Filter by status if provided
+//   if (status && status !== 'all') {
+//     filter.status = status;
+//   }
+
+//   // Search filter for tracking ID, buyer name, vendor name, or listing name
+//   let searchFilter = {};
+//   if (search) {
+//     searchFilter = {
+//       $or: [
+//         { trackingId: { $regex: search, $options: 'i' } }
+//       ]
+//     };
+//   }
+
+//   // Combine filters
+//   const finalFilter = { ...filter, ...searchFilter };
+
+//   // Sort configuration
+//   const sortConfig = {};
+//   sortConfig[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+//   // Get all bookings and purchases in parallel
+//   const [bookings, purchases] = await Promise.all([
+//     Booking.find(finalFilter)
+//       .populate({
+//         path: 'userId',
+//         select: 'firstName lastName profileImage email'
+//       })
+//       .populate({
+//         path: 'vendorId',
+//         populate: {
+//           path: 'userId',
+//           select: 'firstName lastName profileImage email'
+//         },
+//         select: 'businessName businessLogo userId'
+//       })
+//       .populate({
+//         path: 'listingId',
+//         select: 'title subtitle location'
+//       })
+//       .sort(sortConfig)
+//       .lean(),
+
+
+
+//     // Get all purchases with population
+//     Purchase.find(finalFilter)
+//       .populate({
+//         path: 'customerId',
+//         select: 'firstName lastName profileImage email'
+//       })
+//       .populate({
+//         path: 'vendorId',
+//         populate: {
+//           path: 'User',
+//           select: 'firstName lastName profileImage email'
+//         },
+//         select: 'businessName businessLogo userId'
+//       })
+//       // .populate({
+//       //   path: 'item',
+//       //   select: 'title mainCategory subCategory'
+//       // })
+//       .sort(sortConfig)
+//       .lean()
+//   ]);
+
+
+//   console.log(bookings,purchases, "purchasespurchases")
+
+
+//   // Get total counts
+//   const totalBookings = bookings.length;
+//   const totalPurchases = purchases.length;
+
+//   // Format the booking tracking data
+//   const trackingData = bookings.map(booking => {
+//     // Buyer Info
+//     const buyerInfo = {
+//       name: booking.userId
+//         ? `${booking.userId.firstName || ''} ${booking.userId.lastName || ''}`.trim()
+//         : 'Unknown Buyer',
+//       profilePic: booking.userId?.profileImage || '',
+//       email: booking.userId?.email || ''
+//     };
+
+//     // Vendor Info
+//     let vendorInfo = {
+//       name: 'Unknown Vendor',
+//       profilePic: '',
+//       email: ''
+//     };
+
+//     if (booking.vendorId) {
+//       if (booking.vendorId.businessName) {
+//         // Business vendor
+//         vendorInfo = {
+//           name: booking.vendorId.businessName,
+//           profilePic: booking.vendorId.businessLogo || '',
+//           email: booking.vendorId.userId?.email || ''
+//         };
+//       } else if (booking.vendorId.userId) {
+//         // Personal vendor
+//         vendorInfo = {
+//           name: `${booking.vendorId.userId.firstName || ''} ${booking.vendorId.userId.lastName || ''}`.trim(),
+//           profilePic: booking.vendorId.userId.profileImage || '',
+//           email: booking.vendorId.userId.email || ''
+//         };
+//       }
+//     }
+
+//     return {
+//       trackingId: booking.trackingId,
+//       date: booking.createdAt,
+//       buyerInfo,
+//       vendorInfo,
+//       listingName: booking.listingId?.title || 'Unknown Listing',
+//       location: booking.details?.eventLocation || booking.listingId?.location?.fullAddress || 'Location not specified',
+//       status: booking.status,
+//       bookingId: booking._id,
+//       startDate: booking.details?.startDate,
+//       endDate: booking.details?.endDate,
+//       totalPrice: booking.pricing?.totalPrice,
+//       paymentStatus: booking.paymentStatus
+//     };
+//   });
+
+//   // Format the purchase history data
+//   const purchaseHistory = purchases.map(purchase => {
+//     // Buyer Info
+//     const buyerInfo = {
+//       name: purchase.user
+//         ? `${purchase.user.firstName || ''} ${purchase.user.lastName || ''}`.trim()
+//         : 'Unknown Buyer',
+//       profilePic: purchase.user?.profileImage || '',
+//       email: purchase.user?.email || ''
+//     };
+
+//     // Vendor Info
+//     let vendorInfo = {
+//       name: 'Unknown Vendor',
+//       profilePic: '',
+//       email: ''
+//     };
+
+//     if (purchase.vendor) {
+//       if (purchase.vendor.businessName) {
+//         // Business vendor
+//         vendorInfo = {
+//           name: purchase.vendor.businessName,
+//           profilePic: purchase.vendor.businessLogo || '',
+//           email: purchase.vendor.userId?.email || ''
+//         };
+//       } else if (purchase.vendor.userId) {
+//         // Personal vendor
+//         vendorInfo = {
+//           name: `${purchase.vendor.userId.firstName || ''} ${purchase.vendor.userId.lastName || ''}`.trim(),
+//           profilePic: purchase.vendor.userId.profileImage || '',
+//           email: purchase.vendor.userId.email || ''
+//         };
+//       }
+//     }
+
+//     return {
+//       trackingId: purchase.trackingId,
+//       date: purchase.createdAt,
+//       buyerInfo,
+//       vendorInfo,
+//       itemName: purchase.itemName || purchase.item?.title || 'Unknown Item',
+//       location: purchase.location || 'Location not specified',
+//       status: purchase.status,
+//       purchaseId: purchase._id,
+//       quantity: purchase.quantity,
+//       totalPrice: purchase.totalPrice,
+//       purchasedAt: purchase.purchasedAt,
+//       type: 'purchase'
+//     };
+//   });
+
+//   res.status(200).json({
+//     success: true,
+//     message: 'Booking and purchase tracking data retrieved successfully',
+//     data: {
+//       trackingData,
+//       purchaseHistory,
+//       totalBookings,
+//       totalPurchases,
+//       filters: {
+//         status: status || 'all',
+//         search,
+//         sortBy,
+//         sortOrder
+//       }
+//     }
+//   });
+
+// } catch (error) {
+//   console.error('Error in getAllBookingsTracking:', error);
+//   res.status(500).json({
+//     success: false,
+//     message: 'Failed to retrieve booking and purchase tracking data',
+//     error: error.message
+//   });
+// }
+
+
+const getAllSaleItemOrders = async (req, res) => {
+  try {
+
+    const orders = await Purchase.find()
+      .populate("vendorId", "firstName lastName email phone image")
+      .populate("customerId", "firstName lastName email phone image")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      message: "Sale orders fetched successfully",
+      total: orders.length,
+      orders: orders.map(order => ({
+        trackingId: order.trackingId,
+        orderDate: order.createdAt,
+        status: order.status,
+
+        // Buyer
+        buyer: {
+          id: order.customerId?._id,
+          name: order.customerId ? `${order.customerId.firstName} ${order.customerId.lastName}` : "",
+          email: order.customerId?.email || "",
+          phone: order.customerId?.phone || "",
+          image: order.customerId?.image || ""
+        },
+
+        // Seller
+        seller: {
+          id: order.vendorId?._id,
+          name: order.vendorId ? `${order.vendorId.firstName} ${order.vendorId.lastName}` : "",
+          email: order.vendorId?.email || "",
+          phone: order.vendorId?.phone || "",
+          image: order.vendorId?.image || ""
+        },
+
+        // Item list directly from order model
+        items: order.items,
+
+        // Locations
+        pickupLocation: order.itemLocation,
+        deliveryLocation: order.deliveryLocation,
+
+        totalAmount: order.totalAmount,
+        deliveryAmount: order.deliveryAmount,
+        totalKms: order.totalKms,
+      }))
     });
 
-  } catch (error) {
-    console.error('Error in getAllBookingsTracking:', error);
-    res.status(500).json({
+  } catch (err) {
+    console.error("Error fetching sale orders:", err);
+    return res.status(500).json({
       success: false,
-      message: 'Failed to retrieve booking and purchase tracking data',
-      error: error.message
+      message: err.message,
     });
   }
 };
+
 
 // Get booking tracking details by tracking ID
 const getBookingByTrackingId = async (req, res) => {
@@ -623,5 +783,6 @@ module.exports = {
   getTrackingStats,
   updateBookingStatus,
   getBookingStatusHistory,
-  getBookingStatusHistoryById
+  getBookingStatusHistoryById,
+  getAllSaleItemOrders
 };

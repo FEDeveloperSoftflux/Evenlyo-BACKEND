@@ -9,7 +9,7 @@ router.get('/analytics', requireAuth, getVendorBookingAnalytics);
 
 router.post('/:id/accept', requireAuth, requireVendor, acceptBooking);
 
-router.post('/:id/reject', requireAuth, requireVendor, rejectBooking);
+router.post('/:id/reject', requireAuth, rejectBooking);
 
 
 module.exports = router;

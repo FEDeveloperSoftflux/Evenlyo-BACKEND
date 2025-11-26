@@ -4,7 +4,7 @@ const activityLogSchema = new mongoose.Schema(
   {
     vendorId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Vendor",
+      ref: "User",
       required: true,
     },
     heading: {
@@ -19,6 +19,8 @@ const activityLogSchema = new mongoose.Schema(
         "booking_accepted",
         "booking_rejected",
         "sale_item_added",
+        "sale_item_order_placed",
+        "sale_item_order_delivered"
       ],
     },
     description: {
@@ -29,6 +31,10 @@ const activityLogSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "BookingRequest",
     },
+    ActivityType: {
+      type: String,
+      default: "booking"
+    }
   },
   { timestamps: true }
 );

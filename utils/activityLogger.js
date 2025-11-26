@@ -1,10 +1,11 @@
 const ActivityLog = require('../models/ActivityLog');
 
-const createActivityLog = async ({ heading, type, description, bookingId, userId, vendorId, metadata = {} }) => {
+const createActivityLog = async ({ ActivityType,heading, type, description, bookingId, userId, vendorId, metadata = {} }) => {
   try {
     const log = await ActivityLog.create({
       heading,
       type,
+      ActivityType,
       description,
       bookingId,
       userId,
