@@ -29,7 +29,6 @@ function chatSocket(io) {
 
     socket.on("send_message", async (params) => {
       console.log("EVENT_FIRED", params);
-
       const {
         conversationId,
         senderId,
@@ -174,6 +173,8 @@ function chatSocket(io) {
           specialRequests: item.specialRequest || "",
           totalAmount: item.total,
           securityFee: item.securityFee,
+          status: item.offerStatus,
+          pricingBreakdown: item.pricingBreakdown
         }));
 
         console.log("finalItemsfinalItems", finalItems);

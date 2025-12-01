@@ -262,7 +262,7 @@ const getListingById = async (req, res) => {
         "name icon description isUpfrontEnabled upfrontFeePercent escrowHours isEvenlyoProtectEnabled evenlyoProtectFeePercent"
       )
       .populate("reviews.clientId", "firstName lastName profileImage");
-console.log(listing,"listinglistinglisting");
+    console.log(listing, "listinglistinglisting");
 
     if (listing.status !== "active") {
       return res.status(404).json({
@@ -931,7 +931,7 @@ const filterListings = async (req, res) => {
 
     // Get total count for pagination
     const total = await Listing.countDocuments(query);
-
+    let settings = await Settings.findOne()
     // Format the response data
     const formattedListings = listings.map((listing) => {
       // Get the main pricing (prefer per event, then per day, then per hour)
@@ -945,6 +945,14 @@ const filterListings = async (req, res) => {
       } else {
         pricingPerEvent = "Quote on request";
       }
+
+      const data = listing.toObject();
+      const sc = data.subCategory || {};
+      console.log(sc, "scscscscscsc");
+
+
+
+
 
       return {
         id: listing._id,
@@ -960,12 +968,14 @@ const filterListings = async (req, res) => {
         images: listing.images || [],
         category: listing.category?.name,
         subCategory: listing.subCategory?.name,
+        settings,
+        paymentPolicy: sc
       };
     });
 
     res.json({
       success: true,
-      data: formattedListings,
+      data: [],
       pagination: {
         current: parseInt(page),
         pages: Math.ceil(total / limit),

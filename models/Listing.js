@@ -145,7 +145,6 @@ const listingSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
-
   bookings: {
     total: {
       type: Number,

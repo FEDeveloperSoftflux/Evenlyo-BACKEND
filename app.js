@@ -191,27 +191,23 @@ app.use((err, req, res, next) => {
 });
 
 
-const SubCategory = require("./models/SubCategory");
+// const Booking = require("./models/Booking");
 
-async function addCreatedByIdToUsers() {
-  try {
-    const result = await SubCategory.updateMany(
-      {},
-      {
-        $set: {
-          isUpfrontEnabled: null,
-          upfrontFeePercent: 20,
-          escrowHours: 10,
-          isEvenlyoProtectEnabled: false,
-          evenlyoProtectFeePercent: null
-        }
-      }
-    );
-  } catch (error) {
-    console.error("❌ Error:", error);
-    process.exit(1);
-  }
-}
+// async function addCreatedByIdToUsers() {
+//   try {
+//     const result = await Booking.updateMany(
+//       {},
+//       {
+//         $set: {
+//           reminderSent: false
+//         }
+//       }
+//     );
+//   } catch (error) {
+//     console.error("❌ Error:", error);
+//     process.exit(1);
+//   }
+// }
 
 // addCreatedByIdToUsers()
 

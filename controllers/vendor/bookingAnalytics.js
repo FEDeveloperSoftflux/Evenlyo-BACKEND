@@ -10,7 +10,7 @@ const {
   checkAvailability,
 } = require("../../utils/bookingUtils");
 const { createActivityLog } = require("../../utils/activityLogger");
-
+const stripe = require('../../config/stripe');
 // GET /api/vendor/bookings/analytics
 const getVendorBookingAnalytics = async (req, res) => {
   console.log("HAHAHAHHA");
@@ -225,6 +225,57 @@ const acceptBooking = asyncHandler(async (req, res) => {
   });
 });
 
+
+const getAmountToPay = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const bookingDetails = await Booking.findOne({ _id: id });
+
+    if (!bookingDetails) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    let amountToPay;
+
+    // Condition 1: User is not paying upfront
+    if (!bookingDetails.willPayUpfront) {
+      amountToPay = bookingDetails.AmountLeft;
+    }
+    // Condition 2: Paying upfront but upfront NOT paid yet
+    else if (bookingDetails.willPayUpfront && !bookingDetails.isUpfrontPaid) {
+      amountToPay = bookingDetails?.pricingBreakdown?.upfrontFee;
+    }
+    // Condition 3: Paying upfront BUT upfront already paid → still amountLeft
+    else if (bookingDetails.willPayUpfront && bookingDetails.isUpfrontPaid) {
+      amountToPay = bookingDetails.AmountLeft;
+    }
+
+    res.json({ amountToPay });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const createPaymentIntent = async (req, res) => {
+  try {
+    const { amount, currency = "usd" } = req.body;
+    if (!amount) {
+      return res.status(400).json({ error: "Amount is required" });
+    }
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amount * 100), // convert to cents
+      currency,
+      automatic_payment_methods: { enabled: true }
+    });
+    res.json({
+      clientSecret: paymentIntent.client_secret,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 const rejectBooking = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { rejectionReason } = req.body;
@@ -295,8 +346,106 @@ const rejectBooking = asyncHandler(async (req, res) => {
   });
 });
 
+const paymentConfirmation = async (req, res) => {
+  try {
+    const { bookingId, paymentIntent, amount } = req.body;
+    console.log(req.body, "req.bodyreq.bodyreq.body");
+
+    // Validate
+    if (!bookingId || !paymentIntent || !amount) {
+      return res.status(400).json({
+        success: false,
+        message: "bookingId, paymentIntent and amount are required."
+      });
+    }
+
+    const booking = await Booking.findById(bookingId);
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found."
+      });
+    }
+
+    const paidAmount = Number(amount);
+
+    if (isNaN(paidAmount) || paidAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Amount must be a valid positive number."
+      });
+    }
+    console.log(booking, "bookingbookingbookingbookingbooking");
+
+    if (
+      booking.willPayUpfront === true &&
+      booking.isUpfrontPaid === true &&
+      paidAmount === booking.pricingBreakdown?.upfrontFee
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Upfront payment has already been made."
+      });
+    }
+
+    // ❌ Prevent any payment if already fully paid
+    if (booking.paymentStatus === "fully_paid") {
+      return res.status(400).json({
+        success: false,
+        message: "This booking is already fully paid."
+      });
+    }
+
+
+    // Update amounts
+    booking.paymentIntentId = paymentIntent;
+    booking.AmountPaid = (booking.AmountPaid || 0) + paidAmount;
+    booking.AmountLeft = Number(booking.pricingBreakdown?.total || 0) - Number(paidAmount);
+
+    // Fully paid check
+    console.log(booking.AmountPaid, booking.pricingBreakdown, "bookingbookingbooking");
+
+    if (booking.AmountPaid >= (booking.pricingBreakdown?.total || 0)) {
+      booking.isFullyPaid = true;
+      booking.AmountLeft = 0;
+      booking.paymentStatus = "paid" // safety
+    }
+    else {
+      booking.paymentStatus = "upfront_paid"
+      booking.isUpfrontPaid = true
+    }
+
+    // Optional: store payment intent ID
+
+    await booking.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Payment Received Successfully.",
+      data: {
+        bookingId: booking._id,
+        amountPaid: booking.AmountPaid,
+        amountLeft: booking.AmountLeft,
+        isFullyPaid: booking.isFullyPaid
+      }
+    });
+
+  } catch (error) {
+    console.error("Payment confirmation error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   acceptBooking,
   rejectBooking,
   getVendorBookingAnalytics,
+  createPaymentIntent,
+  paymentConfirmation,
+  getAmountToPay
 };

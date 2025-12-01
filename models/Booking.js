@@ -255,7 +255,16 @@ const bookingRequestSchema = new mongoose.Schema({
     default: 0
   },
   isFullyPaid: {
-    type: Boolean
+    type: Boolean,
+    default: false
+  },
+  isUpfrontPaid: {
+    type: Boolean,
+    default: false
+  },
+  willPayUpfront: {
+    type: Boolean,
+    default: false
   },
   AmountPaid: {
     type: Number,
@@ -264,6 +273,14 @@ const bookingRequestSchema = new mongoose.Schema({
   AmountLeft: {
     type: Number,
     default: 0
+  },
+  paymentIntentId: {
+    type: String,
+    default: ""
+  },
+  reminderSent: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 

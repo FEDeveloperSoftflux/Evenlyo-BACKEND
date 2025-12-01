@@ -34,6 +34,7 @@ const getVendorBookings = async (req, res) => {
       .sort({ createdAt: -1 });
 
     const result = bookings.map((b) => ({
+      paymentStatus: b.paymentStatus,
       trackingId: b.trackingId,
       eventDate: b.details?.startDate,
       buyer: {
@@ -61,6 +62,8 @@ const markBookingOnTheWay = asyncHandler(async (req, res) => {
 
   // Get vendor profile
   const vendor = await Vendor.findOne({ userId: req.user.id });
+  console.log(vendor, "vendorvendorvendor");
+
   if (!vendor) {
     return res.status(404).json({
       success: false,
@@ -70,8 +73,8 @@ const markBookingOnTheWay = asyncHandler(async (req, res) => {
 
   const booking = await BookingRequest.findOne({
     _id: req.params.id,
-    vendorId: vendor._id,
-    status: "paid",
+    vendorId: vendor.userId,
+    paymentStatus: "paid",
   });
 
   if (!booking) {
@@ -125,7 +128,7 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
 
   const booking = await BookingRequest.findOne({
     _id: req.params.id,
-    vendorId: vendor._id,
+    vendorId: vendor.userId,
     status: "finished",
   });
 
@@ -145,8 +148,6 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
   }
 
   if (booking.condition === "good") {
-    booking.pricing.securityFee = 0;
-    booking.pricing.claimAmount = 0;
   } else if (booking.condition === "fair") {
     const parsedSecurityFee = Number(securityFee);
     if (!Number.isFinite(parsedSecurityFee) || parsedSecurityFee <= 0) {
@@ -198,9 +199,8 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
     try {
       await notificationController.createAdminNotification({
         bookingId: booking._id,
-        message: `Claim request submitted by vendor for booking. Security Fee: ${safeSecurityFee}, Claim Amount: ${parsedClaimAmount}, Total: ${
-          safeSecurityFee + parsedClaimAmount
-        }`,
+        message: `Claim request submitted by vendor for booking. Security Fee: ${safeSecurityFee}, Claim Amount: ${parsedClaimAmount}, Total: ${safeSecurityFee + parsedClaimAmount
+          }`,
       });
     } catch (e) {
       console.error("Failed to notify admin for claim request:", e);
@@ -239,12 +239,12 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
         _id: booking._id,
         status: booking.status,
         condition: booking.condition,
-        securityFee: booking.pricing.securityFee,
-        claimAmount: booking.pricing.claimAmount,
-        totalClaim:
-          booking.condition === "claim"
-            ? booking.pricing.securityFee + booking.pricing.claimAmount
-            : booking.pricing.securityFee,
+        // securityFee: booking.pricing.securityFee,
+        // claimAmount: booking.pricing.claimAmount,
+        // totalClaim:
+        //   booking.condition === "claim"
+        //     ? booking.pricing.securityFee + booking.pricing.claimAmount
+        //     : booking.pricing.securityFee,
       },
     },
   });
@@ -265,7 +265,7 @@ const markBookingCompleted = asyncHandler(async (req, res) => {
 
   const booking = await BookingRequest.findOne({
     _id: req.params.id,
-    vendorId: vendor._id,
+    vendorId: vendor.userId,
     status: { $in: ["received_back"] },
   });
   console.log("markBookingCompleted - Found booking:", booking);
@@ -281,7 +281,7 @@ const markBookingCompleted = asyncHandler(async (req, res) => {
   // Atomically increment listing quantity by 1 (item returned to stock)
   try {
     const updatedListing = await Listing.findOneAndUpdate(
-      { _id: booking.listingId, vendor: vendor._id },
+      { _id: booking.listingId, vendor: vendor.userId },
       { $inc: { quantity: 1 } },
       { new: true }
     );
@@ -366,7 +366,7 @@ const markAsReceivedBack = asyncHandler(async (req, res) => {
 
   const booking = await BookingRequest.findOne({
     _id: id,
-    vendorId: vendor._id,
+    vendorId: vendor.userId,
     status: { $in: ["picked_up", "claim"] },
   });
 

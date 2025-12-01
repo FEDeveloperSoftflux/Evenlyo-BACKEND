@@ -3,7 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const chatSocket = require('./sockets/chatSockets');
 const logger = require('./utils/logger');
-
+require("./corn/paymentReminder");
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 

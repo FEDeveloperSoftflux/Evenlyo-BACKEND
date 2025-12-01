@@ -2,6 +2,7 @@ const Listing = require("../../models/Listing");
 const SaleItem = require("../../models/Item");
 const StockLog = require("../../models/StockLog");
 const Booking = require("../../models/Booking");
+const Settings = require("../../models/Settings");
 const { toMultilingualText } = require("../../utils/textUtils");
 const { createActivityLog } = require("../../utils/activityLogger");
 
@@ -9,19 +10,24 @@ const filterByCategory = async (req, res) => {
   try {
     const { category, subCategory } = req.query;
 
-    // Build dynamic query object
     let query = {};
 
     if (category) query.category = category;
     if (subCategory) query.subCategory = subCategory;
 
-    const results = await Listing.find(query);
-    console.log(results, "resultsresultsresultsresults");
+    // Fetch listings + populate subCategory details
+    const results = await Listing.find(query)
+      .populate("subCategory")    // full subCategory detail
+      .lean();
 
-    if (results.length === 0) {
+    // Fetch settings (assuming only 1 settings document)
+    const settings = await Settings.findOne().lean();
+
+    if (!results || results.length === 0) {
       return res.status(404).json({
         success: false,
         message: "No results found",
+        settings: settings || null, // still return settings
       });
     }
 
@@ -29,15 +35,19 @@ const filterByCategory = async (req, res) => {
       success: true,
       message: "Results fetched successfully",
       data: results,
+      settings: settings || null,
     });
+
   } catch (error) {
     console.error("Filter Error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Internal server error",
+      error: error.message,
     });
   }
 };
+
 
 const toggleListingStatus = async (req, res) => {
   try {
@@ -215,8 +225,8 @@ const createListing = async (req, res) => {
 
     data.vendor = data.vendor || vendorId;
 
-    console.log(data,"datadatadatadatadata");
-    
+    console.log(data, "datadatadatadatadata");
+
 
     // -------- Create listing (no extra logic) --------
     const listing = new Listing(data);

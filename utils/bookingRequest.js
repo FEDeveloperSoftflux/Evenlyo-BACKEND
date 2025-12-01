@@ -35,7 +35,9 @@ const createBookingRequest = async (data, session) => {
     specialRequests,
     totalAmount,
     securityFee,
+    pricingBreakdown,
   } = data;
+  console.log(data, "datadatadatadatadata");
 
   // Calculate duration and multi-day details early to determine validation
   const startDateObj = new Date(startDate);
@@ -83,8 +85,7 @@ const createBookingRequest = async (data, session) => {
     Number(distanceKm) <= 0
   ) {
     throw new Error(
-      `distanceKm is required and must be a positive number for this listing: ${
-        listing?.title?.en || listing?.title?.nl
+      `distanceKm is required and must be a positive number for this listing: ${listing?.title?.en || listing?.title?.nl
       }.`
     );
   }
@@ -96,8 +97,7 @@ const createBookingRequest = async (data, session) => {
     listing.vendor._id.toString() !== vendorId
   ) {
     throw new Error(
-      `Vendor mismatch for listing: ${
-        listing?.title?.en || listing?.title?.nl
+      `Vendor mismatch for listing: ${listing?.title?.en || listing?.title?.nl
       }.`
     );
   }
@@ -112,13 +112,12 @@ const createBookingRequest = async (data, session) => {
     endTime, // pass endTime for time slot validation
     session
   );
-  if (!isAvailable) {
-    throw new Error(
-      `Selected dates/times are not available. The time slot may be outside available hours or already booked for listing: ${
-        listing?.title?.en || listing?.title?.nl
-      }.`
-    );
-  }
+  // if (!isAvailable) {
+  //   throw new Error(
+  //     `Selected dates/times are not available. The time slot may be outside available hours or already booked for listing: ${listing?.title?.en || listing?.title?.nl
+  //     }.`
+  //   );
+  // }
 
   // Calculate hours per day and total hours depending on presence of times and multi-day
   let dailyHours = 0;
@@ -173,7 +172,7 @@ const createBookingRequest = async (data, session) => {
   }
 
   const bookingPrice = pricingResult.bookingPrice;
-  const platformFee = Math.round(bookingPrice * platformFeePercent) / 100;
+  const platformFee = data.pricingBreakdown.platformFee
   const extratimeCost = pricingResult.extratimeCost;
   const kmCharge = pricingResult.kmCharge;
   const subtotal = bookingPrice + extratimeCost + securityFees + kmCharge;
@@ -211,9 +210,16 @@ const createBookingRequest = async (data, session) => {
   const result = getDayCount(startDate, endDate);
   // console.log(result, "RESSASDASDADASD");
   // return
+  console.log(data.pricingBreakdown, "pricingBreakdownpricingBreakdownpricingBreakdown");
+
   const bookingRequest = new BookingRequest({
+    willPayUpfront: data.willPayUpfront,
+    AmountLeft: data?.pricingBreakdown?.total,
+    userId: data.userId,
+    pricingBreakdown: data.pricingBreakdown,
     userId,
     vendorId,
+    status: data.status.toLowerCase(),
     listingId,
     listingDetails: {
       title: listing.title,
@@ -232,15 +238,15 @@ const createBookingRequest = async (data, session) => {
       },
       category: listing.category
         ? {
-            _id: listing.category._id,
-            name: listing.category.name,
-          }
+          _id: listing.category._id,
+          name: listing.category.name,
+        }
         : "",
       subCategory: listing.subCategory
         ? {
-            _id: listing.subCategory._id,
-            name: listing.subCategory.name,
-          }
+          _id: listing.subCategory._id,
+          name: listing.subCategory.name,
+        }
         : "",
       serviceDetails: {
         serviceType: listing.serviceDetails?.serviceType,
@@ -319,9 +325,8 @@ const createBookingRequest = async (data, session) => {
         ? `${client.firstName} ${client.lastName}`
         : "A client";
       const listingTitle = listing.title || "your listing";
-      const bookingDates = `${startDate}${
-        endDate !== startDate ? ` to ${endDate}` : ""
-      }`;
+      const bookingDates = `${startDate}${endDate !== startDate ? ` to ${endDate}` : ""
+        }`;
 
       await notificationController.createNotification({
         user: vendor.userId, // vendor's user account receives notification
@@ -400,7 +405,7 @@ const calculateFullBookingPrice = (listing, opts = {}) => {
     const securityFees = securityFee || 0;
 
     // validate pricing amount
-    console.log(totalAmount,typeof totalAmount, "listing.totalAmount");
+    console.log(totalAmount, typeof totalAmount, "listing.totalAmount");
     if (!totalAmount || typeof totalAmount !== "number") {
       return { error: "Listing pricing information is invalid.", status: 400 };
     }
@@ -529,8 +534,7 @@ const checkAvailability = async (
     // Check if listing is available
     if (!listing.availability?.isAvailable) {
       console.log(
-        `Listing ${
-          listing?.title?.en || listing?.title?.nl
+        `Listing ${listing?.title?.en || listing?.title?.nl
         } is marked as unavailable`
       );
       return false;
@@ -563,8 +567,7 @@ const checkAvailability = async (
 
       if (!isTimeAvailable) {
         console.log(
-          `Time slot ${startTime}-${endTime} is not available for listing ${
-            listing?.title?.en || listing?.title?.nl
+          `Time slot ${startTime}-${endTime} is not available for listing ${listing?.title?.en || listing?.title?.nl
           }`
         );
         return false;
@@ -576,8 +579,7 @@ const checkAvailability = async (
       const dayOfWeek = getDayOfWeek(checkStart);
       if (!listing.availability.availableDays.includes(dayOfWeek)) {
         console.log(
-          `Day ${dayOfWeek} is not available for listing ${
-            listing?.title?.en || listing?.title?.nl
+          `Day ${dayOfWeek} is not available for listing ${listing?.title?.en || listing?.title?.nl
           }`
         );
         return false;
@@ -657,8 +659,7 @@ const checkAvailability = async (
         );
       });
       console.log(
-        `Checking availability for: ${checkStart} to ${checkEnd}${
-          excludeBookingId ? ` (excluding ${excludeBookingId})` : ""
+        `Checking availability for: ${checkStart} to ${checkEnd}${excludeBookingId ? ` (excluding ${excludeBookingId})` : ""
         }`
       );
       return false;
