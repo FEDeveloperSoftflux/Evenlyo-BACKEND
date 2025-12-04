@@ -58,8 +58,8 @@ exports.getStockTable = async (req, res) => {
     if (!['checkin', 'checkout', 'missing', 'stockin'].includes(type)) {
       return res.status(400).json({ error: 'Invalid stock event type.' });
     }
-    const vendorId = req.user?.vendorId || null;
-    console.log(vendorId, type, "vendorIdvendorIdvendorId");
+    const vendorId = req.user.id || null;
+    console.log(req.user, type, "vendorIdvendorIdvendorId");
     // For 'stockin', list all listings of this vendor with current quantity
     if (type === 'stockin' && vendorId) {
       const listings = await Listing.find({ vendor: vendorId }).select('_id title quantity').sort({ createdAt: -1 })
@@ -81,6 +81,8 @@ exports.getStockTable = async (req, res) => {
       const listing = log.listing;
       const name = getListingName(listing) || '(Unknown)';
       const listingId = listing?._id || null;
+      console.log(listingId,"listingIdlistingIdlistingIdlistingId");
+      
       if (type === 'checkin') {
         return {
           SNo: idx + 1,

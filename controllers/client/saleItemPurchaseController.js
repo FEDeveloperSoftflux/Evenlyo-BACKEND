@@ -8,7 +8,7 @@ const createSaleItemOrder = async (req, res) => {
     try {
         let trackId = Math.floor(10000000 + Math.random() * 90000000).toString();
 
-        const { items } = req.body;
+        const { items, paymentIntentId } = req.body;
 
         if (!items || items.length === 0)
             return res.status(400).send({ message: "Items required" });
@@ -41,6 +41,7 @@ const createSaleItemOrder = async (req, res) => {
             ...req.body,
             trackingId: trackId,
             customerId: req.user.id,
+            paymentIntentId
         });
 
         awaitingActivityLog = await createActivityLog({

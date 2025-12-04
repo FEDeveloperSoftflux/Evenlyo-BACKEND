@@ -13,6 +13,7 @@ const SaleOrderPurchase = new mongoose.Schema(
         items: { type: Array, default: [] },  // multiple items
         totalAmount: { type: Number, required: true },
         deliveryAmount: { type: Number, required: true },
+        platformFee: { type: Number, required: true },
         itemLocation: {
             type: {
                 fullAddress: String,
@@ -46,6 +47,7 @@ const SaleOrderPurchase = new mongoose.Schema(
             }
         },
         totalKms: { type: String, default: 0 },
+        paymentIntentId: { type: String, default: 0 },
         status: {
             type: String,
             enum: ["Order Placed", "On the way", "Delivered"],

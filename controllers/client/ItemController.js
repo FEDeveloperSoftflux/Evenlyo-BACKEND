@@ -5,6 +5,7 @@ const stripe = require('../../config/stripe');
 const PaymentIntent = require('../../models/PaymentIntent');
 const ServiceItemStockLog = require('../../models/ServiceItemStockLog');
 const logger = require('../../utils/logger');
+const Settings = require("../../models/Settings")
 
 // Create payment intent for item purchase
 const createItemPaymentIntent = async (req, res) => {
@@ -317,9 +318,12 @@ const getItemsByCategory = async (req, res) => {
         ];
 
         const otherItems = await Item.aggregate(otherPipeline);
+        const settings = await Settings.findOne()
+        console.log(settings, "settingssettingssettings");
 
         return res.status(200).json({
             success: true,
+            saleplatformFees: settings?.salesItemPlatformFee,
             items: { data: filteredItems },
             other: { data: otherItems }
         });
