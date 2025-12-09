@@ -278,6 +278,10 @@ const bookingRequestSchema = new mongoose.Schema({
     type: String,
     default: ""
   },
+  paymentPolicy: {
+    type: Object,
+    default: null
+  },
   reminderSent: {
     type: Boolean,
     default: false

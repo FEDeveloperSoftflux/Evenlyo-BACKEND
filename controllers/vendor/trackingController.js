@@ -91,9 +91,11 @@ const markBookingOnTheWay = asyncHandler(async (req, res) => {
   // Notify client (user) that booking is on the way
   try {
     await notificationController.createNotification({
-      user: booking.userId,
-      bookingId: booking._id,
-      message: `Your booking is on the way.`,
+      notificationFor: "Vendor",
+      vendorId: booking?.vendorId, // vendor's user account receives notification
+      clientId: booking?.userId, // 
+      bookingId: booking?._id,
+      message: `booking against ${booking.trackingId} is on the way`,
     });
   } catch (e) {
     console.error(

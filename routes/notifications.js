@@ -5,8 +5,9 @@ const { requireAuth } = require('../middleware/authMiddleware');
 
 // Get all notifications for the logged-in user
 const Vendor = require('../models/Vendor');
+const Notification = require('../models/Notification');
 
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', async (req, res) => {
   let userIdToQuery = req.user.id;
   if (req.user.userType === 'vendor') {
     // Find vendor profile for this user
@@ -17,6 +18,27 @@ router.get('/', requireAuth, async (req, res) => {
   }
   const notifications = await getNotifications(userIdToQuery);
   res.json({ success: true, data: notifications });
+});
+
+router.get('/admin-notifications', async (req, res) => {
+  try {
+    const notifications = await Notification.find({ notificationFor: "Admin" }).sort({ createdAt: -1 })
+    res.json({ success: true, data: notifications });
+
+  } catch (error) {
+    res.send(error)
+  }
+});
+
+router.get('/vendor-notifications', requireAuth, async (req, res) => {
+  console.log(req.user, "HAHAHAAHAH");
+  try {
+    const notifications = await Notification.find({ notificationFor: "Vendor", vendorId: req.user.id }).sort({ createdAt: -1 })
+    res.json({ success: true, data: notifications });
+
+  } catch (error) {
+    res.send(error)
+  }
 });
 
 // Mark a notification as read

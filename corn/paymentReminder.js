@@ -2,7 +2,7 @@ const cron = require("node-cron");
 const Booking = require("../models/Booking");
 const nodemailer = require("nodemailer");
 const moment = require("moment")
-
+const notificationController = require("../controllers/notificationController");
 // Configure your email service
 const transporter = nodemailer.createTransport({
     service: "gmail", // or SES, SMTP, SendGrid
@@ -43,10 +43,11 @@ cron.schedule("*/1 * * * *", async () => {
             .populate("userId", "firstName email")
             .populate("listingId", "title")
             .lean();
+        console.log(bookings, "bookingsbookings");
 
         for (const booking of bookings) {
-            console.log(booking,"bookingbookingbookingbooking");
-            
+            console.log(booking, "bookingbookingbookingbooking");
+
             const eventDate = moment(booking.details.startDate).startOf("day");
             console.log(eventDate, today, "THINGSSS");
 
@@ -105,8 +106,23 @@ cron.schedule("*/1 * * * *", async () => {
             // -------------------------------
             if (diffDays === 1) {
                 await Booking.findByIdAndUpdate(booking._id, {
-                    bookingStatus: "cancelled",
+                    status: "cancelled",
                     paymentStatus: "cancelled_due_to_non_payment",
+                });
+
+                await notificationController.createNotification({
+                    notificationFor: "Vendor",
+                    vendorId: booking.vendorId, // vendor's user account receives notification
+                    clientId: booking.userId, // 
+                    bookingId: booking._id,
+                    message: `Booking against ${booking.trackingId} has been cancelled due to non-payment`,
+                });
+                await notificationController.createNotification({
+                    notificationFor: "Admin",
+                    vendorId: booking.vendorId, // vendor's user account receives notification
+                    clientId: booking.userId, // 
+                    bookingId: booking._id,
+                    message: `Booking against ${booking.trackingId} has been cancelled due to non-payment`,
                 });
 
                 console.log(`❌ Booking Auto-Cancelled: ${booking._id}`);

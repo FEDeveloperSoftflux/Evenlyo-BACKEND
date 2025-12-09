@@ -135,335 +135,357 @@ const createBookingRequest = asyncHandler(async (req, res) => {
       pricingBreakdown
     },
   } = req.body;
+  try {
 
-  // Calculate duration and multi-day details early to determine validation
-  const startDateObj = new Date(startDate);
-  const endDateObj = new Date(endDate);
-  const diffTime = Math.abs(endDateObj - startDateObj);
-  let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Include both start and end dates
-  let isMultiDay = diffDays > 1;
 
-  // Validate required fields
-  if (!listingId || !vendorId || !startDate || !endDate || !eventLocation) {
-    return res.status(400).json({
-      success: false,
-      message: "Missing required fields",
-    });
-  }
-  if (!isMultiDay && (!startTime || !endTime)) {
-    return res.status(400).json({
-      success: false,
-      message: "Start time and end time are required for single-day bookings.",
-    });
-  }
+    // Calculate duration and multi-day details early to determine validation
+    const startDateObj = new Date(startDate);
+    const endDateObj = new Date(endDate);
+    const diffTime = Math.abs(endDateObj - startDateObj);
+    let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Include both start and end dates
+    let isMultiDay = diffDays > 1;
 
-  // Check if listing exists and is active
-  const listing = await Listing.findOne({
-    _id: listingId,
-    isActive: true,
-    status: "active",
-  })
-    .populate("vendor")
-    .populate("category", "name")
-    .populate("subCategory", "name");
-
-  if (!listing) {
-    return res.status(404).json({
-      success: false,
-      message: "Listing not found or not available",
-    });
-  }
-
-  // Check stock before proceeding (default required quantity = 1, allow override from body.quantity)
-  const requestedQty = 1;
-  const stock = await checkListingStock(listingId, requestedQty);
-  if (!stock.ok) {
-    return res
-      .status(400)
-      .json({
+    // Validate required fields
+    if (!listingId || !vendorId || !startDate || !endDate || !eventLocation) {
+      return res.status(400).json({
         success: false,
-        message: stock.message,
-        availableQty: stock.availableQty,
+        message: "Missing required fields",
       });
-  }
+    }
+    if (!isMultiDay && (!startTime || !endTime)) {
+      return res.status(400).json({
+        success: false,
+        message: "Start time and end time are required for single-day bookings.",
+      });
+    }
 
-  // If listing charges per km, require distanceKm in request details
-  if (
-    typeof distanceKm === "undefined" ||
-    isNaN(Number(distanceKm)) ||
-    Number(distanceKm) <= 0
-  ) {
-    return res.status(400).json({
-      success: false,
-      message:
-        "distanceKm is required and must be a positive number for this listing.",
-    });
-  }
+    // Check if listing exists and is active
+    const listing = await Listing.findOne({
+      _id: listingId,
+      isActive: true,
+      status: "active",
+    })
+      .populate("vendor")
+      .populate("category", "name")
+      .populate("subCategory", "name");
 
-  // Verify vendor matches (guard for missing vendor)
-  if (
-    !listing.vendor ||
-    !listing.vendor._id ||
-    listing.vendor._id.toString() !== vendorId
-  ) {
-    return res.status(400).json({
-      success: false,
-      message: "Vendor mismatch",
-    });
-  }
+    if (!listing) {
+      return res.status(404).json({
+        success: false,
+        message: "Listing not found or not available",
+      });
+    }
 
-  // Check availability for all days in the range, including time slots for single-day bookings
-  // const isAvailable = await checkAvailability(
-  //   listingId,
-  //   new Date(startDate),
-  //   new Date(endDate),
-  //   null, // excludeBookingId
-  //   startTime, // pass startTime for time slot validation
-  //   endTime // pass endTime for time slot validation
-  // );
-  // if (!isAvailable) {
-  //   return res.status(409).json({
-  //     success: false,
-  //     message:
-  //       "Selected dates/times are not available. The time slot may be outside available hours or already booked.",
-  //   });
-  // }
+    // Check stock before proceeding (default required quantity = 1, allow override from body.quantity)
+    const requestedQty = 1;
+    const stock = await checkListingStock(listingId, requestedQty);
+    if (!stock.ok) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: stock.message,
+          availableQty: stock.availableQty,
+        });
+    }
 
-  // Calculate hours per day and total hours depending on presence of times and multi-day
-  let dailyHours = 0;
-  let totalHours = 0;
-  const calculateHours = (startTime, endTime) => {
-    const startTimeObj = new Date(`2000-01-01 ${startTime}`);
-    const endTimeObj = new Date(`2000-01-01 ${endTime}`);
-    let diffHours = (endTimeObj - startTimeObj) / (1000 * 60 * 60);
-    if (diffHours < 0) diffHours += 24; // Handle overnight
-    return Math.max(diffHours, 0);
-  };
+    // If listing charges per km, require distanceKm in request details
+    if (
+      typeof distanceKm === "undefined" ||
+      isNaN(Number(distanceKm)) ||
+      Number(distanceKm) <= 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "distanceKm is required and must be a positive number for this listing.",
+      });
+    }
 
-  if (startTime && endTime) {
-    // We have times; compute daily hours and total hours across days
-    dailyHours = calculateHours(startTime, endTime);
-    totalHours = isMultiDay ? dailyHours * diffDays : dailyHours;
-  } else {
-    // No times provided. For per-hour pricing assume full days = 24 hours per day
-    dailyHours = isMultiDay ? 24 : 0; // if single-day and no times, leave dailyHours 0 but totalHours as 24
-    totalHours = diffDays * 24;
-  }
+    // Verify vendor matches (guard for missing vendor)
+    if (
+      !listing.vendor ||
+      !listing.vendor._id ||
+      listing.vendor._id.toString() !== vendorId
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Vendor mismatch",
+      });
+    }
 
-  // Fetch platform fee from Settings
-  const settings = await Settings.findOne();
-  let platformFeePercent = 0.015; // default 1.5%
-  if (settings && typeof settings.bookingItemPlatformFee === "number") {
-    platformFeePercent = settings.bookingItemPlatformFee;
-  }
+    // Check availability for all days in the range, including time slots for single-day bookings
+    // const isAvailable = await checkAvailability(
+    //   listingId,
+    //   new Date(startDate),
+    //   new Date(endDate),
+    //   null, // excludeBookingId
+    //   startTime, // pass startTime for time slot validation
+    //   endTime // pass endTime for time slot validation
+    // );
+    // if (!isAvailable) {
+    //   return res.status(409).json({
+    //     success: false,
+    //     message:
+    //       "Selected dates/times are not available. The time slot may be outside available hours or already booked.",
+    //   });
+    // }
 
-  // Calculate pricing using utility
-  const pricingResult = calculateFullBookingPrice(listing, {
-    startDate,
-    endDate,
-    startTime,
-    endTime,
-    distanceKm,
-  });
-
-  if (pricingResult && pricingResult.error) {
-    return res
-      .status(pricingResult.status || 400)
-      .json({ success: false, message: pricingResult.error });
-  }
-
-  const bookingPrice = pricingResult.bookingPrice;
-  const platformFee = Math.round(bookingPrice * platformFeePercent) / 100;
-  const extratimeCost = pricingResult.extratimeCost;
-  const securityFee = pricingResult.securityFee;
-  const kmCharge = pricingResult.kmCharge;
-  const subtotal = bookingPrice + extratimeCost + securityFee + kmCharge;
-  const totalPrice = subtotal + platformFee;
-  dailyHours = pricingResult.dailyHours;
-  totalHours = pricingResult.totalHours;
-  diffDays = pricingResult.diffDays;
-  isMultiDay = pricingResult.isMultiDay;
-
-  // Calculate platform fee as percentage of booking price
-
-  // Transform eventType and specialRequests to multilingual format if they are strings
-  let processedEventType = eventType;
-  let processedSpecialRequests = specialRequests;
-
-  // If eventType is a string, convert to multilingual object
-  if (typeof eventType === "string") {
-    processedEventType = {
-      en: eventType,
-      nl: eventType, // Use same value for Dutch, can be translated later
+    // Calculate hours per day and total hours depending on presence of times and multi-day
+    let dailyHours = 0;
+    let totalHours = 0;
+    const calculateHours = (startTime, endTime) => {
+      const startTimeObj = new Date(`2000-01-01 ${startTime}`);
+      const endTimeObj = new Date(`2000-01-01 ${endTime}`);
+      let diffHours = (endTimeObj - startTimeObj) / (1000 * 60 * 60);
+      if (diffHours < 0) diffHours += 24; // Handle overnight
+      return Math.max(diffHours, 0);
     };
-  }
 
-  // If specialRequests is a string, convert to multilingual object
-  if (typeof specialRequests === "string") {
-    processedSpecialRequests = {
-      en: specialRequests,
-      nl: specialRequests, // Use same value for Dutch, can be translated later
-    };
-  }
-  // Create booking request with multi-day support
+    if (startTime && endTime) {
+      // We have times; compute daily hours and total hours across days
+      dailyHours = calculateHours(startTime, endTime);
+      totalHours = isMultiDay ? dailyHours * diffDays : dailyHours;
+    } else {
+      // No times provided. For per-hour pricing assume full days = 24 hours per day
+      dailyHours = isMultiDay ? 24 : 0; // if single-day and no times, leave dailyHours 0 but totalHours as 24
+      totalHours = diffDays * 24;
+    }
 
-  console.log(listing, "listinglistinglistinglisting");
-  const result = getDayCount(startDate, endDate);
-  // console.log(result, "RESSASDASDADASD");
-  console.log(req?.body, "req?.body?.pricingBreakdownreq?.body?.pricingBreakdown");
+    // Fetch platform fee from Settings
+    const settings = await Settings.findOne();
+    let platformFeePercent = 0.015; // default 1.5%
+    if (settings && typeof settings.bookingItemPlatformFee === "number") {
+      platformFeePercent = settings.bookingItemPlatformFee;
+    }
 
-  // return
-  const bookingRequest = new BookingRequest({
-    willPayUpfront: req?.body?.details.willPayUpfront,
-    AmountLeft: req?.body?.details?.pricingBreakdown?.total,
-    userId: req.user.id,
-    pricingBreakdown,
-    vendorId,
-    listingId,
-    listingDetails: {
-      title: listing.title,
-      subtitle: listing.subtitle,
-      description: listing.description,
-      featuredImage:
-        listing.images && listing.images.length > 0 ? listing.images[0] : "",
-      images: listing.images || [],
-      pricing: {
-        type: listing.pricing.type,
-        amount: listing.pricing.amount,
-        extratimeCost: listing.pricing.extratimeCost || 0,
-        securityFee: listing.pricing.securityFee || 0,
-        pricePerKm: listing.pricing.pricePerKm || 0,
-        days: result,
-      },
-      category: listing.category
-        ? {
-          _id: listing.category._id,
-          name: listing.category.name,
-        }
-        : "",
-      subCategory: listing.subCategory
-        ? {
-          _id: listing.subCategory._id,
-          name: listing.subCategory.name,
-        }
-        : "",
-      serviceDetails: {
-        serviceType: listing.serviceDetails?.serviceType,
-      },
-      location: {
-        fullAddress: listing.location?.fullAddress,
-        coordinates: {
-          latitude: listing.location?.coordinates?.latitude,
-          longitude: listing.location?.coordinates?.longitude,
-        },
-      },
-      contact: {
-        phone: listing.contact?.phone,
-        email: listing.contact?.email,
-        website: listing.contact?.website,
-      },
-      features: listing.features || [],
-      rating: {
-        average: listing.rating?.average || 0,
-        totalReviews: listing.rating?.totalReviews || 0,
-      },
-    },
-    details: {
+    // Calculate pricing using utility
+    const pricingResult = calculateFullBookingPrice(listing, {
       startDate,
       endDate,
       startTime,
       endTime,
-      duration: {
-        hours: dailyHours,
-        days: diffDays,
-        totalHours: totalHours,
-        isMultiDay: isMultiDay,
+      distanceKm,
+    });
+
+    if (pricingResult && pricingResult.error) {
+      return res
+        .status(pricingResult.status || 400)
+        .json({ success: false, message: pricingResult.error });
+    }
+
+    const bookingPrice = pricingResult.bookingPrice;
+    const platformFee = Math.round(bookingPrice * platformFeePercent) / 100;
+    const extratimeCost = pricingResult.extratimeCost;
+    const securityFee = pricingResult.securityFee;
+    const kmCharge = pricingResult.kmCharge;
+    const subtotal = bookingPrice + extratimeCost + securityFee + kmCharge;
+    const totalPrice = subtotal + platformFee;
+    dailyHours = pricingResult.dailyHours;
+    totalHours = pricingResult.totalHours;
+    diffDays = pricingResult.diffDays;
+    isMultiDay = pricingResult.isMultiDay;
+
+    // Calculate platform fee as percentage of booking price
+
+    // Transform eventType and specialRequests to multilingual format if they are strings
+    let processedEventType = eventType;
+    let processedSpecialRequests = specialRequests;
+
+    // If eventType is a string, convert to multilingual object
+    if (typeof eventType === "string") {
+      processedEventType = {
+        en: eventType,
+        nl: eventType, // Use same value for Dutch, can be translated later
+      };
+    }
+
+    // If specialRequests is a string, convert to multilingual object
+    if (typeof specialRequests === "string") {
+      processedSpecialRequests = {
+        en: specialRequests,
+        nl: specialRequests, // Use same value for Dutch, can be translated later
+      };
+    }
+    // Create booking request with multi-day support
+
+    console.log(listing, "listinglistinglistinglisting");
+    const result = getDayCount(startDate, endDate);
+    // console.log(result, "RESSASDASDADASD");
+    console.log(req?.body, "req?.body?.pricingBreakdownreq?.body?.pricingBreakdown");
+
+    // return
+    const bookingRequest = new BookingRequest({
+      willPayUpfront: req?.body?.details.willPayUpfront,
+      AmountLeft: req?.body?.details?.pricingBreakdown?.total,
+      userId: req.user.id,
+      pricingBreakdown,
+      vendorId,
+      listingId,
+      listingDetails: {
+        title: listing.title,
+        subtitle: listing.subtitle,
+        description: listing.description,
+        featuredImage:
+          listing.images && listing.images.length > 0 ? listing.images[0] : "",
+        images: listing.images || [],
+        pricing: {
+          type: listing.pricing.type,
+          amount: listing.pricing.amount,
+          extratimeCost: listing.pricing.extratimeCost || 0,
+          securityFee: listing.pricing.securityFee || 0,
+          pricePerKm: listing.pricing.pricePerKm || 0,
+          days: result,
+        },
+        category: listing.category
+          ? {
+            _id: listing.category._id,
+            name: listing.category.name,
+          }
+          : "",
+        subCategory: listing.subCategory
+          ? {
+            _id: listing.subCategory._id,
+            name: listing.subCategory.name,
+          }
+          : "",
+        serviceDetails: {
+          serviceType: listing.serviceDetails?.serviceType,
+        },
+        location: {
+          fullAddress: listing.location?.fullAddress,
+          coordinates: {
+            latitude: listing.location?.coordinates?.latitude,
+            longitude: listing.location?.coordinates?.longitude,
+          },
+        },
+        contact: {
+          phone: listing.contact?.phone,
+          email: listing.contact?.email,
+          website: listing.contact?.website,
+        },
+        features: listing.features || [],
+        rating: {
+          average: listing.rating?.average || 0,
+          totalReviews: listing.rating?.totalReviews || 0,
+        },
       },
-      eventLocation,
-      eventType: processedEventType,
-      guestCount,
-      specialRequests: processedSpecialRequests,
-    },
-    pricing: {
-      type: listing.pricing.type,
-      amount: listing.pricing.amount,
-      extratimeCost: extratimeCost,
-      securityPrice: securityFee,
-      extraCharges: 0,
-      subtotal: subtotal,
-      pricePerKm: listing.pricing.pricePerKm || 0,
-      distanceKm: Number(distanceKm) || 0,
-      kmCharge: kmCharge,
-      bookingPrice: bookingPrice,
-      extratimeCostApplied: extratimeCost,
-      totalPrice: totalPrice,
-      platformFee: platformFee,
-      // Optionally add dailyRate for multi-day
-      ...(isMultiDay && {
-        dailyRate: Math.round(bookingPrice / diffDays),
-      }),
-    },
-    platformFee: req?.body?.details?.pricingBreakdown?.platformFee,
-  });
+      details: {
+        startDate,
+        endDate,
+        startTime,
+        endTime,
+        duration: {
+          hours: dailyHours,
+          days: diffDays,
+          totalHours: totalHours,
+          isMultiDay: isMultiDay,
+        },
+        eventLocation,
+        eventType: processedEventType,
+        guestCount,
+        specialRequests: processedSpecialRequests,
+      },
+      pricing: {
+        type: listing.pricing.type,
+        amount: listing.pricing.amount,
+        extratimeCost: extratimeCost,
+        securityPrice: securityFee,
+        extraCharges: 0,
+        subtotal: subtotal,
+        pricePerKm: listing.pricing.pricePerKm || 0,
+        distanceKm: Number(distanceKm) || 0,
+        kmCharge: kmCharge,
+        bookingPrice: bookingPrice,
+        extratimeCostApplied: extratimeCost,
+        totalPrice: totalPrice,
+        platformFee: platformFee,
+        // Optionally add dailyRate for multi-day
+        ...(isMultiDay && {
+          dailyRate: Math.round(bookingPrice / diffDays),
+        }),
+      },
+      platformFee: req?.body?.details?.pricingBreakdown?.platformFee,
+    });
 
-  await bookingRequest.save();
+    await bookingRequest.save();
+    console.log(bookingRequest, "bookingRequestbookingRequestbookingRequestbookingRequest");
 
-  // Notify vendor of new booking request
-  try {
-    const vendor = await Vendor.findById(bookingRequest.vendorId);
-    const client = await User.findById(bookingRequest.userId).select(
-      "firstName lastName"
+    // Notify vendor of new booking request
+    try {
+      const vendor = await User.findById(bookingRequest.vendorId);
+      const client = await User.findById(bookingRequest.userId).select(
+        "firstName lastName"
+      );
+      console.log(vendor, client, "VAAadasdAA");
+
+      if (vendor) {
+        const clientName = client
+          ? `${client.firstName} ${client.lastName}`
+          : "A client";
+        const listingTitle = listing.title || "your listing";
+        const bookingDates = `${startDate}${endDate !== startDate ? ` to ${endDate}` : ""
+          }`;
+        console.log(listingTitle, bookingDates, "bookingDates");
+
+        console.log(req.body.details.pricingBreakdown.paymentPolicy.isEvenlyoProtectEnabled, "req.body.details.pricingBreakdown.paymentPolicy.isEvenlyoProtectEnabled");
+        if (vendor.notifications.push === true) {
+          await notificationController.createNotification({
+            notificationFor: "Vendor",
+            vendorId: vendor._id, // vendor's user account receives notification
+            clientId: client._id, // vendor's user account receives notification
+            bookingId: bookingRequest._id,
+            message: `New booking request from ${clientName} for "${listingTitle}" on ${bookingDates}. Tracking ID: ${bookingRequest.trackingId}`,
+          });
+        }
+        if (req.body.details.pricingBreakdown.paymentPolicy.isEvenlyoProtectEnabled === true) {
+          await notificationController.createNotification({
+            notificationFor: "Admin",
+            vendorId: vendor._id, // vendor's user account receives notification
+            clientId: client._id,// vendor's user account receives notification
+            bookingId: bookingRequest._id,
+            message: `A evenlyo protected booking request from ${clientName} for "${listingTitle}" on ${bookingDates}. Tracking ID: ${bookingRequest.trackingId}`,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to create vendor notification for new booking:", e);
+    }
+    // Populate the response (listing details are now stored directly in listingDetails field)
+    await bookingRequest.populate([
+      { path: "userId", select: "firstName lastName email contactNumber" },
+      { path: "vendorId", select: "businessName businessEmail businessPhone" },
+    ]);
+
+    // Determine subcategory payment policy (escrow/upfront)
+    const policy = await getListingPaymentPolicy(listing);
+    // const upfrontAmount = 0
+    policy.escrowEnabled && policy.upfrontFeePercent > 0
+      ? Math.round(((totalPrice * policy.upfrontFeePercent) / 100) * 100) / 100
+      : 0;
+    const remainingAmount = Math.max(
+      Math.round((totalPrice - upfrontAmount) * 100) / 100,
+      0
     );
 
-    if (vendor && vendor.userId) {
-      const clientName = client
-        ? `${client.firstName} ${client.lastName}`
-        : "A client";
-      const listingTitle = listing.title || "your listing";
-      const bookingDates = `${startDate}${endDate !== startDate ? ` to ${endDate}` : ""
-        }`;
-
-      await notificationController.createNotification({
-        user: vendor.userId, // vendor's user account receives notification
-        bookingId: bookingRequest._id,
-        message: `New booking request from ${clientName} for "${listingTitle}" on ${bookingDates}. Tracking ID: ${bookingRequest.trackingId}`,
-      });
-    }
-  } catch (e) {
-    console.error("Failed to create vendor notification for new booking:", e);
-  }
-  // Populate the response (listing details are now stored directly in listingDetails field)
-  await bookingRequest.populate([
-    { path: "userId", select: "firstName lastName email contactNumber" },
-    { path: "vendorId", select: "businessName businessEmail businessPhone" },
-  ]);
-
-  // Determine subcategory payment policy (escrow/upfront)
-  const policy = await getListingPaymentPolicy(listing);
-  // const upfrontAmount = 0
-  policy.escrowEnabled && policy.upfrontFeePercent > 0
-    ? Math.round(((totalPrice * policy.upfrontFeePercent) / 100) * 100) / 100
-    : 0;
-  const remainingAmount = Math.max(
-    Math.round((totalPrice - upfrontAmount) * 100) / 100,
-    0
-  );
-
-  res.status(201).json({
-    success: true,
-    message: "Booking request created successfully",
-    data: {
-      bookingRequest,
-      paymentPolicy: {
-        escrowEnabled: policy.escrowEnabled,
-        upfrontFeePercent: policy.upfrontFeePercent,
-        upfrontHour: policy.upfrontHour,
-        evenlyoProtectFeePercent: policy.evenlyoProtectFeePercent,
-        upfrontAmount,
-        remainingAmount,
+    res.status(201).json({
+      success: true,
+      message: "Booking request created successfully",
+      data: {
+        bookingRequest,
+        paymentPolicy: {
+          escrowEnabled: policy.escrowEnabled,
+          upfrontFeePercent: policy.upfrontFeePercent,
+          upfrontHour: policy.upfrontHour,
+          evenlyoProtectFeePercent: policy.evenlyoProtectFeePercent,
+          upfrontAmount,
+          remainingAmount,
+        },
       },
-    },
-  });
+    });
+  } catch (error) {
+    console.log(error, "errorerrorerror");
+  }
 });
 
 // @desc    Get pending bookings for vendor
@@ -865,11 +887,14 @@ const markBookingReceived = asyncHandler(async (req, res) => {
   // Notify vendor that booking is received
   try {
     const vendor = await Vendor.findById(booking.vendorId);
-    if (vendor && vendor.userId) {
+    console.log(vendor, "vendorvendorvendor");
+    if (vendor) {
       await notificationController.createNotification({
-        user: vendor.userId,
-        bookingId: booking._id,
-        message: `A client has marked the booking as received.`,
+        notificationFor: "Vendor",
+        vendorId: booking?.vendorId, // vendor's user account receives notification
+        clientId: booking?.userId, // 
+        bookingId: booking?._id,
+        message: `booking against ${booking.trackingId} has been received by the client`,
       });
     }
   } catch (e) {

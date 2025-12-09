@@ -39,15 +39,16 @@ const createAdminNotification = async ({ message, bookingId = null }) => {
 };
 
 // Create a notification
-const createNotification = async ({ user, bookingId, message }) => {
+const createNotification = async ({ notificationFor, vendorId, clientId, bookingId, message }) => {
+  console.log(notificationFor, vendorId, clientId, bookingId, message,"notificationFor, vendorId, clientId, bookingId, message");
+  
   try {
     const multilingualMessage = toMultilingualText(message);
-    const notification = new Notification({ user, bookingId, message: multilingualMessage });
+    const notification = new Notification({ notificationFor, vendorId, clientId, bookingId, message: multilingualMessage });
     await notification.save();
     return notification;
-  } 
-  catch (err) 
-  {
+  }
+  catch (err) {
     console.error('Error creating notification:', err);
     return null;
   }

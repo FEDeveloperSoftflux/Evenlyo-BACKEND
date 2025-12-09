@@ -2,7 +2,7 @@ const SupportTicket = require('../../models/SupportTicket');
 const User = require('../../models/User');
 const { toMultilingualText } = require('../../utils/textUtils');
 const { sendContactEmail } = require('../../utils/mailer');
-
+const notificationController = require("../../controllers/notificationController")
 
 // Create a new support ticket
 const createSupportTicket = async (req, res) => {
@@ -42,7 +42,7 @@ const createSupportTicket = async (req, res) => {
     // Get user info from session
 
     const { issueRelatedto, details } = req.body
-    console.log(req.user,req.body, "req.userreq.userreq.user");
+    console.log(req.user, req.body, "req.userreq.userreq.user");
 
     const userId = req.user.id;
     const userEmail = req.user.email;
@@ -62,6 +62,14 @@ const createSupportTicket = async (req, res) => {
       userId,
       issueRelatedto,
       details
+    });
+
+    await notificationController.createNotification({
+      notificationFor: "Admin",
+      vendorId: null, // vendor's user account receives notification
+      clientId: null,// vendor's user account receives notification
+      bookingId: null,
+      message: `A new Support ticket has been created`,
     });
 
     await supportTicket.save();

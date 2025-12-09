@@ -200,9 +200,11 @@ const acceptBooking = asyncHandler(async (req, res) => {
 
   try {
     await notificationController.createNotification({
-      user: booking.userId,
+      notificationFor: "Vendor",
+      vendorId: booking.vendorId, // vendor's user account receives notification
+      clientId: booking.userId, // 
       bookingId: booking._id,
-      message: `Your booking has been accepted.`,
+      message: `Booking against ${booking.trackingId} has been accepted`,
     });
   } catch (e) {
     console.error(
@@ -410,10 +412,25 @@ const paymentConfirmation = async (req, res) => {
       booking.isFullyPaid = true;
       booking.AmountLeft = 0;
       booking.paymentStatus = "paid" // safety
+
+      await notificationController.createNotification({
+        notificationFor: "Vendor",
+        vendorId: booking?.vendorId, // vendor's user account receives notification
+        clientId: booking?.userId, // 
+        bookingId: booking?._id,
+        message: `full payment against ${booking.trackingId} has been paid`,
+      });
     }
     else {
       booking.paymentStatus = "upfront_paid"
       booking.isUpfrontPaid = true
+      await notificationController.createNotification({
+        notificationFor: "Vendor",
+        vendorId: booking?.vendorId, // vendor's user account receives notification
+        clientId: booking?.userId, // 
+        bookingId: booking?._id,
+        message: `Upfront payment against ${booking.trackingId} has been paid`,
+      });
     }
 
     // Optional: store payment intent ID
