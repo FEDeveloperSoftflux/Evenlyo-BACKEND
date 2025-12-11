@@ -77,6 +77,7 @@ const getAdminBookingAnalytics = async (req, res) => {
 
       return {
         id: b._id,
+        statusHistory:b.statusHistory,
         trackingId: b.trackingId,
         orderDateTime: b.createdAt, // ISO date
         buyer: {

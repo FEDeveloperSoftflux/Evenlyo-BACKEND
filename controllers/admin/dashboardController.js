@@ -29,38 +29,38 @@ const getDashboardStats = async (req, res) => {
       Booking.countDocuments(),
       Purchase.countDocuments(),
       Item.countDocuments(),
-      
+
       // Monthly booking and purchase data (last 12 months)
       getMonthlyData(),
-      
+
       // Recent bookings (last 3)
       Booking.find()
         .populate('userId', 'firstName lastName address')
         .sort({ createdAt: -1 })
         .limit(3)
         .select('trackingId userId details.eventLocation status createdAt'),
-      
+
       // Recent purchases (last 3)
       Purchase.find()
         .populate('customerId', 'firstName lastName')
         .sort({ createdAt: -1 })
         .limit(3)
         .select('trackingId user itemName location status createdAt totalAmount'),
-      
+
       // Recent clients (last 3)
       User.find({ userType: 'client', isActive: true })
         .sort({ createdAt: -1 })
         .limit(3)
         .select('firstName lastName email'),
-      
+
       // Recent vendors (last 3)
       User.find({ userType: 'vendor', isActive: true })
         .sort({ createdAt: -1 })
         .limit(3)
         .select('firstName lastName email')
     ]);
-    console.log(totalPurchases,"totalPurchasestotalPurchasestotalPurchases");
-    
+    console.log(totalPurchases, "totalPurchasestotalPurchasestotalPurchases");
+
     // Format stats cards
     const statsCard = {
       "All Client": totalClients,
@@ -76,7 +76,7 @@ const getDashboardStats = async (req, res) => {
       (recentBookings || []).map(async (booking) => {
         let clientName = 'Unknown Client';
         let location = 'Unknown Location';
-        
+
         if (booking.userId) {
           clientName = `${booking.userId.firstName || ''} ${booking.userId.lastName || ''}`.trim();
           location = booking.userId.address || booking.details?.eventLocation || 'Not specified';
@@ -95,10 +95,10 @@ const getDashboardStats = async (req, res) => {
 
     // Format recent purchases
     const formattedRecentPurchases = (recentPurchases || []).map((purchase) => {
-      console.log(purchase,"PUUUUUU");
-      
+      console.log(purchase, "PUUUUUU");
+
       let clientName = 'Unknown Client';
-      
+
       if (purchase.customerId) {
         clientName = `${purchase.customerId.firstName || ''} ${purchase.customerId.lastName || ''}`.trim();
       }
@@ -137,7 +137,7 @@ const getDashboardStats = async (req, res) => {
         // Find vendor profile to get vendorId
         const vendorProfile = await Vendor.findOne({ userId: vendorUser._id });
         let lastBooking = null;
-        
+
         if (vendorProfile) {
           const booking = await Booking.findOne({ vendorId: vendorProfile._id })
             .sort({ createdAt: -1 })
@@ -182,74 +182,74 @@ const getDashboardStats = async (req, res) => {
 const getMonthlyData = async () => {
   try {
     const currentYear = new Date().getFullYear();
-    const startDate = new Date(currentYear, 0, 1); // January 1st of current year
-    const endDate = new Date(currentYear, 11, 31, 23, 59, 59); // December 31st of current year
+    const startDate = new Date(currentYear, 0, 1);
+    const endDate = new Date(currentYear, 11, 31, 23, 59, 59);
 
-    // Get booking data
+    // ------- BOOKINGS (COUNT + total booking amount) -------
     const bookingResult = await Booking.aggregate([
       {
         $match: {
-          createdAt: {
-            $gte: startDate,
-            $lte: endDate
-          }
+          createdAt: { $gte: startDate, $lte: endDate }
         }
       },
       {
         $group: {
-          _id: {
-            month: { $month: "$createdAt" }
-          },
-          count: { $sum: 1 }
+          _id: { month: { $month: "$createdAt" } },
+          count: { $sum: 1 },
+          totalAmount: { $sum: "$pricingBreakdown.total" }
         }
       }
     ]);
 
-    // Get purchase data
+    // ------- PURCHASES (COUNT + TOTAL AMOUNT) -------
     const purchaseResult = await Purchase.aggregate([
       {
         $match: {
-          createdAt: {
-            $gte: startDate,
-            $lte: endDate
-          }
+          createdAt: { $gte: startDate, $lte: endDate }
         }
       },
       {
         $group: {
-          _id: {
-            month: { $month: "$createdAt" }
-          },
-          count: { $sum: 1 }
+          _id: { month: { $month: "$createdAt" } },
+          count: { $sum: 1 },
+          totalAmount: { $sum: "$totalAmount" }
         }
       }
     ]);
 
-    // Create maps for quick lookup
+    // Create lookup maps
     const bookingMap = {};
     const purchaseMap = {};
-    
+
     bookingResult.forEach(item => {
-      bookingMap[item._id.month] = item.count;
-    });
-    
-    purchaseResult.forEach(item => {
-      purchaseMap[item._id.month] = item.count;
+      bookingMap[item._id.month] = {
+        count: item.count,
+        totalAmount: item.totalAmount
+      };
     });
 
-    // Generate data for all 12 months with numeric month values
+    purchaseResult.forEach(item => {
+      purchaseMap[item._id.month] = {
+        count: item.count,
+        totalAmount: item.totalAmount
+      };
+    });
+
+    // Final monthly arrays
     const monthlyBookingData = [];
     const monthlyPurchaseData = [];
-    
+
     for (let month = 1; month <= 12; month++) {
       monthlyBookingData.push({
-        month: month,
-        count: bookingMap[month] || 0
+        month,
+        count: bookingMap[month]?.count || 0,
+        totalAmount: bookingMap[month]?.totalAmount || 0
       });
-      
+
       monthlyPurchaseData.push({
-        month: month,
-        count: purchaseMap[month] || 0
+        month,
+        count: purchaseMap[month]?.count || 0,
+        totalAmount: purchaseMap[month]?.totalAmount || 0
       });
     }
 
@@ -260,29 +260,21 @@ const getMonthlyData = async () => {
 
   } catch (error) {
     console.error('Monthly data error:', error);
-    // Return 12 months with zero data as fallback
+
     const fallbackBookingData = [];
     const fallbackPurchaseData = [];
-    
+
     for (let month = 1; month <= 12; month++) {
-      fallbackBookingData.push({
-        month: month,
-        count: 0
-      });
-      fallbackPurchaseData.push({
-        month: month,
-        count: 0
-      });
+      fallbackBookingData.push({ month, count: 0, totalAmount: 0 });
+      fallbackPurchaseData.push({ month, count: 0, totalAmount: 0 });
     }
-    
+
     return {
       bookings: fallbackBookingData,
       purchases: fallbackPurchaseData
     };
   }
 };
-
-
 
 module.exports = {
   getDashboardStats

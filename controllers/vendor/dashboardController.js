@@ -84,18 +84,69 @@ const getDashboardAnalytics = async (req, res) => {
     // All months in current year
     const startOfYear = new Date(now.getFullYear(), 0, 1);
     const monthlyRevenueAggAll = await Booking.aggregate([
-      { $match: { vendorId: vendorObjectId, status: 'completed', createdAt: { $gte: startOfYear } } },
       {
-        $group: {
-          _id: { month: { $month: '$createdAt' } },
-          revenue: { $sum: '$pricing.totalPrice' }
+        $match: {
+          vendorId: vendorObjectId,
+          createdAt: { $gte: startOfYear },
+          status: { $in: ["completed", "cancelled"] }
         }
       },
-      { $sort: { '_id.month': 1 } }
+      {
+        $project: {
+          month: { $month: "$createdAt" },
+
+          completedRevenue: {
+            $cond: [
+              { $eq: ["$status", "completed"] },
+              {
+                $subtract: [
+                  { $ifNull: ["$pricingBreakdown.total", 0] },
+                  {
+                    $add: [
+                      { $ifNull: ["$pricingBreakdown.platformFee", 0] },
+                      { $ifNull: ["$pricingBreakdown.securityFee", 0] },
+                      { $ifNull: ["$pricingBreakdown.evenlyoProtectFee", 0] }
+                    ]
+                  }
+                ]
+              },
+              0
+            ]
+          },
+
+          refundRevenue: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ["$status", "cancelled"] },
+                  { $eq: ["$paymentStatus", "upfront_paid"] }
+                ]
+              },
+              {
+                $multiply: [
+                  { $ifNull: ["$pricingBreakdown.upfrontFee", 0] },
+                  0.88
+                ]
+              },
+              0
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: "$month",
+          revenue: { $sum: { $add: ["$completedRevenue", "$refundRevenue"] } }
+        }
+      },
+      { $sort: { _id: 1 } }
     ]);
+
     // Array of 12 months, fill missing with 0
+    console.log(monthlyRevenueAggAll, "monthlyRevenueAggAllmonthlyRevenueAggAll");
+
     const monthlyRevenueByMonth = Array.from({ length: 12 }, (_, i) => {
-      const found = monthlyRevenueAggAll.find(m => m._id.month === i + 1);
+      const found = monthlyRevenueAggAll.find(m => m._id === i + 1);
       return found ? found.revenue : 0;
     });
     // Average monthly revenue (across all months)
