@@ -8,6 +8,7 @@ const Purchase = require("../../models/SaleItemPurchase");
 const ServiceItem = require("../../models/Item");
 const StockLog = require("../../models/StockLog");
 const notificationController = require("../notificationController");
+const SupportTicket = require("../../models/SupportTicket");
 
 // GET /api/vendor/tracking
 const getVendorBookings = async (req, res) => {
@@ -37,6 +38,7 @@ const getVendorBookings = async (req, res) => {
       paymentStatus: b.paymentStatus,
       trackingId: b.trackingId,
       eventDate: b.details?.startDate,
+      pricingBreakdown: b?.pricingBreakdown,
       buyer: {
         name: b.userId?.firstName + " " + b.userId?.lastName,
         profileImage: b.userId?.profileImage,
@@ -120,6 +122,9 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
   // claimAmount: number (required for Claim)
 
   // Get vendor profile
+
+  console.log(req.user, "req.userreq.userreq.userreq.user");
+
   const vendor = await Vendor.findOne({ userId: req.user.id });
   if (!vendor) {
     return res.status(404).json({
@@ -131,8 +136,10 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
   const booking = await BookingRequest.findOne({
     _id: req.params.id,
     vendorId: vendor.userId,
-    status: "finished",
-  });
+    // status: "finished",
+  }).populate("vendorId", "email _id");
+
+  console.log(booking.vendorId, "bookingbookingbookingbooking")
 
   if (!booking) {
     return res.status(404).json({
@@ -143,14 +150,17 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
 
   // Store condition and set status based on condition
   booking.condition = (condition || "").toLowerCase();
-  if (booking.condition === "claim") {
+  if (condition === "claim") {
     booking.status = "claim";
   } else {
     booking.status = "picked_up";
   }
 
-  if (booking.condition === "good") {
-  } else if (booking.condition === "fair") {
+  console.log(booking.condition, "booking.conditionbooking.condition");
+
+
+  if (condition === "good") {
+  } else if (condition === "fair") {
     const parsedSecurityFee = Number(securityFee);
     if (!Number.isFinite(parsedSecurityFee) || parsedSecurityFee <= 0) {
       return res.status(400).json({
@@ -158,8 +168,8 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
         message: "Security fee is required for fair condition.",
       });
     }
-    booking.pricing.securityFee = parsedSecurityFee;
-    booking.pricing.claimAmount = 0;
+    // booking.pricing.securityFee = parsedSecurityFee;
+    // booking.pricing.claimAmount = 0;
     // Store in claimDetails for admin review
     booking.claimDetails = {
       reason: {
@@ -171,7 +181,19 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
       status: "pending",
       amount: parsedSecurityFee,
     };
-  } else if (booking.condition === "claim") {
+    // await notificationController.createNotification({
+    //   notificationFor: "Admin",
+    //   bookingId: booking._id,
+    //   message: `Claim request submitted by vendor for booking. Claim Amount is ${parsedClaimAmount} against the tracking id ${booking.trackingId}`,
+    // });
+    // const supportTicket = new SupportTicket({
+    //   userEmail: booking.vendorId.email,
+    //   userId: booking.vendorId.id,
+    //   issueRelatedto: "Claim",
+    //   details: `Claim request submitted by vendor for booking. Claim Amount is ${parsedClaimAmount} against the tracking id ${booking.trackingId}`
+    // });
+    // await supportTicket.save();
+  } else if (condition === "claim") {
     const parsedClaimAmount = Number(claimAmount);
     if (!Number.isFinite(parsedClaimAmount) || parsedClaimAmount <= 0) {
       return res.status(400).json({
@@ -180,13 +202,12 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
       });
     }
     // securityFee can be optional for claim; default to 0 if not provided
-    const parsedSecurityFee = Number(securityFee);
-    const safeSecurityFee =
-      Number.isFinite(parsedSecurityFee) && parsedSecurityFee >= 0
-        ? parsedSecurityFee
-        : 0;
-    booking.pricing.securityFee = safeSecurityFee;
-    booking.pricing.claimAmount = parsedClaimAmount;
+    // const parsedSecurityFee = Number(securityFee);
+    // const safeSecurityFee =
+    //   Number.isFinite(parsedSecurityFee) && parsedSecurityFee >= 0
+    //     ? parsedSecurityFee
+    //     : 0;
+    // booking.pricing.securityFee = safeSecurityFee;
     booking.claimDetails = {
       reason: {
         en: "Claim requested by vendor",
@@ -195,15 +216,22 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
       claimedBy: "vendor",
       claimedAt: new Date(),
       status: "pending",
-      amount: safeSecurityFee + parsedClaimAmount,
+      amount: parsedClaimAmount,
     };
     // Send request/notification to admin for claim approval
     try {
-      await notificationController.createAdminNotification({
+      await notificationController.createNotification({
+        notificationFor: "Admin",
         bookingId: booking._id,
-        message: `Claim request submitted by vendor for booking. Security Fee: ${safeSecurityFee}, Claim Amount: ${parsedClaimAmount}, Total: ${safeSecurityFee + parsedClaimAmount
-          }`,
+        message: `Claim request submitted by vendor for booking. Claim Amount is ${parsedClaimAmount} against the tracking id ${booking.trackingId}`,
       });
+      const supportTicket = new SupportTicket({
+        userEmail: booking.vendorId.email,
+        userId: booking.vendorId.id,
+        issueRelatedto: "Claim",
+        details: `Claim request submitted by vendor for booking. Claim Amount is ${parsedClaimAmount} against the tracking id ${booking.trackingId}`
+      });
+      await supportTicket.save();
     } catch (e) {
       console.error("Failed to notify admin for claim request:", e);
     }

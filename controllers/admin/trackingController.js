@@ -88,6 +88,8 @@ const getAllBookingsTracking = async (req, res) => {
         status: b.status,
         paymentStatus: b.paymentStatus,
         pricing: b.pricing || {},
+        pricingBreakdown: b.pricingBreakdown || {},
+        claimDetails: b.claimDetails || {},
         createdAt: b.createdAt,
         updatedAt: b.updatedAt
       };

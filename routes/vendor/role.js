@@ -11,10 +11,10 @@ router.get('/designations', requireAuth, requireVendor, getAllDesignations);
 router.post('/admin/create-designation', requireAuth, requireVendor, createDesignation);
 
 // POST create a new role user (person)
-router.post('/role-users', createRoleUser);
+router.post('/role-users',requireAuth, createRoleUser);
 
 // GET all role users (overview)
-router.get('/role-users', requireAuth, requireVendor, getAllRoleUsers);
+router.get('/role-users', requireAuth, getAllRoleUsers);
 
 // DELETE a designation by ID
 router.delete('/designations/:designationId', requireAuth, requireVendor, deleteDesignation);

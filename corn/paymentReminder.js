@@ -29,8 +29,8 @@ async function sendEmail(to, subject, html) {
 
 
 // LIVE MODE — run daily at midnight
-cron.schedule("*/1 * * * *", async () => {
-    console.log("🔄 Cron Job Running: Reminder + Auto Cancel...");
+cron.schedule("*/1000 * * * *", async () => {
+    // console.log("🔄 Cron Job Running: Reminder + Auto Cancel...");
 
     try {
         const today = moment().startOf("day");

@@ -10,210 +10,332 @@ const Item = require('../../models/Item');
 // @access  Private (Admin)
 const getAdminBookingAnalytics = async (req, res) => {
   try {
-    // Get stats card data for both bookings and purchases
     const [
       totalBookings,
       completedBookings,
       requestBookings,
-      inProcessBookings,
-      allBookings,
-      totalPurchases,
-      completedPurchases,
-      onTheWayPurchases,
-      allPurchases
+      processBookings
     ] = await Promise.all([
-      // Booking Stats
-      // Total Bookings
       Booking.countDocuments(),
-      
-      // Complete Bookings (status: completed)
       Booking.countDocuments({ status: 'completed' }),
-      
-      // Request Bookings (status: pending)
       Booking.countDocuments({ status: 'pending' }),
-      
-      // In Process Bookings (status: paid, on_the_way, accepted, received, picked_up)
-      Booking.countDocuments({ 
-        status: { $in: ['paid', 'on_the_way', 'accepted', 'received', 'picked_up'] } 
-      }),
-      
-      // All bookings with populated data
-      Booking.find()
-        .populate('userId', 'firstName lastName')
-        .populate('vendorId', 'businessName')
-        .populate('listingId', 'title')
-        .populate('statusHistory.updatedBy.userId', 'firstName lastName')
-        .sort({ createdAt: -1 })
-        .select('trackingId details status userId vendorId listingId statusHistory createdAt'),
-
-      // Purchase Stats
-      // Total Purchases
+      Booking.countDocuments({
+        status: { $in: ['paid', 'on_the_way', 'accepted', 'received', 'picked_up'] }
+      })
+    ]);
+    const [
+      totalSales,
+      completedSales,
+      onWaySales,
+      totalRevenue
+    ] = await Promise.all([
       Purchase.countDocuments(),
-      
-      // Complete Purchases (status: complete)
-      Purchase.countDocuments({ status: 'complete' }),
-      
-      // On The Way Purchases (status: on the way)
-      Purchase.countDocuments({ status: 'on the way' }),
-      
-      // All purchases with populated data
-      Purchase.find()
-        .populate('user', 'firstName lastName')
-        .populate('vendor', 'businessName')
-        .populate('item', 'title')
+      Purchase.countDocuments({ status: 'Delivered' }),
+      Purchase.countDocuments({ status: 'On the way' }),
+      Purchase.aggregate([
+        { $match: { status: "Delivered" } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$totalAmount" }
+          }
+        }
+      ])
+      // Purchase.countDocuments({
+      //   status: { $in: ['paid', 'on_the_way', 'accepted', 'received', 'picked_up'] }
+      // })
+    ]);
+    let bookingStats = {
+      processBookings,
+      totalBookings,
+      completedBookings,
+      requestBookings
+    }
+    let saleStats = {
+      totalSales,
+      completedSales,
+      onWaySales,
+      totalRevenue: totalRevenue.length > 0 ? totalRevenue[0].total : 0
+    }
+    const [bookings] = await Promise.all([
+      Booking.find()
         .sort({ createdAt: -1 })
-        .select('trackingId itemName userName vendorName quantity location totalPrice status user vendor item purchasedAt createdAt')
+        // adjust the selected fields from user/vendor to match your models (name vs firstName/lastName)
+        .populate('userId', 'firstName lastName email contactNumber profileImage')
+        .populate('vendorId', 'firstName lastName email contactNumber profileImage name') // include `name` in case Vendor model uses it
     ]);
 
-    // Format stats cards for bookings
-    const bookingStatsCard = [
-      {
-        label: "Total Bookings",
-        value: totalBookings
-      },
-      {
-        label: "Complete Bookings",
-        value: completedBookings
-      },
-      {
-        label: "Request Bookings", 
-        value: requestBookings
-      },
-      {
-        label: "In Process",
-        value: inProcessBookings
-      }
-    ];
+    // Format each booking to return only the requested fields
+    const formatted = bookings.map(b => {
+      console.log(b, "bbbbbbbbb");
 
-    // Format stats cards for purchases
-    const purchaseStatsCard = [
-      {
-        label: "Total Purchases",
-        value: totalPurchases
-      },
-      {
-        label: "Complete Purchases",
-        value: completedPurchases
-      },
-      {
-        label: "On The Way",
-        value: onTheWayPurchases
-      },
-      {
-        label: "Total Revenue",
-        value: allPurchases.reduce((sum, purchase) => sum + (purchase.totalPrice || 0), 0)
-      }
-    ];
+      const buyer = b.userId || {};
+      const vendor = b.vendorId || {};
 
-    // Format bookings list
-    const bookings = allBookings.map(booking => {
-      // Get customer name
-      let customerName = 'Unknown Customer';
-      if (booking.userId) {
-        customerName = `${booking.userId.firstName || ''} ${booking.userId.lastName || ''}`.trim();
-      }
-
-      // Get vendor name
-      let vendorName = 'Unknown Vendor';
-      if (booking.vendorId) {
-        vendorName = booking.vendorId.businessName || 'Unknown Vendor';
-      }
-
-      // Get listing title
-      let title = 'Unknown Service';
-      if (booking.listingId && booking.listingId.title) {
-        title = booking.listingId.title.en || booking.listingId.title || 'Unknown Service';
-      }
+      const buyerName = buyer.name || `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim();
+      const sellerName = vendor.name || `${vendor.firstName || ''} ${vendor.lastName || ''}`.trim();
 
       return {
-        id: booking._id,
-        date: booking.details?.startDate || booking.createdAt,
-        status: booking.status,
-        title: title,
-        time: booking.details?.startTime || '',
-        customer: customerName,
-        description: booking.details?.specialRequests?.en || 
-                    booking.details?.specialRequests || 
-                    booking.details?.eventType?.en || 
-                    booking.details?.eventType || '',
-        Vendor: vendorName,
-        location: booking.details?.eventLocation || '',
-        trackingId: booking.trackingId,
-        statusHistory: booking.statusHistory?.map(history => ({
-          status: history.status,
-          timestamp: history.timestamp,
-          updatedBy: {
-            name: history.updatedBy?.name || 
-                  (history.updatedBy?.userId ? 
-                    `${history.updatedBy.userId.firstName || ''} ${history.updatedBy.userId.lastName || ''}`.trim() : 
-                    'System'),
-            userType: history.updatedBy?.userType || 'system'
-          },
-          notes: history.notes?.en || history.notes?.nl || history.notes || ''
-        })) || []
+        id: b._id,
+        trackingId: b.trackingId,
+        orderDateTime: b.createdAt, // ISO date
+        buyer: {
+          id: buyer._id || null,
+          name: buyerName || null,
+          email: buyer.email || null,
+          phone: buyer.contactNumber || null,
+          profileImage: buyer.profileImage || null
+        },
+        seller: {
+          id: vendor._id || null,
+          name: sellerName || null,
+          email: vendor.email || null,
+          phone: vendor.contactNumber || null,
+          profileImage: vendor.profileImage || null
+        },
+        // item(s) — BookingRequest has listingId + listingDetails
+        items: {
+          listingId: b.listingId || null,
+          listingDetails: b.listingDetails || null
+        },
+        destination: {
+          eventLocation: b.details?.eventLocation || null,
+          coordinates: b.details?.coordinates || null
+        },
+        status: b.status,
+        paymentStatus: b.paymentStatus,
+        pricing: b.pricing || {},
+        pricingBreakdown: b.pricingBreakdown || {},
+        claimDetails: b.claimDetails || {},
+        createdAt: b.createdAt,
+        updatedAt: b.updatedAt
       };
     });
-
-    // Format purchases list
-    const purchases = allPurchases.map(purchase => {
-      // Get customer name
-      let customerName = 'Unknown Customer';
-      if (purchase.user) {
-        customerName = `${purchase.user.firstName || ''} ${purchase.user.lastName || ''}`.trim();
-      } else if (purchase.userName) {
-        customerName = purchase.userName;
-      }
-
-      // Get vendor name
-      let vendorName = 'Unknown Vendor';
-      if (purchase.vendor) {
-        vendorName = purchase.vendor.businessName || 'Unknown Vendor';
-      } else if (purchase.vendorName) {
-        vendorName = purchase.vendorName;
-      }
-
-      // Get item title
-      let title = 'Unknown Item';
-      if (purchase.item && purchase.item.title) {
-        title = purchase.item.title.en || purchase.item.title || 'Unknown Item';
-      } else if (purchase.itemName) {
-        title = purchase.itemName;
-      }
-
-      return {
-        id: purchase._id,
-        date: purchase.purchasedAt || purchase.createdAt,
-        status: purchase.status,
-        title: title,
-        quantity: purchase.quantity,
-        customer: customerName,
-        description: `Quantity: ${purchase.quantity} | Price: $${purchase.totalPrice}`,
-        Vendor: vendorName,
-        location: purchase.location || '',
-        trackingId: purchase.trackingId,
-        totalPrice: purchase.totalPrice,
-        type: 'purchase' // To distinguish from bookings
-      };
-    });
-
+    const saleOrders = await Purchase.find()
+      .populate('customerId', 'firstName lastName')
+      .populate('vendorId', 'firstName lastName name')
+      .sort({ createdAt: -1 })
     res.json({
       success: true,
       data: {
-        bookingStats: bookingStatsCard,
-        purchaseStats: purchaseStatsCard,
-        bookings,
-        purchases
+        bookingStats,
+        saleStats,
+        bookingData: formatted,
+        saleOrders
       }
     });
-
   } catch (error) {
-    console.error('Admin booking analytics error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching booking analytics',
       error: error.message
     });
   }
+  // try {
+  //   // Get stats card data for both bookings and purchases
+  //   const [
+  //     totalBookings,
+  //     completedBookings,
+  //     requestBookings,
+  //     inProcessBookings,
+  //     allBookings,
+  //     totalPurchases,
+  //     completedPurchases,
+  //     onTheWayPurchases,
+  //     allPurchases
+  //   ] = await Promise.all([
+  //     // Booking Stats
+  //     // Total Bookings
+  //     Booking.countDocuments(),
+
+  //     // Complete Bookings (status: completed)
+  //     Booking.countDocuments({ status: 'completed' }),
+
+  //     // Request Bookings (status: pending)
+  //     Booking.countDocuments({ status: 'pending' }),
+
+  //     // In Process Bookings (status: paid, on_the_way, accepted, received, picked_up)
+  //     Booking.countDocuments({ 
+  //       status: { $in: ['paid', 'on_the_way', 'accepted', 'received', 'picked_up'] } 
+  //     }),
+
+  //     // All bookings with populated data
+  //     Booking.find()
+  //       .populate('userId', 'firstName lastName')
+  //       .populate('vendorId', 'businessName')
+  //       .populate('listingId', 'title')
+  //       .populate('statusHistory.updatedBy.userId', 'firstName lastName')
+  //       .sort({ createdAt: -1 })
+  //       .select('trackingId details status userId vendorId listingId statusHistory createdAt'),
+
+  //     // Purchase Stats
+  //     // Total Purchases
+  //     Purchase.countDocuments(),
+
+  //     // Complete Purchases (status: complete)
+  //     Purchase.countDocuments({ status: 'complete' }),
+
+  //     // On The Way Purchases (status: on the way)
+  //     Purchase.countDocuments({ status: 'on the way' }),
+
+  //     // All purchases with populated data
+  //     Purchase.find()
+  //       .populate('user', 'firstName lastName')
+  //       .populate('vendor', 'businessName')
+  //       .populate('item', 'title')
+  //       .sort({ createdAt: -1 })
+  //       .select('trackingId itemName userName vendorName quantity location totalPrice status user vendor item purchasedAt createdAt')
+  //   ]);
+
+  //   // Format stats cards for bookings
+  //   const bookingStatsCard = [
+  //     {
+  //       label: "Total Bookings",
+  //       value: totalBookings
+  //     },
+  //     {
+  //       label: "Complete Bookings",
+  //       value: completedBookings
+  //     },
+  //     {
+  //       label: "Request Bookings", 
+  //       value: requestBookings
+  //     },
+  //     {
+  //       label: "In Process",
+  //       value: inProcessBookings
+  //     }
+  //   ];
+
+  //   // Format stats cards for purchases
+  //   const purchaseStatsCard = [
+  //     {
+  //       label: "Total Purchases",
+  //       value: totalPurchases
+  //     },
+  //     {
+  //       label: "Complete Purchases",
+  //       value: completedPurchases
+  //     },
+  //     {
+  //       label: "On The Way",
+  //       value: onTheWayPurchases
+  //     },
+  //     {
+  //       label: "Total Revenue",
+  //       value: allPurchases.reduce((sum, purchase) => sum + (purchase.totalPrice || 0), 0)
+  //     }
+  //   ];
+
+  //   // Format bookings list
+  //   const bookings = allBookings.map(booking => {
+  //     // Get customer name
+  //     let customerName = 'Unknown Customer';
+  //     if (booking.userId) {
+  //       customerName = `${booking.userId.firstName || ''} ${booking.userId.lastName || ''}`.trim();
+  //     }
+
+  //     // Get vendor name
+  //     let vendorName = 'Unknown Vendor';
+  //     if (booking.vendorId) {
+  //       vendorName = booking.vendorId.businessName || 'Unknown Vendor';
+  //     }
+
+  //     // Get listing title
+  //     let title = 'Unknown Service';
+  //     if (booking.listingId && booking.listingId.title) {
+  //       title = booking.listingId.title.en || booking.listingId.title || 'Unknown Service';
+  //     }
+
+  //     return {
+  //       id: booking._id,
+  //       date: booking.details?.startDate || booking.createdAt,
+  //       status: booking.status,
+  //       title: title,
+  //       time: booking.details?.startTime || '',
+  //       customer: customerName,
+  //       description: booking.details?.specialRequests?.en || 
+  //                   booking.details?.specialRequests || 
+  //                   booking.details?.eventType?.en || 
+  //                   booking.details?.eventType || '',
+  //       Vendor: vendorName,
+  //       location: booking.details?.eventLocation || '',
+  //       trackingId: booking.trackingId,
+  //       statusHistory: booking.statusHistory?.map(history => ({
+  //         status: history.status,
+  //         timestamp: history.timestamp,
+  //         updatedBy: {
+  //           name: history.updatedBy?.name || 
+  //                 (history.updatedBy?.userId ? 
+  //                   `${history.updatedBy.userId.firstName || ''} ${history.updatedBy.userId.lastName || ''}`.trim() : 
+  //                   'System'),
+  //           userType: history.updatedBy?.userType || 'system'
+  //         },
+  //         notes: history.notes?.en || history.notes?.nl || history.notes || ''
+  //       })) || []
+  //     };
+  //   });
+
+  //   // Format purchases list
+  //   const purchases = allPurchases.map(purchase => {
+  //     // Get customer name
+  //     let customerName = 'Unknown Customer';
+  //     if (purchase.user) {
+  //       customerName = `${purchase.user.firstName || ''} ${purchase.user.lastName || ''}`.trim();
+  //     } else if (purchase.userName) {
+  //       customerName = purchase.userName;
+  //     }
+
+  //     // Get vendor name
+  //     let vendorName = 'Unknown Vendor';
+  //     if (purchase.vendor) {
+  //       vendorName = purchase.vendor.businessName || 'Unknown Vendor';
+  //     } else if (purchase.vendorName) {
+  //       vendorName = purchase.vendorName;
+  //     }
+
+  //     // Get item title
+  //     let title = 'Unknown Item';
+  //     if (purchase.item && purchase.item.title) {
+  //       title = purchase.item.title.en || purchase.item.title || 'Unknown Item';
+  //     } else if (purchase.itemName) {
+  //       title = purchase.itemName;
+  //     }
+
+  //     return {
+  //       id: purchase._id,
+  //       date: purchase.purchasedAt || purchase.createdAt,
+  //       status: purchase.status,
+  //       title: title,
+  //       quantity: purchase.quantity,
+  //       customer: customerName,
+  //       description: `Quantity: ${purchase.quantity} | Price: $${purchase.totalPrice}`,
+  //       Vendor: vendorName,
+  //       location: purchase.location || '',
+  //       trackingId: purchase.trackingId,
+  //       totalPrice: purchase.totalPrice,
+  //       type: 'purchase' // To distinguish from bookings
+  //     };
+  //   });
+
+  //   res.json({
+  //     success: true,
+  //     data: {
+  //       bookingStats: bookingStatsCard,
+  //       purchaseStats: purchaseStatsCard,
+  //       bookings,
+  //       purchases
+  //     }
+  //   });
+
+  // } catch (error) {
+  //   console.error('Admin booking analytics error:', error);
+  //   res.status(500).json({
+  //     success: false,
+  //     message: 'Server error while fetching booking analytics',
+  //     error: error.message
+  //   });
+  // }
 };
 
 // @desc    Get booking analytics with filters
@@ -222,17 +344,17 @@ const getAdminBookingAnalytics = async (req, res) => {
 const getFilteredBookingAnalytics = async (req, res) => {
   try {
     const { status, dateFrom, dateTo, vendorId, type = 'both', page = 1, limit = 10 } = req.query;
-    
+
     // Build filter objects for bookings and purchases
     let bookingFilter = {};
     let purchaseFilter = {};
-    
+
     // Apply status filter
     if (status) {
       bookingFilter.status = status;
       purchaseFilter.status = status;
     }
-    
+
     // Apply date filter
     if (dateFrom || dateTo) {
       const dateFilter = {};
@@ -245,7 +367,7 @@ const getFilteredBookingAnalytics = async (req, res) => {
       bookingFilter.createdAt = dateFilter;
       purchaseFilter.createdAt = dateFilter;
     }
-    
+
     // Apply vendor filter
     if (vendorId) {
       bookingFilter.vendorId = vendorId;
@@ -254,7 +376,7 @@ const getFilteredBookingAnalytics = async (req, res) => {
 
     // Calculate pagination
     const skip = (page - 1) * limit;
-    
+
     let bookings = [];
     let purchases = [];
     let totalCount = 0;
@@ -271,10 +393,10 @@ const getFilteredBookingAnalytics = async (req, res) => {
           .skip(type === 'bookings' ? skip : 0)
           .limit(type === 'bookings' ? parseInt(limit) : parseInt(limit / 2))
           .select('trackingId details status userId vendorId listingId statusHistory createdAt'),
-        
+
         Booking.countDocuments(bookingFilter)
       ]);
-      
+
       bookings = bookingData;
       totalCount += bookingCount;
     }
@@ -289,10 +411,10 @@ const getFilteredBookingAnalytics = async (req, res) => {
           .skip(type === 'purchases' ? skip : 0)
           .limit(type === 'purchases' ? parseInt(limit) : parseInt(limit / 2))
           .select('trackingId itemName userName vendorName quantity location totalPrice status user vendor item purchasedAt createdAt'),
-        
+
         Purchase.countDocuments(purchaseFilter)
       ]);
-      
+
       purchases = purchaseData;
       totalCount += purchaseCount;
     }
@@ -321,10 +443,10 @@ const getFilteredBookingAnalytics = async (req, res) => {
         title: title,
         time: booking.details?.startTime || '',
         customer: customerName,
-        description: booking.details?.specialRequests?.en || 
-                    booking.details?.specialRequests || 
-                    booking.details?.eventType?.en || 
-                    booking.details?.eventType || '',
+        description: booking.details?.specialRequests?.en ||
+          booking.details?.specialRequests ||
+          booking.details?.eventType?.en ||
+          booking.details?.eventType || '',
         Vendor: vendorName,
         location: booking.details?.eventLocation || '',
         trackingId: booking.trackingId,
@@ -333,10 +455,10 @@ const getFilteredBookingAnalytics = async (req, res) => {
           status: history.status,
           timestamp: history.timestamp,
           updatedBy: {
-            name: history.updatedBy?.name || 
-                  (history.updatedBy?.userId ? 
-                    `${history.updatedBy.userId.firstName || ''} ${history.updatedBy.userId.lastName || ''}`.trim() : 
-                    'System'),
+            name: history.updatedBy?.name ||
+              (history.updatedBy?.userId ?
+                `${history.updatedBy.userId.firstName || ''} ${history.updatedBy.userId.lastName || ''}`.trim() :
+                'System'),
             userType: history.updatedBy?.userType || 'system'
           },
           notes: history.notes?.en || history.notes?.nl || history.notes || ''
@@ -444,7 +566,7 @@ const getPurchaseDetails = async (req, res) => {
     const detailedPurchase = {
       id: purchase._id,
       trackingId: purchase.trackingId,
-      
+
       // Customer Information
       customer: {
         id: purchase.user?._id,
@@ -522,7 +644,7 @@ const getBookingDetails = async (req, res) => {
     const detailedBooking = {
       id: booking._id,
       trackingId: booking.trackingId,
-      
+
       // Customer Information
       customer: {
         id: booking.userId?._id,
@@ -572,10 +694,10 @@ const getBookingDetails = async (req, res) => {
         status: history.status,
         timestamp: history.timestamp,
         updatedBy: {
-          name: history.updatedBy?.name || 
-                (history.updatedBy?.userId ? 
-                  `${history.updatedBy.userId.firstName || ''} ${history.updatedBy.userId.lastName || ''}`.trim() : 
-                  'System'),
+          name: history.updatedBy?.name ||
+            (history.updatedBy?.userId ?
+              `${history.updatedBy.userId.firstName || ''} ${history.updatedBy.userId.lastName || ''}`.trim() :
+              'System'),
           userType: history.updatedBy?.userType || 'system',
           userId: history.updatedBy?.userId?._id
         },

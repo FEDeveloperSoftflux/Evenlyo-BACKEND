@@ -51,7 +51,7 @@ router.get('/history', requireAuth, requireClient, getBookingHistory);
 // @route   POST /api/booking/:id/mark-received
 // @desc    Mark booking as received
 // @access  Private (Client)
-router.post('/:id/mark-received', requireAuth, requireClient, markBookingReceived);
+router.post('/:id/mark-received', requireAuth, markBookingReceived);
 
 // @route   POST /api/booking/:id/mark-complete
 // @desc    Mark booking as complete

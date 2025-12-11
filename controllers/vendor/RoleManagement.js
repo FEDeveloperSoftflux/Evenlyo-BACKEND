@@ -25,7 +25,7 @@ const registerVendorFromUser = async (req, res) => {
 			isActive: true,
 			kvkNumber: vendorDetails?.kvkNumber,
 			createdById: vendorId,
-			firstName:vendorDetails?.firstName
+			firstName: vendorDetails?.firstName
 		};
 		console.log(userData, "userDatauserDatauserData");
 
@@ -87,7 +87,9 @@ const createDesignation = async (req, res) => {
 // Create a new employee (role user) for a vendor business account using Employee model
 const createRoleUser = async (req, res) => {
 	try {
-		const vendorId = req.user && req.user.vendorId;
+		console.log(req.user, "req.userreq.userreq.user");
+
+		const vendorId = req.user && req.user.id;
 		if (!vendorId) return res.status(401).json({ error: 'Unauthorized: vendor authentication required' });
 
 		const { firstName, lastName, email, contactNumber, password, designationId } = req.body;
@@ -119,7 +121,7 @@ const createRoleUser = async (req, res) => {
 // Get all employees (role users) for a vendor (overview) using Employee model
 const getAllRoleUsers = async (req, res) => {
 	try {
-		const vendorId = req.user && req.user.vendorId;
+		const vendorId = req.user && req.user.id;
 		if (!vendorId) return res.status(401).json({ error: 'Unauthorized: vendor authentication required' });
 
 		const employees = await Employee.find({ vendor: vendorId })

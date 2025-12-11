@@ -7,7 +7,7 @@ const employeeSchema = new mongoose.Schema({
   contactNumber: { type: String, required: true, trim: true },
   password: { type: String, required: true },
   designation: { type: mongoose.Schema.Types.ObjectId, ref: 'Designation', required: true },
-  vendor: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor', required: true },
+  vendor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
 }, { timestamps: true });
 

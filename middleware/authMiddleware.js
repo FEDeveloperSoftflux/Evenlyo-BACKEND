@@ -20,6 +20,7 @@ const requireAuth = async (req, res, next) => {
       console.log(token, "tokentokentokentoken");
       try {
         const decoded = verifyAccessToken(token);
+        console.log(decoded,"decodeddecodeddecodeddecoded");
         tokenUser = decoded; // should contain id, userType, etc.
       } catch (err) {
         return res.status(401).json({ success: false, message: 'Invalid or expired token' });

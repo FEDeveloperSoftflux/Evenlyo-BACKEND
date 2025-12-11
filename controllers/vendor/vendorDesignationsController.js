@@ -3,6 +3,7 @@ const VendorDesignations = require('../../models/vendorDesignations');
 // Create designation
 exports.createDesignation = async (req, res) => {
     try {
+        console.log(req.body, "req.bodyreq.bodyreq.body");
         const designation = new VendorDesignations(req.body);
         await designation.save();
         res.status(201).json(designation);

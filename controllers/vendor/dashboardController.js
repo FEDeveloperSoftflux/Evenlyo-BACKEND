@@ -19,19 +19,24 @@ const getDashboardAnalytics = async (req, res) => {
     }
 
     // Get vendor ID from session or find vendor by user ID
-    let vendorId = req.user.vendorId;
+    console.log(req.user, "req.userreq.user");
+
+    let vendorId = req.user.id;
 
     if (!vendorId) {
       // Fallback: find vendor by user ID
       const vendor = await Vendor.findOne({ userId: req.user.id });
+      // console.log(vendor, "vendorvendorvendorvendorvendor");
+
       if (!vendor) {
         return res.status(404).json({
           success: false,
           message: 'Vendor profile not found'
         });
       }
-      vendorId = vendor._id;
+      vendorId = vendor.id;
     }
+    console.log(vendorId, "vendorIdvendorIdvendorId");
 
     // Ensure vendorId is an ObjectId for aggregation match stages
     const vendorObjectId = typeof vendorId === 'string' && mongoose.Types.ObjectId.isValid(vendorId)
@@ -57,6 +62,7 @@ const getDashboardAnalytics = async (req, res) => {
         });
       }
     }
+    console.log(vendorObjectId, "vendorObjectIdvendorObjectIdvendorObjectId");
 
     // 7. Total unique clients who gave booking to this vendor
     const totalClientsAgg = await Booking.aggregate([
@@ -152,9 +158,13 @@ const getDashboardAnalytics = async (req, res) => {
       .populate('user', 'firstName lastName email')
       .select('trackingId itemName user userName quantity totalPrice status purchasedAt');
 
+    const totalBookingsCount = await Booking.countDocuments({ vendorId });
+    console.log(totalBookingsCount, "totalBookingstotalBookingstotalBookings");
+
     res.json({
       success: true,
       stats: {
+        totalBookingsCount,
         completedBookingsCount,
         totalBookings,
         monthlyRevenue, // now average of all months

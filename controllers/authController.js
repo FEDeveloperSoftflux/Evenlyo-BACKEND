@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const Vendor = require("../models/Vendor");
 const Admin = require("../models/Admin");
+const Employee = require("../models/Employee");
 const VendorDesignations = require("../models/vendorDesignations");
 const { generateAndSendOTP, verifyOTP } = require("../utils/otpUtils");
 const { auth } = require("../config/firebase");
@@ -1359,64 +1360,62 @@ const registerVendor = async (req, res) => {
 const vendorLogin = async (req, res) => {
   try {
     const { email, password, provider } = req.body;
-
     if (!email) {
       return res.status(400).json({
         success: false,
         message: "Email is required",
       });
     }
-
-    // Find admin
-    const user = await User.findOne({ email });
-
-    if (!user.isActive) {
-      return res.status(400).json({
-        success: false,
-        message: "Account not active! please contact evenlyo support",
-      });
-    }
+    let user = await User.findOne({ email });
+    let isEmployee = false;
 
     if (!user) {
-      return res.status(401).json({
+      user = await Employee.findOne({ email }).populate("vendor");
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: "Account not found",
+        });
+      }
+      isEmployee = true;
+    }
+
+    if (!user.status == "active") {
+      return res.status(400).json({
         success: false,
-        message: "Account not found",
+        message: "Account not active! Please contact support",
       });
     }
 
     // --- GOOGLE LOGIN ---
     if (provider === "google") {
-      if (user.provider !== "google") {
+      if (user.provider && user.provider !== "google") {
         return res.status(403).json({
           success: false,
           message:
             "This email is registered with password. Please login using email/password.",
         });
       }
-      console.log(user, "useruseruseruser");
-
-      // ✅ Google login success
-      let vaaa = user.createdById != null ? user.createdById : user._id;
-      console.log(vaaa, "VALLEEAE");
 
       const token = signToken({
         id: user.createdById != null ? user.createdById : user._id,
         name: user.name,
       });
-      console.log(user, "MY_USERRRRRRR");
+      const responseUser = {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        profileImage: user.profileImage,
+        userType: isEmployee ? "employee" : "admin",
+        vendorId: isEmployee ? user.vendorId?._id : null,
+      };
 
       return res.json({
         success: true,
         message: "Google login successful",
         token,
-        admin: {
-          id: user._id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          profileImage: user.profileImage,
-          role: "admin",
-        },
+        user: responseUser,
       });
     }
 
@@ -1445,44 +1444,38 @@ const vendorLogin = async (req, res) => {
       });
     }
 
-    let vaaa = user.createdById != null ? user.createdById : user._id;
-    console.log(vaaa, "VALLEEAE");
+    // If it's a regular User, fetch vendor and permissions
+    let pages = [];
+    let vendorId = null;
     const vendor = await Vendor.findOne({ userId: user._id }).populate(
       "userId",
       "-password"
     );
-
-    let pages = [];
-    if (user.createdById != null) {
-      const designation = await VendorDesignations.findOne({
-        vendorId: user.createdById,
-      });
-      console.log(designation, "designationdesignationdesignation");
-      pages = designation?.permissions?.map((p) => p.module) || [];
-    }
-    console.log(pages, "pagespagespagespagespages");
-
+    vendorId = vendor?._id;
+    console.log(user, "useruseruseruser");
+    const designation = await VendorDesignations.findOne({
+      vendorId: isEmployee ? user.vendor.id : user.createdById,
+    });
+    pages = designation?.permissions?.map((p) => p.module) || [];
+    console.log(user, "useruseruseruser");
     const token = signToken({
-      id: user.createdById != null ? user.createdById : user._id,
+      id: isEmployee ? user.vendor.id : user._id,
       name: user.name,
     });
-    console.log(user, "MY_USERRRRRRR");
-
     const responseUser = {
-      id: user._id,
+      id: isEmployee ? user.vendor.id : user._id,
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
       profileImage: user.profileImage,
-      userType: user.userType,
-      vendorId: vendor?._id,
+      userType: isEmployee ? "employee" : "admin",
+      vendorId,
     };
 
-    // ✅ Add pages only if it has values
     if (pages.length > 0) {
       responseUser.pages = pages;
     }
-    // return
+
     return res.json({
       success: true,
       message: "Login successful",
@@ -1490,7 +1483,7 @@ const vendorLogin = async (req, res) => {
       user: responseUser,
     });
   } catch (err) {
-    console.error("Admin Login Error:", err);
+    console.error("Vendor Login Error:", err);
     res.status(500).json({
       success: false,
       message: "Internal server error",
