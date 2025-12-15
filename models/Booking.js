@@ -232,6 +232,10 @@ const bookingRequestSchema = new mongoose.Schema({
         type: String,
         trim: true
       }
+    },
+    stockUpdated: {
+      type: Boolean,
+      default: false
     }
   },
   pricingBreakdown: {

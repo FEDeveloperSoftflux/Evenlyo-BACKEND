@@ -17,9 +17,11 @@ const {
   TrackBooking,
   fetchBookingRequest,
   fetchBookingRequestByDate,
+  restockItem
+
 } = require('../../controllers/client/bookingController');
 
-  const { getBookingSimpleDetails } = require('../../controllers/client/bookingController');
+const { getBookingSimpleDetails } = require('../../controllers/client/bookingController');
 
 const { createBookingPaymentIntent } = require('../../controllers/client/bookingController');
 
@@ -46,12 +48,14 @@ router.post('/:id/pay', requireAuth, requireClient, markBookingAsPaid);
 // @route   GET /api/booking/history
 // @desc    Get client's complete booking history with pagination
 // @access  Private (Client)
-router.get('/history', requireAuth, requireClient, getBookingHistory);
+router.get('/history', requireAuth, getBookingHistory);
 
 // @route   POST /api/booking/:id/mark-received
 // @desc    Mark booking as received
 // @access  Private (Client)
 router.post('/:id/mark-received', requireAuth, markBookingReceived);
+
+router.get('/:id/restock-again', requireAuth, restockItem);
 
 // @route   POST /api/booking/:id/mark-complete
 // @desc    Mark booking as complete
@@ -98,7 +102,7 @@ router.get('/:id/direction', requireAuth, TrackBooking);
 
 router.post('/:id/create-payment-intent', requireAuth, requireClient, createBookingPaymentIntent);
 
-router.post("/request-by-status",  fetchBookingRequest);
-router.post("/request-by-date",  fetchBookingRequestByDate);
+router.post("/request-by-status", fetchBookingRequest);
+router.post("/request-by-date", fetchBookingRequestByDate);
 
 module.exports = router;

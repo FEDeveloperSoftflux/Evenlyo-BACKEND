@@ -65,6 +65,76 @@ const createBookingPaymentIntent = asyncHandler(async (req, res) => {
   }
 });
 
+const restockItem = asyncHandler(async (req, res) => {
+  const { id } = req.params;  // bookingId
+  const userId = req.user.id;
+  console.log(id, "ididid");
+
+  // 1. Validate booking exists and belongs to user
+  const booking = await Booking.findOne({ trackingId: id });
+  console.log(booking, "bookingbookingbookingbooking");
+
+  if (!booking) {
+    return res.status(404).json({
+      success: false,
+      message: "Booking not found"
+    });
+  }
+  // 2. Check if stock already updated
+  if (booking.claimDetails?.stockUpdated === true) {
+    return res.status(400).json({
+      success: false,
+      message: "Stock already updated for this booking"
+    });
+  }
+
+  // 3. Get item details (assuming booking contains itemId + quantity)
+  const itemId = booking.listingId;
+  const quantity = 1
+
+  if (!itemId) {
+    return res.status(400).json({
+      success: false,
+      message: "ItemId not found in booking"
+    });
+  }
+
+  const item = await Listing.findById({ _id: itemId });
+  console.log(item, "itemitemitemitem");
+  if (!item) {
+    return res.status(404).json({
+      success: false,
+      message: "Item not found"
+    });
+  }
+
+  // 4. Restock the item
+  item.quantity = (item.quantity || 0) + quantity;
+  await item.save();
+
+  // 5. Mark stock updated in booking.claimDetails
+  console.log("HAHAHAHA");
+
+  await Booking.findOneAndUpdate(
+    { trackingId: id },
+    {
+      $set: {
+        "claimDetails.stockUpdated": true
+      }
+    },
+    { new: true }
+  );
+  res.json({
+    success: true,
+    message: "Item restocked successfully",
+    restockedQuantity: quantity,
+    item: {
+      id: item._id,
+      newStock: item.stockQuantity
+    }
+  });
+});
+
 // @desc    Leave a review and rating for a booking
 // @route   POST /api/booking/:id/review
 // @access  Private (Client)
@@ -602,12 +672,10 @@ const markBookingAsPaid = asyncHandler(async (req, res) => {
 // @access  Private (User)
 const getBookingHistory = asyncHandler(async (req, res) => {
   const { status, page = 1, limit = 30 } = req.query;
-
   const filter = { userId: req.user.id };
   if (status) {
     filter.status = status;
   }
-
   const bookings = await BookingRequest.find(filter)
     .populate(
       "vendorId",
@@ -617,11 +685,16 @@ const getBookingHistory = asyncHandler(async (req, res) => {
     .limit(limit * 1)
     .skip((page - 1) * limit);
 
+  const isReviewed = Review.findOne({ bookingId: bookings._id, userId: req.user.id })
+
   const total = await BookingRequest.countDocuments(filter);
 
   // Format bookings with action buttons based on status
-  const formattedBookings = bookings.map((booking) => {
+  const formattedBookings = await Promise.all(bookings.map(async (booking) => {
     console.log(booking, "bookingbookingbookingbooking");
+    const reviewExists = await Review.exists({
+      bookingId: booking._id,
+    });
 
     const bookingData = {
       ...booking.toObject(),
@@ -649,10 +722,11 @@ const getBookingHistory = asyncHandler(async (req, res) => {
       rejectionReason: booking.rejectionReason,
       claimDetails: booking.claimDetails,
       images: booking.images || [],
+      isReviewed: !!reviewExists,
     };
 
     return bookingData;
-  });
+  }))
 
   res.json({
     success: true,
@@ -1566,6 +1640,7 @@ module.exports = {
   TrackBooking,
   fetchBookingRequest,
   fetchBookingRequestByDate,
+  restockItem
 };
 
 // @desc    Get simplified booking details for client/vendor

@@ -7,9 +7,11 @@ const Purchase = require('../../models/SaleItemPurchase');
 const ServiceItemStockLog = require('../../models/ServiceItemStockLog');
 const { toMultilingualText } = require('../../utils/textUtils');
 const SaleItem = require('../../models/Item');
+const SaleItemPurchase = require('../../models/SaleItemPurchase');
 const ActivityLog = require("../../models/ActivityLog")
 const { createActivityLog } = require("../../utils/activityLogger")
 const ServiceItem = require('../../models/Item');
+const mongoose = require('mongoose');
 // Update complete item
 
 
@@ -377,6 +379,7 @@ const getVendorItemsOverview = async (req, res) => {
 
 		// itemsTable: all items with required details
 		const itemsTable = items.map(item => ({
+			...item.toObject(),
 			itemId: item._id,
 			image: item.image || '',
 			title: item.title || item.title,
@@ -397,6 +400,33 @@ const getVendorItemsOverview = async (req, res) => {
 			vendor: vendorId,
 			mainCategory: { $ne: null }
 		});
+
+		const now = new Date();
+		const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+		const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+		// Fetch delivered orders of current month
+		const bestSellingAgg = await SaleItemPurchase.aggregate([
+			{
+				$match: {
+					vendorId: new mongoose.Types.ObjectId(vendorId),
+					status: "Delivered",
+					createdAt: { $gte: startOfMonth, $lt: endOfMonth },
+				},
+			},
+			{ $unwind: "$items" }, // Flatten the items array
+			{
+				$group: {
+					_id: "$items._id",            // Group by productId
+					title: { $first: "$items.title" },
+					image: { $first: "$items.image" },
+					totalSold: { $sum: "$items.quantity" }, // Sum quantities sold
+				},
+			},
+			{ $sort: { totalSold: -1 } }, // Sort descending
+			{ $limit: 5 },                 // Top 5
+		]);
+
 		console.log(totalMain, "totalMaintotalMaintotalMain");
 		res.json({
 			success: true,
@@ -405,6 +435,7 @@ const getVendorItemsOverview = async (req, res) => {
 				totalSubCategories: subCategorySet.size,
 				totalItems: totalItems
 			},
+			bestSellingProducts: bestSellingAgg,
 			activityLog,
 			itemOverview,
 			itemsTable

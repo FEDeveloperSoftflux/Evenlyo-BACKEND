@@ -212,6 +212,58 @@ const getDashboardAnalytics = async (req, res) => {
     const totalBookingsCount = await Booking.countDocuments({ vendorId });
     console.log(totalBookingsCount, "totalBookingstotalBookingstotalBookings");
 
+    const monthlyBookingAgg = await Booking.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate, $lte: endDate },
+        }
+      },
+      {
+        $group: {
+          _id: { month: { $month: "$createdAt" } },
+          count: { $sum: 1 },
+          totalAmount: { $sum: "$pricingBreakDown.total" }   // ← ADD THIS
+        }
+      },
+      { $sort: { "_id.month": 1 } }
+    ]);
+
+
+    // ---------------------------
+    // 📌 PURCHASE MONTHLY DATA
+    // ---------------------------
+    const monthlyPurchaseAgg = await Purchase.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate, $lte: endDate },
+        }
+      },
+      {
+        $group: {
+          _id: { month: { $month: "$createdAt" } },
+          count: { $sum: 1 },
+          totalAmount: { $sum: "$totalAmount" }  // ← PURCHASE TOTAL
+        }
+      },
+      { $sort: { "_id.month": 1 } }
+    ]);
+    const finalBookings = [];
+    const finalPurchases = [];
+
+    for (let month = 1; month <= 12; month++) {
+      finalBookings.push({
+        month,
+        count: bookingMap[month]?.count || 0,
+        totalAmount: bookingMap[month]?.totalAmount || 0
+      });
+
+      finalPurchases.push({
+        month,
+        count: purchaseMap[month]?.count || 0,
+        totalAmount: purchaseMap[month]?.totalAmount || 0
+      });
+    }
+
     res.json({
       success: true,
       stats: {
