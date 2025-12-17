@@ -5,13 +5,14 @@ const moment = require("moment")
 const notificationController = require("../controllers/notificationController");
 // Configure your email service
 const transporter = nodemailer.createTransport({
-    host: "smtp.zoho.com",
-    port: 465,
-    secure: true,
+    host: "smtp.zoho.eu",
+    port: 587,
+    secure: false,
     auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
+        user: process.env.EMAIL_USER, // info@evenlyo.nl
+        pass: process.env.EMAIL_PASS  // 12-digit app password
+    },
+    requireTLS: true
 });
 
 

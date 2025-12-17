@@ -2,6 +2,7 @@ const Vendor = require("../../models/Vendor");
 const User = require("../../models/User");
 const Listing = require("../../models/Listing");
 const ServiceItem = require("../../models/Item");
+const Review = require("../../models/Review");
 const mongoose = require("mongoose");
 const asyncHandler = require("express-async-handler");
 
@@ -27,7 +28,7 @@ const getVendorFullDetails = async (req, res) => {
     if (!vendor) {
       vendor = await Vendor.findOne({ userId: vendorId }).populate(
         "userId",
-        "firstName lastName email profileImage userType"
+        "firstName lastName email profileImage userType description"
       );
     }
 
@@ -40,38 +41,52 @@ const getVendorFullDetails = async (req, res) => {
     }
 
     // ✅ Prepare reviews with client details
-    let vendorReviews = [];
-    if (Array.isArray(vendor.reviews) && vendor.reviews.length > 0) {
-      const clientIds = vendor.reviews.map((r) => r.clientId).filter(Boolean);
-      const clients = await User.find({ _id: { $in: clientIds } })
-        .select("firstName lastName profileImage")
-        .lean();
 
-      const clientMap = {};
-      clients.forEach((c) => {
-        clientMap[c._id.toString()] = c;
-      });
+    const saleItems = await ServiceItem.find({ vendor: vendorId }).lean();
+    const listingItems = await Listing.find({ vendor: vendorId }).lean();
+    const reviews = await Review.find({ vendorId }).lean();
+    const totalReviews = reviews.length;
 
-      vendorReviews = vendor.reviews.map((r) => {
-        const client = clientMap[r.clientId?.toString()] || {};
-        return {
-          rating: r.rating,
-          review: r.review,
-          bookingId: r.bookingId,
-          createdAt: r.createdAt,
-          client: {
-            _id: r.clientId,
-            name:
-              client.firstName && client.lastName
-                ? `${client.firstName} ${client.lastName}`
-                : "",
-            firstName: client.firstName,
-            lastName: client.lastName,
-            profileImage: client.profileImage,
-          },
-        };
-      });
-    }
+    const averageRating =
+      totalReviews === 0
+        ? 0
+        : reviews.reduce((sum, review) => sum + review.rating, 0) / totalReviews;
+
+    console.log(averageRating);
+    // let vendorReviews = [];
+    // if (Array.isArray(vendor.reviews) && vendor.reviews.length > 0) {
+    //   const clientIds = vendor.reviews.map((r) => r.clientId).filter(Boolean);
+    //   const clients = await User.find({ _id: { $in: clientIds } })
+    //     .select("firstName lastName profileImage")
+    //     .lean();
+
+    //   const clientMap = {};
+    //   clients.forEach((c) => {
+    //     clientMap[c._id.toString()] = c;
+    //   });
+
+
+
+    //   vendorReviews = vendor.reviews.map((r) => {
+    //     const client = clientMap[r.clientId?.toString()] || {};
+    //     return {
+    //       rating: r.rating,
+    //       review: r.review,
+    //       bookingId: r.bookingId,
+    //       createdAt: r.createdAt,
+    //       client: {
+    //         _id: r.clientId,
+    //         name:
+    //           client.firstName && client.lastName
+    //             ? `${client.firstName} ${client.lastName}`
+    //             : "",
+    //         firstName: client.firstName,
+    //         lastName: client.lastName,
+    //         profileImage: client.profileImage,
+    //       },
+    //     };
+    //   });
+    // }
 
     // ✅ Business details
     const businessDetails = {
@@ -81,10 +96,7 @@ const getVendorFullDetails = async (req, res) => {
       businessName: vendor.businessName,
       location: vendor.businessLocation || "",
       employees: vendor.teamSize || "",
-      description:
-        typeof vendor.businessDescription === "object"
-          ? vendor.businessDescription.en || vendor.businessDescription.nl || ""
-          : vendor.businessDescription,
+      description: vendor.description,
       whyChooseUs: vendor.whyChooseUs || "",
       reviews: vendor.rating?.totalReviews || 0,
       bannerImage: vendor.bannerImage || "",
@@ -108,10 +120,14 @@ const getVendorFullDetails = async (req, res) => {
     res.json({
       success: true,
       data: {
+        saleItems,
+        listingItems,
+        reviews,
         businessDetails,
         userDetails,
-        reviews: vendorReviews,
-        rating: vendor.rating || {},
+        averageRating
+        // reviews: vendorReviews,
+        // rating: vendor.rating || {},
       },
     });
   } catch (error) {
@@ -201,19 +217,19 @@ const getVendorProfile = asyncHandler(async (req, res) => {
     },
     personalInfo: isPublicAccess
       ? {
-          firstName: vendor.userId?.firstName,
-          lastName: vendor.userId?.lastName,
-          profileImage: vendor.userId?.profileImage,
-        }
+        firstName: vendor.userId?.firstName,
+        lastName: vendor.userId?.lastName,
+        profileImage: vendor.userId?.profileImage,
+      }
       : {
-          firstName: vendor.userId?.firstName,
-          lastName: vendor.userId?.lastName,
-          email: vendor.userId?.email,
-          contactNumber: vendor.userId?.contactNumber,
-          address: vendor.userId?.address,
-          profileImage: vendor.userId?.profileImage,
-          isActive: vendor.userId?.isActive,
-        },
+        firstName: vendor.userId?.firstName,
+        lastName: vendor.userId?.lastName,
+        email: vendor.userId?.email,
+        contactNumber: vendor.userId?.contactNumber,
+        address: vendor.userId?.address,
+        profileImage: vendor.userId?.profileImage,
+        isActive: vendor.userId?.isActive,
+      },
     timestamps: {
       createdAt: vendor.createdAt,
       updatedAt: vendor.updatedAt,
@@ -335,9 +351,9 @@ const getVendorBusinessDetails = asyncHandler(async (req, res) => {
   const averagePrice =
     listings.length > 0
       ? listings.reduce(
-          (sum, listing) => sum + (listing.pricing?.amount || 0),
-          0
-        ) / listings.length
+        (sum, listing) => sum + (listing.pricing?.amount || 0),
+        0
+      ) / listings.length
       : 0;
 
   const businessDetails = {
@@ -455,8 +471,8 @@ const getVendorDashboard = asyncHandler(async (req, res) => {
         completionRate:
           vendor.totalBookings > 0
             ? ((vendor.completedBookings / vendor.totalBookings) * 100).toFixed(
-                1
-              )
+              1
+            )
             : 0,
       },
       rating: {
@@ -666,9 +682,9 @@ const getFeaturedVendors = asyncHandler(async (req, res) => {
           completionRate:
             vendor.totalBookings > 0
               ? (
-                  (vendor.completedBookings / vendor.totalBookings) *
-                  100
-                ).toFixed(1)
+                (vendor.completedBookings / vendor.totalBookings) *
+                100
+              ).toFixed(1)
               : 0,
         },
       },
@@ -829,6 +845,7 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
 
     return {
       _id: vendor._id,
+      userId: vendor.userId._id,
       businessName: displayBusinessName,
       businessLogo: vendor.businessLogo,
       businessLocation: vendor.businessLocation,
@@ -849,7 +866,7 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
           : description,
       businessEmail: vendor.businessEmail,
       businessPhone: vendor.businessPhone,
-      businessDescription: description,
+      businessDescription: vendor.businessDescription,
       isActive: vendor.userId?.isActive,
       isApproved: vendor.isApproved,
     };
