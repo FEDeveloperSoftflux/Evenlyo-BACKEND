@@ -317,7 +317,7 @@ const getItemsByCategory = async (req, res) => {
             }
         ];
 
-        const otherItems = await Item.aggregate(otherPipeline);
+        const otherItems = await Item.aggregate(otherPipeline)
         const settings = await Settings.findOne()
         console.log(settings, "settingssettingssettings");
 

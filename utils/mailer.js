@@ -1,11 +1,13 @@
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.zoho.com",
+  port: 465,
+  secure: true,
   auth: {
-    user: process.env.EMAIL_USER, // e.g. you@yourdomain.com
-    pass: process.env.EMAIL_PASS, // Zoho app-specific password
-  },
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
 });
 
 async function sendOTPEmail(to, otp) {
@@ -79,9 +81,8 @@ async function sendPromotionalEmail(to, userName) {
           <p style="color: #333; font-size: 16px; line-height: 1.5;">Ready to plan your next amazing event? Join thousands of satisfied customers who trust Evenlyo for their special moments.</p>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${
-              process.env.FRONTEND_URL || "http://localhost:3000"
-            }/register" 
+            <a href="${process.env.FRONTEND_URL || "http://localhost:3000"
+      }/register" 
                style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px; display: inline-block;">
               Join Evenlyo Today!
             </a>
@@ -98,16 +99,14 @@ async function sendPromotionalEmail(to, userName) {
           
           <p style="color: #999; font-size: 12px; text-align: center;">
             This email was sent because you commented on our blog. If you don't want to receive promotional emails, 
-            <a href="${
-              process.env.FRONTEND_URL || "http://localhost:3000"
-            }/unsubscribe" style="color: #999;">click here to unsubscribe</a>.
+            <a href="${process.env.FRONTEND_URL || "http://localhost:3000"
+      }/unsubscribe" style="color: #999;">click here to unsubscribe</a>.
           </p>
         </div>
       </div>
     `,
-    text: `Hi ${userName}, Welcome to Evenlyo! Thank you for engaging with our blog. We're your one-stop destination for event planning. Join us today and get 20% off your first booking! Visit ${
-      process.env.FRONTEND_URL || "http://localhost:3000"
-    }/register to get started.`,
+    text: `Hi ${userName}, Welcome to Evenlyo! Thank you for engaging with our blog. We're your one-stop destination for event planning. Join us today and get 20% off your first booking! Visit ${process.env.FRONTEND_URL || "http://localhost:3000"
+      }/register to get started.`,
   };
 
   try {

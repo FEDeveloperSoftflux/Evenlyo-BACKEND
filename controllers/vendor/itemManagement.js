@@ -414,17 +414,20 @@ const getVendorItemsOverview = async (req, res) => {
 					createdAt: { $gte: startOfMonth, $lt: endOfMonth },
 				},
 			},
-			{ $unwind: "$items" }, // Flatten the items array
+
+			{ $unwind: "$items" },
+
 			{
 				$group: {
-					_id: "$items._id",            // Group by productId
+					_id: "$items.itemId", // ✅ CORRECT GROUP KEY
 					title: { $first: "$items.title" },
 					image: { $first: "$items.image" },
-					totalSold: { $sum: "$items.quantity" }, // Sum quantities sold
+					totalSold: { $sum: "$items.quantity" },
 				},
 			},
-			{ $sort: { totalSold: -1 } }, // Sort descending
-			{ $limit: 5 },                 // Top 5
+
+			{ $sort: { totalSold: -1 } },
+			{ $limit: 5 },
 		]);
 
 		console.log(totalMain, "totalMaintotalMaintotalMain");

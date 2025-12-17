@@ -180,6 +180,7 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
       claimedAt: new Date(),
       status: "pending",
       amount: parsedSecurityFee,
+      stockUpdated: false
     };
     // await notificationController.createNotification({
     //   notificationFor: "Admin",
@@ -217,6 +218,7 @@ const markBookingPickedUp = asyncHandler(async (req, res) => {
       claimedAt: new Date(),
       status: "pending",
       amount: parsedClaimAmount,
+      stockUpdated: false
     };
     // Send request/notification to admin for claim approval
     try {

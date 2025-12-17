@@ -71,7 +71,7 @@ const clientLogin = async (req, res) => {
           lastName: user.lastName,
           email: user.email,
           profileImage: user.profileImage,
-          role: "admin",
+          role: "client",
         },
       });
     }
@@ -117,7 +117,7 @@ const clientLogin = async (req, res) => {
         lastName: user.lastName,
         email: user.email,
         profileImage: user.profileImage,
-        userType: user.userType,
+        userType: "client",
       },
     });
   } catch (err) {
@@ -1407,7 +1407,7 @@ const vendorLogin = async (req, res) => {
         lastName: user.lastName,
         email: user.email,
         profileImage: user.profileImage,
-        userType: isEmployee ? "employee" : "admin",
+        userType: "customer",
         vendorId: isEmployee ? user.vendorId?._id : null,
       };
 

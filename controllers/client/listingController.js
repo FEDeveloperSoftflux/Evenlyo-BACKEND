@@ -197,10 +197,7 @@ const getListings = async (req, res) => {
 
     // Get listings with populated vendor and category information
     const listingsDocs = await Listing.find(query)
-      .populate(
-        "vendor",
-        "_id businessName businessLocation userId businessLogo"
-      )
+      .populate("vendor", "_id firstName lastName fullName")
       .populate("category", "name icon")
       .populate(
         "subCategory",

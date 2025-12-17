@@ -26,7 +26,7 @@ router.delete('/role-users/:employeeId', requireAuth, requireVendor, deleteRoleU
 router.put('/designations/:designationId', requireAuth, requireVendor, editDesignation);
 
 // PUT update a role user by ID
-router.put('/role-users/:employeeId', requireAuth, requireVendor, editRoleUser);
+router.put('/role-users/:employeeId', requireAuth, editRoleUser);
 
 router.post("/register-vendor-from-role",registerVendorFromUser)
 

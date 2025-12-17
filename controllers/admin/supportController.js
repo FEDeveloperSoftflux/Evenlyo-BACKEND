@@ -3,6 +3,8 @@ const { sendOTPEmail, sendPromotionalEmail } = require('../../utils/mailer');
 // Send email to support ticket user
 exports.sendEmailToTicketUser = async (req, res) => {
     try {
+        console.log(process.env, " process.env process.env process.env");
+
         const { ticketId } = req.params;
         const { subject, message } = req.body;
         const ticket = await SupportTicket.findOne({ ticketId });
@@ -16,11 +18,14 @@ exports.sendEmailToTicketUser = async (req, res) => {
         // Use nodemailer directly for custom message
         const nodemailer = require('nodemailer');
         const transporter = nodemailer.createTransport({
-            service: 'gmail',
+            host: "smtp.zoho.eu",
+            port: 587,
+            secure: false,
             auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            }
+                user: process.env.EMAIL_USER, // info@evenlyo.nl
+                pass: process.env.EMAIL_PASS  // 12-digit app password
+            },
+            requireTLS: true
         });
         const mailOptions = {
             from: process.env.EMAIL_USER,
@@ -31,6 +36,7 @@ exports.sendEmailToTicketUser = async (req, res) => {
         await transporter.sendMail(mailOptions);
         res.status(200).json({ success: true, message: 'Email sent successfully' });
     } catch (error) {
+        console.log(error, "errorerrorerrorerror");
         res.status(500).json({ success: false, message: 'Server Error', error: error.message });
     }
 };
@@ -68,8 +74,8 @@ exports.toggleTicketStatus = async (req, res) => {
         await ticket.save();
         res.status(200).json({ success: true, message: `Ticket status updated to ${ticket.status}`, status: ticket.status });
     } catch (error) {
-        console.log(error,"errorerrorerror");
-        
+        console.log(error, "errorerrorerror");
+
         res.status(500).json({ success: false, message: 'Server Error', error: error.message });
     }
 };

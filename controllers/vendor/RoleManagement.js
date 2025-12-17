@@ -125,8 +125,9 @@ const getAllRoleUsers = async (req, res) => {
 		if (!vendorId) return res.status(401).json({ error: 'Unauthorized: vendor authentication required' });
 
 		const employees = await Employee.find({ vendor: vendorId })
-			.populate('designation')
+			.populate('designation','_id name')
 			.sort({ createdAt: -1 });
+		console.log(employees, "employeesemployeesemployees");
 
 		const result = employees.map(e => ({
 			id: e._id,
@@ -135,6 +136,7 @@ const getAllRoleUsers = async (req, res) => {
 			email: e.email,
 			password: '********', // never return real password
 			designation: e.designation ? e.designation.name : null,
+			designationID: e.designation ? e.designation._id : null,
 			status: e.status,
 			createdAt: e.createdAt
 		}));
@@ -211,7 +213,9 @@ const editDesignation = async (req, res) => {
 // Update a role user (employee) for a vendor
 const editRoleUser = async (req, res) => {
 	try {
-		const vendorId = req.user && req.user.vendorId;
+		const vendorId = req.user && req.user.id;
+		console.log(req.user, vendorId, "vendorIdvendorIdvendorId");
+
 		if (!vendorId) return res.status(401).json({ error: 'Unauthorized: vendor authentication required' });
 
 		const { employeeId } = req.params;

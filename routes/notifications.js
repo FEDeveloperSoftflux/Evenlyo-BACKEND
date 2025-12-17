@@ -7,16 +7,21 @@ const { requireAuth } = require('../middleware/authMiddleware');
 const Vendor = require('../models/Vendor');
 const Notification = require('../models/Notification');
 
-router.get('/', async (req, res) => {
-  let userIdToQuery = req.user.id;
-  if (req.user.userType === 'vendor') {
-    // Find vendor profile for this user
-    const vendorProfile = await Vendor.findOne({ userId: req.user.id });
-    if (vendorProfile) {
-      userIdToQuery = vendorProfile._id;
-    }
-  }
-  const notifications = await getNotifications(userIdToQuery);
+router.get('/', requireAuth, async (req, res) => {
+console.log( req.user.id," req.user.id req.user.id");
+
+  const notifications = await Notification.find({ clientId: req.user.id }).sort({ createdAt: -1 });
+  // let userIdToQuery = req.user.id;
+  // console.log(userIdToQuery,"userIdToQueryuserIdToQuery");
+
+  // if (req.user.userType === 'vendor') {
+  //   // Find vendor profile for this user
+  //   const vendorProfile = await Vendor.findOne({ userId: req.user.id });
+  //   if (vendorProfile) {
+  //     userIdToQuery = vendorProfile._id;
+  //   }
+  // }
+  // const notifications = await getNotifications(userIdToQuery);
   res.json({ success: true, data: notifications });
 });
 

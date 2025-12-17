@@ -5,7 +5,7 @@ const Booking = require("../../models/Booking");
 const Settings = require("../../models/Settings");
 const { toMultilingualText } = require("../../utils/textUtils");
 const { createActivityLog } = require("../../utils/activityLogger");
-
+const mongoose = require("mongoose");
 const filterByCategory = async (req, res) => {
   try {
     const { category, subCategory } = req.query;
@@ -162,6 +162,72 @@ const getVendorListingsOverview = async (req, res) => {
       "uniqueCategoriesuniqueCategoriesuniqueCategories"
     );
 
+    const startOfMonth = new Date(
+      new Date().getFullYear(),
+      new Date().getMonth(),
+      1
+    );
+
+    const endOfMonth = new Date(
+      new Date().getFullYear(),
+      new Date().getMonth() + 1,
+      1
+    );
+
+    const topBookedItems = await Booking.aggregate([
+      {
+        $match: {
+          vendorId: new mongoose.Types.ObjectId(vendorId),
+          status: "completed",
+          createdAt: {
+            $gte: startOfMonth,
+            $lt: endOfMonth
+          }
+        }
+      },
+
+      // Group by listing
+      {
+        $group: {
+          _id: "$listingId",
+          totalBookings: { $sum: 1 }
+        }
+      },
+
+      // Sort by booking count
+      { $sort: { totalBookings: -1 } },
+
+      // Top 5
+      { $limit: 5 },
+
+      // Lookup listing details
+      {
+        $lookup: {
+          from: "listings",
+          localField: "_id",
+          foreignField: "_id",
+          as: "listing"
+        }
+      },
+      { $unwind: "$listing" },
+
+      // Shape final response
+      {
+        $project: {
+          _id: 0,
+          listingId: "$_id",
+          totalBookings: 1,
+          title: "$listing.title",
+          image: "$listing.image",
+          price: "$listing.price"
+        }
+      }
+    ]);
+
+    console.log(topBookedItems,"topBookedItemstopBookedItems");
+
+
+    
     res.json({
       success: true,
       stats: {
@@ -171,6 +237,7 @@ const getVendorListingsOverview = async (req, res) => {
       },
       listingOverview,
       listingTable,
+      topBookedItems
     });
   } catch (err) {
     console.error("Vendor listing overview error:", err);

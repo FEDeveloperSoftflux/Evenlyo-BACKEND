@@ -9,7 +9,7 @@ router.get('/get-main-category/:vendorId', getMainCategoriesbyVendorId);
 
 // Update vendor profile
 router.put('/update', requireAuth, updateProfile);
-router.put('/update-devliery-charges', requireAuth, updateDeliveryCharges);
+router.put('/update-delivery-charges', requireAuth, updateDeliveryCharges);
 
 router.post('/get-sub-category-by-categoryIds', subCategoryFromCategory);
 

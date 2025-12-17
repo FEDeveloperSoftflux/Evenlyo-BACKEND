@@ -6,6 +6,7 @@ const User = require('../../models/User');
 const Vendor = require('../../models/Vendor');
 const Purchase = require('../../models/SaleItemPurchase.js');
 const ActivityLog = require('../../models/ActivityLog.js');
+const SaleItemPurchase = require('../../models/SaleItemPurchase.js');
 
 // Vendor Dashboard Analytics Controller
 const getDashboardAnalytics = async (req, res) => {
@@ -193,6 +194,42 @@ const getDashboardAnalytics = async (req, res) => {
       { $sort: { '_id.month': 1 } }
     ]);
 
+    const endOfYear = new Date(new Date().getFullYear() + 1, 0, 1);
+    const monthlyOrders = await SaleItemPurchase.aggregate([
+      {
+        $match: {
+          createdAt: {
+            $gte: startOfYear,
+            $lt: endOfYear
+          }
+        }
+      },
+      {
+        $group: {
+          _id: { month: { $month: "$createdAt" } },
+          totalOrders: { $sum: 1 }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          month: "$_id.month",
+          totalOrders: 1
+        }
+      },
+      { $sort: { month: 1 } }
+    ]);
+
+    function getOrdersPerMonthCurrentYear(monthlyOrders) {
+      return Array.from({ length: 12 }, (_, index) => {
+        const month = index + 1;
+        const found = monthlyOrders.find(m => m.month === month);
+        return {
+          month,
+          totalOrders: found?.totalOrders || 0
+        };
+      });
+    }
     const purchaseOverview = Array.from({ length: 12 }, (_, i) => {
       const found = purchaseAgg.find(m => m._id.month === i + 1);
       return { month: i + 1, totalPurchases: found ? found.totalPurchases : 0 };
@@ -201,68 +238,77 @@ const getDashboardAnalytics = async (req, res) => {
 
     const activityLog = await ActivityLog.find({ vendorId: req.user.vendorId ? req.user.vendorId : req.user.id })
     console.log(activityLog, "activityLogactivityLogactivityLogactivityLog");
+    console.log(vendorId, "vendorIdvendorIdvendorIdvendorId");
 
     // Recent Purchases (last 3)
-    const recentPurchases = await Purchase.find({ vendor: vendorId })
-      .sort({ purchasedAt: -1 })
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    const recentPurchases = await Purchase.find({
+      vendorId: vendorId,
+      createdAt: { $gte: oneWeekAgo }
+    })
+      .sort({ createdAt: -1 })
       .limit(3)
-      .populate('user', 'firstName lastName email')
+      .populate('customerId', 'firstName lastName email')
       .select('trackingId itemName user userName quantity totalPrice status purchasedAt');
 
     const totalBookingsCount = await Booking.countDocuments({ vendorId });
     console.log(totalBookingsCount, "totalBookingstotalBookingstotalBookings");
 
-    const monthlyBookingAgg = await Booking.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
-        }
-      },
-      {
-        $group: {
-          _id: { month: { $month: "$createdAt" } },
-          count: { $sum: 1 },
-          totalAmount: { $sum: "$pricingBreakDown.total" }   // ← ADD THIS
-        }
-      },
-      { $sort: { "_id.month": 1 } }
-    ]);
+    // const monthlyBookingAgg = await Booking.aggregate([
+    //   {
+    //     $match: {
+    //       createdAt: { $gte: startDate, $lte: endDate },
+    //     }
+    //   },
+    //   {
+    //     $group: {
+    //       _id: { month: { $month: "$createdAt" } },
+    //       count: { $sum: 1 },
+    //       totalAmount: { $sum: "$pricingBreakDown.total" }   // ← ADD THIS
+    //     }
+    //   },
+    //   { $sort: { "_id.month": 1 } }
+    // ]);
 
 
     // ---------------------------
     // 📌 PURCHASE MONTHLY DATA
     // ---------------------------
-    const monthlyPurchaseAgg = await Purchase.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
-        }
-      },
-      {
-        $group: {
-          _id: { month: { $month: "$createdAt" } },
-          count: { $sum: 1 },
-          totalAmount: { $sum: "$totalAmount" }  // ← PURCHASE TOTAL
-        }
-      },
-      { $sort: { "_id.month": 1 } }
-    ]);
-    const finalBookings = [];
-    const finalPurchases = [];
+    // const monthlyPurchaseAgg = await Purchase.aggregate([
+    //   {
+    //     $match: {
+    //       createdAt: { $gte: startDate, $lte: endDate },
+    //     }
+    //   },
+    //   {
+    //     $group: {
+    //       _id: { month: { $month: "$createdAt" } },
+    //       count: { $sum: 1 },
+    //       totalAmount: { $sum: "$totalAmount" }  // ← PURCHASE TOTAL
+    //     }
+    //   },
+    //   { $sort: { "_id.month": 1 } }
+    // ]);
+    // const finalBookings = [];
+    // const finalPurchases = [];
 
-    for (let month = 1; month <= 12; month++) {
-      finalBookings.push({
-        month,
-        count: bookingMap[month]?.count || 0,
-        totalAmount: bookingMap[month]?.totalAmount || 0
-      });
+    // for (let month = 1; month <= 12; month++) {
+    //   finalBookings.push({
+    //     month,
+    //     count: bookingMap[month]?.count || 0,
+    //     totalAmount: bookingMap[month]?.totalAmount || 0
+    //   });
 
-      finalPurchases.push({
-        month,
-        count: purchaseMap[month]?.count || 0,
-        totalAmount: purchaseMap[month]?.totalAmount || 0
-      });
-    }
+    //   finalPurchases.push({
+    //     month,
+    //     count: purchaseMap[month]?.count || 0,
+    //     totalAmount: purchaseMap[month]?.totalAmount || 0
+    //   });
+    // }
+    const result = getOrdersPerMonthCurrentYear(monthlyOrders);
+    console.log(result, "resultresultresult");
 
     res.json({
       success: true,
@@ -283,18 +329,19 @@ const getDashboardAnalytics = async (req, res) => {
         createdAt: b.createdAt
       })),
       orderOverview,
-      purchaseOverview,
+      purchaseOverview: result,
       recentPurchases: recentPurchases.map(p => ({
+        // ...p.toObject(),
         trackingId: p.trackingId,
         itemName: p.itemName,
-        buyerName: p.user ? `${p.user.firstName} ${p.user.lastName}` : p.userName || '',
+        buyerDetails: p.customerId,
         quantity: p.quantity,
         totalPrice: p.totalPrice,
         status: p.status,
         purchasedAt: p.purchasedAt
       })),
       recentClients,
-      activityLog
+      activityLog,
     });
   } catch (err) {
     console.error('Dashboard analytics error:', err);
