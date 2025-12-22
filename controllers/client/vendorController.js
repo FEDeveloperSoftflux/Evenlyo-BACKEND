@@ -758,6 +758,7 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
     sortBy = "rating",
     sortOrder = "desc",
   } = req.query;
+  console.log("CALLED");
 
   // Handle both path parameter and query parameter for category
   const categoryId = req.params.categoryId || category;
@@ -809,7 +810,7 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
       businessName 
       businessEmail
       businessPhone
-      businessDescription
+      description
       businessLocation 
       businessLogo 
       rating 
@@ -827,14 +828,15 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
     .limit(parseInt(limit));
 
   const total = await Vendor.countDocuments(query);
+  console.log(vendors, "vendorsvendorsvendors");
 
   // Format data with requested information
   const formattedVendors = vendors.map((vendor) => {
     // Get business description in preferred language
     const description =
-      typeof vendor.businessDescription === "object"
-        ? vendor.businessDescription.en || vendor.businessDescription.nl || ""
-        : vendor.businessDescription || "";
+      typeof vendor.description === "object"
+        ? vendor.description.en || vendor.description.nl || ""
+        : vendor.description || "";
 
     // Handle business name for personal accounts
     const displayBusinessName =
@@ -866,7 +868,7 @@ const getVendorsByCategory = asyncHandler(async (req, res) => {
           : description,
       businessEmail: vendor.businessEmail,
       businessPhone: vendor.businessPhone,
-      businessDescription: vendor.businessDescription,
+      businessDescription: vendor.description,
       isActive: vendor.userId?.isActive,
       isApproved: vendor.isApproved,
     };

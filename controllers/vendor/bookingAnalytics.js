@@ -380,16 +380,19 @@ const paymentConfirmation = async (req, res) => {
     }
     console.log(booking, "bookingbookingbookingbookingbooking");
 
-    if (
-      booking.willPayUpfront === true &&
-      booking.isUpfrontPaid === true &&
-      paidAmount === booking.pricingBreakdown?.upfrontFee
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Upfront payment has already been made."
-      });
-    }
+    // if (
+    //   booking.willPayUpfront === true &&
+    //   booking.isUpfrontPaid === true &&
+    //   booking.paymentStatus === "upfront_paid" &&
+    //   booking.AmountPaid > 0 &&
+    //   booking.AmountPaid < booking.pricingBreakdown.total &&
+    //   paidAmount === booking.pricingBreakdown.upfrontFee
+    // ) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Upfront payment has already been made."
+    //   });
+    // }
 
     // ❌ Prevent any payment if already fully paid
     if (booking.paymentStatus === "fully_paid") {

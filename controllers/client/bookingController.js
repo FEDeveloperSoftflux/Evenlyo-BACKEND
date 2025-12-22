@@ -480,10 +480,9 @@ const createBookingRequest = asyncHandler(async (req, res) => {
 
     await bookingRequest.save();
     console.log(bookingRequest, "bookingRequestbookingRequestbookingRequestbookingRequest");
-
+    const vendor = await User.findById(bookingRequest.vendorId).populate("firstName lastName")
     // Notify vendor of new booking request
     try {
-      const vendor = await User.findById(bookingRequest.vendorId);
       const client = await User.findById(bookingRequest.userId).select(
         "firstName lastName"
       );
@@ -505,7 +504,10 @@ const createBookingRequest = asyncHandler(async (req, res) => {
             vendorId: vendor._id, // vendor's user account receives notification
             clientId: client._id, // vendor's user account receives notification
             bookingId: bookingRequest._id,
-            message: `New booking request from ${clientName} for "${listingTitle}" on ${bookingDates}. Tracking ID: ${bookingRequest.trackingId}`,
+            message: {
+              en: `New booking request from ${clientName} for "${listingTitle.en}" on ${bookingDates}. Tracking ID: ${bookingRequest.trackingId}`,
+              nl: `Nieuwe boekingsaanvraag van ${clientName} voor "${listingTitle.nl}" op ${bookingDates}. Tracking-ID: ${bookingRequest.trackingId}`
+            },
           });
         }
         if (req.body.details.pricingBreakdown.paymentPolicy.isEvenlyoProtectEnabled === true) {
@@ -514,7 +516,10 @@ const createBookingRequest = asyncHandler(async (req, res) => {
             vendorId: vendor._id, // vendor's user account receives notification
             clientId: client._id,// vendor's user account receives notification
             bookingId: bookingRequest._id,
-            message: `A evenlyo protected booking request from ${clientName} for "${listingTitle}" on ${bookingDates}. Tracking ID: ${bookingRequest.trackingId}`,
+            message: {
+              en: `A evenlyo protected booking request from ${clientName} for "${listingTitle.en}" on ${bookingDates}. Tracking ID: ${bookingRequest.trackingId}`,
+              nl: `Een beschermde boekingsaanvraag op Evenlyo van ${clientName} voor "${listingTitle.nl}" op ${bookingDates}. Tracking-ID: ${bookingRequest.trackingId}`
+            }
           });
         }
       }
@@ -542,6 +547,7 @@ const createBookingRequest = asyncHandler(async (req, res) => {
       success: true,
       message: "Booking request created successfully",
       data: {
+        vendorName: `${vendor.firstName} ${vendor.lastName}`,
         bookingRequest,
         paymentPolicy: {
           escrowEnabled: policy.escrowEnabled,
@@ -679,7 +685,7 @@ const getBookingHistory = asyncHandler(async (req, res) => {
   const bookings = await BookingRequest.find(filter)
     .populate(
       "vendorId",
-      "businessName businessEmail businessPhone businessLogo"
+      "firstName lastName"
     )
     .sort({ createdAt: -1 })
     .limit(limit * 1)
