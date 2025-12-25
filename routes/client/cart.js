@@ -20,7 +20,7 @@ router.post('/wishlist', requireAuth, requireClient, addToCart2); // Duplicate r
 // @route   GET /api/cart
 // @desc    Get user's cart
 // @access  Private (User)
-router.get('/', requireAuth, requireClient, getCart);
+router.get('/', requireAuth, getCart);
 
 // @route   DELETE /api/cart/remove/:listingId
 // @desc    Remove item from cart

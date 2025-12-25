@@ -1136,7 +1136,7 @@ const getListingsAndVendorsByCategory = async (req, res) => {
       const listings = await Listing.find(listingQuery)
         .populate(
           "vendor",
-          "_id businessName businessLocation businessLogo bannerImage userId"
+          "firstName lastName _id businessName businessLocation businessLogo bannerImage userId"
         )
         .populate("category", "name icon")
         .populate("subCategory", "name icon")
@@ -1222,7 +1222,7 @@ const getListingsAndVendorsByCategory = async (req, res) => {
       const vendorSortOptions = {};
       vendorSortOptions[sortBy === "rating" ? "rating.average" : sortBy] =
         sortOrder === "desc" ? -1 : 1;
-
+      console.log(vendorQuery, "vendorQueryvendorQueryvendorQueryvendorQuery");
       const vendors = await Vendor.find(vendorQuery)
         .populate("userId", "firstName lastName email profileImage")
         .populate("mainCategories", "name icon")
@@ -1275,17 +1275,18 @@ const getListingsAndVendorsByCategory = async (req, res) => {
       console.log("Sale Items Query:", JSON.stringify(saleItemsQuery, null, 2));
 
       const saleItems = await ServiceItem.find(saleItemsQuery)
-        .populate(
-          "vendor",
-          "_id businessName businessLocation businessLogo bannerImage userId"
-        )
-        .populate("linkedListing", "title")
+        .populate({
+          path: "vendor",
+          select: "-password", // vendor ka sab kuch except password
+        })
+        .populate({
+          path: "linkedListing",
+          select: "title",
+        })
         .sort(saleItemsSortOptions)
         .skip(skip)
-        .limit(parseInt(limit))
+        .limit(Number(limit))
         .select("-__v");
-
-      console.log("Found Sale Items:", saleItems.length);
 
       const totalSaleItems = await ServiceItem.countDocuments(saleItemsQuery);
 
@@ -1312,12 +1313,12 @@ const getListingsAndVendorsByCategory = async (req, res) => {
     const otherSaleItems = await Item.find({
       mainCategory: null,
       subCategory: null,
-    }).populate(
-      "vendor",
-      "_id businessName businessLocation businessLogo bannerImage userId"
-    );
+    }).populate({
+      path: "vendor",
+      select: "-password", // sab kuch aayega except password
+    });
     console.log(otherSaleItems, "otherSaleItemsotherSaleItems");
-
+    const settings = await Settings.findOne()
     res.json({
       success: true,
       data: results,
@@ -1325,6 +1326,7 @@ const getListingsAndVendorsByCategory = async (req, res) => {
       categoryInfo,
       subCategoryInfo,
       otherSaleItems,
+      saleItemPlatformFees: settings.salesItemPlatformFee
     });
   } catch (error) {
     console.error("Error fetching listings and vendors by category:", error);
