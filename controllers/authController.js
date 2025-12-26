@@ -1462,14 +1462,18 @@ const vendorLogin = async (req, res) => {
       id: isEmployee ? user.vendor.id : user._id,
       name: user.name,
     });
+
+    const vendorDetails = await Vendor.findOne({ userId: user._id });
+
     const responseUser = {
       id: isEmployee ? user.vendor.id : user._id,
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
       profileImage: user.profileImage,
-      userType: isEmployee ? "employee" : "admin",
+      userType: "vendor",
       vendorId,
+      vendorDetails
     };
 
     if (pages.length > 0) {

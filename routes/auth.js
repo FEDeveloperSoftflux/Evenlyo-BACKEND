@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
-const { requireAuth,rateLimit,csrfProtection} = require('../middleware/authMiddleware');
+const { requireAuth, rateLimit, csrfProtection } = require('../middleware/authMiddleware');
 
 // --- Public Routes ---
 
@@ -12,10 +12,7 @@ router.post('/client/login',
   authController.clientLogin
 );
 
-router.post('/vendor/login',
-  rateLimit(20, 15 * 60 * 1000),
-  csrfProtection,
-  authController.vendorLogin
+router.post('/vendor/login', authController.vendorLogin
 );
 
 router.post('/admin/login',
@@ -29,7 +26,7 @@ router.post('/logout', requireAuth, authController.logout);
 
 // OTP routes
 router.post('/send-otp',
-  rateLimit(10, 5 * 60 * 1000), 
+  rateLimit(10, 5 * 60 * 1000),
   authController.sendOtpForRegister
 );
 
@@ -42,13 +39,13 @@ router.post('/check-registered',
 
 // Client Registration
 router.post('/client/register',
-  rateLimit(10, 5 * 60 * 1000), 
+  rateLimit(10, 5 * 60 * 1000),
   csrfProtection,
   authController.registerClient
 );
 
-router.post('/verify-register-otp', 
-  rateLimit(10, 5 * 60 * 1000), 
+router.post('/verify-register-otp',
+  rateLimit(10, 5 * 60 * 1000),
   authController.verifyOtpAndRegister
 );
 
@@ -56,7 +53,7 @@ router.post('/verify-register-otp',
 
 // Password reset routes
 router.post('/send-forgot-otp',
-  rateLimit(10, 5 * 60 * 1000), 
+  rateLimit(10, 5 * 60 * 1000),
   authController.sendOtpForForgotPassword
 );
 
