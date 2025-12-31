@@ -13,7 +13,9 @@ const round3 = (n) => Number(Number(n || 0).toFixed(3));
 const getVendorEarningsAnalytics = async (req, res) => {
   try {
 
-    let vendorId = req.vendor?._id || req.user?._id || req.user?.vendorId || req.user?.id;
+    let vendorId = req?.user?.id
+    console.log(vendorId, " req.user req.user");
+
     if (!vendorId) return res.status(400).json({ success: false, message: 'Vendor not found in request.' });
     // Convert to ObjectId if needed
     if (typeof vendorId === 'string' || (vendorId && vendorId.constructor && vendorId.constructor.name !== 'ObjectID' && vendorId.constructor.name !== 'ObjectId')) {
@@ -26,20 +28,20 @@ const getVendorEarningsAnalytics = async (req, res) => {
 
     // Date helpers
     const today = new Date();
-    today.setHours(0,0,0,0);
+    today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
     const lastWeek = new Date(today); lastWeek.setDate(today.getDate() - 6);
 
     // Earnings stats
-    const [todayEarnings, lastWeekEarnings, totalEarnings] = await Promise.all([
+    const [todayEarnings, totalEarnings] = await Promise.all([
       Booking.aggregate([
         { $match: { vendorId: vendorId, status: 'completed', 'details.startDate': { $gte: today, $lt: tomorrow } } },
         { $group: { _id: null, total: { $sum: '$pricing.totalPrice' } } }
       ]),
-      Booking.aggregate([
-        { $match: { vendorId: vendorId, status: 'completed', 'details.startDate': { $gte: lastWeek, $lt: tomorrow } } },
-        { $group: { _id: null, total: { $sum: '$pricing.totalPrice' } } }
-      ]),
+      // Booking.aggregate([
+      //   { $match: { vendorId: vendorId, status: 'completed', 'details.startDate': { $gte: lastWeek, $lt: tomorrow } } },
+      //   { $group: { _id: null, total: { $sum: '$pricing.totalPrice' } } }
+      // ]),
       Booking.aggregate([
         { $match: { vendorId: vendorId, status: 'completed' } },
         { $group: { _id: null, total: { $sum: '$pricing.totalPrice' } } }
@@ -49,19 +51,21 @@ const getVendorEarningsAnalytics = async (req, res) => {
     // Monthly earnings breakdown
     const monthlyEarningsAgg = await Booking.aggregate([
       { $match: { vendorId: vendorId, status: 'completed' } },
-      { $group: {
-        _id: { month: { $month: '$details.startDate' } },
-        totalEarnings: { $sum: '$pricing.totalPrice' }
-      } },
+      {
+        $group: {
+          _id: { month: { $month: '$details.startDate' } },
+          totalEarnings: { $sum: '$pricing.totalPrice' }
+        }
+      },
       { $sort: { '_id.month': 1 } }
     ]);
-    
+
     // Create a map of month earnings for quick lookup
     const earningsMap = {};
     monthlyEarningsAgg.forEach(m => {
       earningsMap[m._id.month] = m.totalEarnings;
     });
-    
+
     // Format to desired payload with all 12 months: [{ month: 1, totalEarnings: 23 }, ...]
     const monthlyEarnings = [];
     for (let month = 1; month <= 12; month++) {
@@ -73,33 +77,98 @@ const getVendorEarningsAnalytics = async (req, res) => {
 
     // Earnings by Category - aggregate through listing relationships
     const earningsByCategoryAgg = await Booking.aggregate([
-      { $match: { vendorId: vendorId, status: 'completed' } },
       {
-        $lookup: {
-          from: 'listings', // Collection name for Listing model
-          localField: 'listingId',
-          foreignField: '_id',
-          as: 'listingDetails'
+        $match: {
+          vendorId: vendorId,
+          status: { $in: ["completed", "cancelled"] }
         }
       },
-      { $unwind: { path: '$listingDetails', preserveNullAndEmptyArrays: true } },
+
+      // Join listing
       {
         $lookup: {
-          from: 'categories',
-          localField: 'listingDetails.category',
-          foreignField: '_id',
-          as: 'categoryDetails'
+          from: "listings",
+          localField: "listingId",
+          foreignField: "_id",
+          as: "listing"
         }
       },
-      { $unwind: { path: '$categoryDetails', preserveNullAndEmptyArrays: true } },
+      { $unwind: "$listing" },
+
+      // Join category
+      {
+        $lookup: {
+          from: "categories",
+          localField: "listing.category",
+          foreignField: "_id",
+          as: "category"
+        }
+      },
+      {
+        $unwind: {
+          path: "$category",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      // Calculate earnings per booking
+      {
+        $project: {
+          categoryId: "$listing.category",
+          categoryName: { $ifNull: ["$category.name.en", "Others"] },
+
+          bookingEarning: {
+            $add: [
+              {
+                $cond: [
+                  { $eq: ["$status", "completed"] },
+                  {
+                    $subtract: [
+                      { $ifNull: ["$pricingBreakdown.total", 0] },
+                      {
+                        $add: [
+                          { $ifNull: ["$pricingBreakdown.platformFee", 0] },
+                          { $ifNull: ["$pricingBreakdown.securityFee", 0] },
+                          { $ifNull: ["$pricingBreakdown.evenlyoProtectFee", 0] }
+                        ]
+                      }
+                    ]
+                  },
+                  0
+                ]
+              },
+              {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$status", "cancelled"] },
+                      { $eq: ["$paymentStatus", "upfront_paid"] }
+                    ]
+                  },
+                  {
+                    $multiply: [
+                      { $ifNull: ["$pricingBreakdown.upfrontFee", 0] },
+                      0.88
+                    ]
+                  },
+                  0
+                ]
+              }
+            ]
+          }
+        }
+      },
+
+      // Group by category
       {
         $group: {
-          _id: '$listingDetails.category',
-          categoryName: { $first: { $ifNull: ['$categoryDetails.name.en', 'Others'] } },
-          totalEarnings: { $sum: '$pricing.totalPrice' },
+          _id: "$categoryId",
+          categoryName: { $first: "$categoryName" },
+          totalEarnings: { $sum: "$bookingEarning" },
           totalBookings: { $sum: 1 }
         }
       },
+
       { $sort: { totalEarnings: -1 } }
     ]);
 
@@ -120,15 +189,285 @@ const getVendorEarningsAnalytics = async (req, res) => {
       listingName: b.listingId?.title?.en || b.listingId?.title || '',
       totalCost: b.pricing?.totalPrice || 0
     }));
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const monthlyRevenueAggAll = await Booking.aggregate([
+      {
+        $match: {
+          vendorId: vendorId,
+          createdAt: { $gte: startOfYear },
+          status: { $in: ["completed", "cancelled"] }
+        }
+      },
+      {
+        $project: {
+          month: { $month: "$createdAt" },
+
+          completedRevenue: {
+            $cond: [
+              { $eq: ["$status", "completed"] },
+              {
+                $subtract: [
+                  { $ifNull: ["$pricingBreakdown.total", 0] },
+                  {
+                    $add: [
+                      { $ifNull: ["$pricingBreakdown.platformFee", 0] },
+                      { $ifNull: ["$pricingBreakdown.securityFee", 0] },
+                      { $ifNull: ["$pricingBreakdown.evenlyoProtectFee", 0] }
+                    ]
+                  }
+                ]
+              },
+              0
+            ]
+          },
+
+          refundRevenue: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ["$status", "cancelled"] },
+                  { $eq: ["$paymentStatus", "upfront_paid"] }
+                ]
+              },
+              {
+                $multiply: [
+                  { $ifNull: ["$pricingBreakdown.upfrontFee", 0] },
+                  0.88
+                ]
+              },
+              0
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: "$month",
+          revenue: { $sum: { $add: ["$completedRevenue", "$refundRevenue"] } }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Array of 12 months, fill missing with 0
+    console.log(monthlyRevenueAggAll, "monthlyRevenueAggAllmonthlyRevenueAggAll");
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const todaysEarningsAgg = await Booking.aggregate([
+      {
+        $match: {
+          vendorId: vendorId,
+          createdAt: { $gte: startOfToday },
+          status: { $in: ["completed", "cancelled"] }
+        }
+      },
+      {
+        $project: {
+          completedRevenue: {
+            $cond: [
+              { $eq: ["$status", "completed"] },
+              {
+                $subtract: [
+                  { $ifNull: ["$pricingBreakdown.total", 0] },
+                  {
+                    $add: [
+                      { $ifNull: ["$pricingBreakdown.platformFee", 0] },
+                      { $ifNull: ["$pricingBreakdown.securityFee", 0] },
+                      { $ifNull: ["$pricingBreakdown.evenlyoProtectFee", 0] }
+                    ]
+                  }
+                ]
+              },
+              0
+            ]
+          },
+
+          refundRevenue: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ["$status", "cancelled"] },
+                  { $eq: ["$paymentStatus", "upfront_paid"] }
+                ]
+              },
+              {
+                $multiply: [
+                  { $ifNull: ["$pricingBreakdown.upfrontFee", 0] },
+                  0.88
+                ]
+              },
+              0
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          revenue: { $sum: { $add: ["$completedRevenue", "$refundRevenue"] } }
+        }
+      }
+    ]);
+
+    const todaysEarnings = todaysEarningsAgg[0]?.revenue || 0;
+
+    const startOfLastWeek = new Date();
+    startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+    const lastWeekEarningsAgg = await Booking.aggregate([
+      {
+        $match: {
+          vendorId: vendorId,
+          createdAt: { $gte: startOfLastWeek },
+          status: { $in: ["completed", "cancelled"] }
+        }
+      },
+      {
+        $project: {
+          completedRevenue: {
+            $cond: [
+              { $eq: ["$status", "completed"] },
+              {
+                $subtract: [
+                  { $ifNull: ["$pricingBreakdown.total", 0] },
+                  {
+                    $add: [
+                      { $ifNull: ["$pricingBreakdown.platformFee", 0] },
+                      { $ifNull: ["$pricingBreakdown.securityFee", 0] },
+                      { $ifNull: ["$pricingBreakdown.evenlyoProtectFee", 0] }
+                    ]
+                  }
+                ]
+              },
+              0
+            ]
+          },
+
+          refundRevenue: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ["$status", "cancelled"] },
+                  { $eq: ["$paymentStatus", "upfront_paid"] }
+                ]
+              },
+              {
+                $multiply: [
+                  { $ifNull: ["$pricingBreakdown.upfrontFee", 0] },
+                  0.88
+                ]
+              },
+              0
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          revenue: { $sum: { $add: ["$completedRevenue", "$refundRevenue"] } }
+        }
+      }
+    ]);
+
+    const lastWeekEarnings = lastWeekEarningsAgg[0]?.revenue || 0;
+
+    const monthlyEarningsAggs = await Booking.aggregate([
+      {
+        $match: {
+          vendorId: vendorId,
+          createdAt: { $gte: startOfYear },
+          status: { $in: ["completed", "cancelled"] }
+        }
+      },
+      {
+        $project: {
+          month: { $month: "$createdAt" },
+
+          completedRevenue: {
+            $cond: [
+              { $eq: ["$status", "completed"] },
+              {
+                $subtract: [
+                  { $ifNull: ["$pricingBreakdown.total", 0] },
+                  {
+                    $add: [
+                      { $ifNull: ["$pricingBreakdown.platformFee", 0] },
+                      { $ifNull: ["$pricingBreakdown.securityFee", 0] },
+                      { $ifNull: ["$pricingBreakdown.evenlyoProtectFee", 0] }
+                    ]
+                  }
+                ]
+              },
+              0
+            ]
+          },
+
+          refundRevenue: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ["$status", "cancelled"] },
+                  { $eq: ["$paymentStatus", "upfront_paid"] }
+                ]
+              },
+              {
+                $multiply: [
+                  { $ifNull: ["$pricingBreakdown.upfrontFee", 0] },
+                  0.88
+                ]
+              },
+              0
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: "$month",
+          totalEarnings: {
+            $sum: { $add: ["$completedRevenue", "$refundRevenue"] }
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          month: "$_id",
+          totalEarnings: 1
+        }
+      },
+      { $sort: { month: 1 } }
+    ]);
+
+    // ✅ ADD THIS PART RIGHT HERE (AFTER AGGREGATE)
+
+    const monthlyEarningsss = Array.from({ length: 12 }, (_, index) => {
+      const month = index + 1;
+
+      const foundMonth = monthlyEarningsAggs.find(
+        (item) => item.month === month
+      );
+
+      return {
+        month,
+        totalEarnings: foundMonth
+          ? Number(foundMonth.totalEarnings.toFixed(2))
+          : 0
+      };
+    });
+
 
     res.json({
       success: true,
       stats: {
-        todayEarnings: round3(todayEarnings[0]?.total || 0),
-        lastWeekEarnings: round3(lastWeekEarnings[0]?.total || 0),
-        totalEarnings: round3(totalEarnings[0]?.total || 0)
+        todayEarnings: todaysEarnings,
+        lastWeekEarnings: lastWeekEarnings,
+        totalEarnings: monthlyRevenueAggAll[0].revenue
       },
-      monthlyEarnings,
+      monthlyEarnings: monthlyEarningsss,
       earningsByCategory,
       bookingTable
     });
@@ -139,13 +478,14 @@ const getVendorEarningsAnalytics = async (req, res) => {
 };
 
 
+
 // GET /api/vendor/service-items/earnings/analytics
 // Returns earning stats and detailed breakdown for service items
 const getServiceItemEarningsAnalytics = async (req, res) => {
   try {
     let vendorId = req.vendor?._id || req.user?._id || req.user?.vendorId || req.user?.id;
     if (!vendorId) return res.status(400).json({ success: false, message: 'Vendor not found in request.' });
-    
+
     // Convert to ObjectId if needed
     if (typeof vendorId === 'string' || (vendorId && vendorId.constructor && vendorId.constructor.name !== 'ObjectID' && vendorId.constructor.name !== 'ObjectId')) {
       try {
@@ -157,7 +497,7 @@ const getServiceItemEarningsAnalytics = async (req, res) => {
 
     // Date helpers
     const today = new Date();
-    today.setHours(0,0,0,0);
+    today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
     const lastWeek = new Date(today); lastWeek.setDate(today.getDate() - 6);
 
@@ -179,20 +519,22 @@ const getServiceItemEarningsAnalytics = async (req, res) => {
 
     // Monthly earnings breakdown
     const monthlyEarningsAgg = await Purchase.aggregate([
-      { $match: { vendor: vendorId} },
-      { $group: {
-        _id: { month: { $month: '$createdAt' } },
-        totalEarnings: { $sum: '$totalPrice' }
-      } },
+      { $match: { vendor: vendorId } },
+      {
+        $group: {
+          _id: { month: { $month: '$createdAt' } },
+          totalEarnings: { $sum: '$totalPrice' }
+        }
+      },
       { $sort: { '_id.month': 1 } }
     ]);
-    
+
     // Create a map of month earnings for quick lookup
     const earningsMap = {};
     monthlyEarningsAgg.forEach(m => {
       earningsMap[m._id.month] = m.totalEarnings;
     });
-    
+
     // Format monthly earnings with all 12 months: [{ month: 1, totalEarnings: 23 }, ...]
     const monthlyEarnings = [];
     for (let month = 1; month <= 12; month++) {
@@ -204,7 +546,7 @@ const getServiceItemEarningsAnalytics = async (req, res) => {
 
     // Earnings by Category - aggregate through item relationships
     const earningsByCategoryAgg = await Purchase.aggregate([
-      { $match: { vendor: vendorId,} },
+      { $match: { vendor: vendorId, } },
       {
         $lookup: {
           from: 'serviceitems', // Collection name for Item model
@@ -275,6 +617,6 @@ const getServiceItemEarningsAnalytics = async (req, res) => {
 };
 
 module.exports = {
-   getVendorEarningsAnalytics,
-   getServiceItemEarningsAnalytics 
-  };
+  getVendorEarningsAnalytics,
+  getServiceItemEarningsAnalytics
+};
