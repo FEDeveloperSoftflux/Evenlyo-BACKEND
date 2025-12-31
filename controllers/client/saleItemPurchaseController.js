@@ -81,7 +81,8 @@ const getSaleItemHistoryForVendor = async (req, res) => {
         const { id } = req.user;
 
         const allData = await SaleItem.find({ vendorId: id })
-            .populate('vendorId', 'firstName lastName email phone image') // select only needed fields
+            .populate('vendorId', 'firstName lastName email phone image')
+            .populate("customerId", 'firstName lastName email phone image') // select only needed fields
             .sort({ createdAt: -1 });
 
         res.status(200).send({
