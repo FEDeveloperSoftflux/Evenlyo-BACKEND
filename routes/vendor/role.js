@@ -17,10 +17,10 @@ router.post('/role-users',requireAuth, createRoleUser);
 router.get('/role-users', requireAuth, getAllRoleUsers);
 
 // DELETE a designation by ID
-router.delete('/designations/:designationId', requireAuth, requireVendor, deleteDesignation);
+router.delete('/designations/:designationId', requireAuth, deleteDesignation);
 
 // DELETE a role user by ID
-router.delete('/role-users/:employeeId', requireAuth, requireVendor, deleteRoleUser);
+router.delete('/role-users/:employeeId', requireAuth, deleteRoleUser);
 
 // PUT edit a designation by ID (name and permissions)
 router.put('/designations/:designationId', requireAuth, requireVendor, editDesignation);

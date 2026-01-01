@@ -285,6 +285,7 @@ exports.getStatsCard = async (req, res) => {
         const allBookings = await Booking.find()
 
         const allSale = await SaleItemPurchase.aggregate([
+            
             { $unwind: "$items" },
 
             // Convert itemId to ObjectId
