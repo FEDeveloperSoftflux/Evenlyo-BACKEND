@@ -546,8 +546,6 @@ const getVendorEarningsAnalytics = async (req, res) => {
   }
 };
 
-
-
 // GET /api/vendor/service-items/earnings/analytics
 // Returns earning stats and detailed breakdown for service items
 const getServiceItemEarningsAnalytics = async (req, res) => {
