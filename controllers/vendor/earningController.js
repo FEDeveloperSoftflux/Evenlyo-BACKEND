@@ -458,18 +458,87 @@ const getVendorEarningsAnalytics = async (req, res) => {
           : 0
       };
     });
+    console.log(vendorId, "vendorIdvendorIdvendorId");
 
+    const allBookings = await Booking.find({ vendorId })
+    const allSale = await Purchase.aggregate([
+      {
+        $match: {
+          vendorId: new mongoose.Types.ObjectId(vendorId)
+        }
+      },
+      { $unwind: "$items" },
 
+      // Convert itemId to ObjectId
+      {
+        $addFields: {
+          itemIdObj: { $toObjectId: "$items.itemId" }
+        }
+      },
+
+      // Lookup item data
+      {
+        $lookup: {
+          from: "serviceitems",
+          localField: "itemIdObj",
+          foreignField: "_id",
+          as: "itemData"
+        }
+      },
+      { $unwind: "$itemData" },
+
+      {
+        $addFields: {
+          itemProfit: {
+            $multiply: [
+              { $subtract: ["$itemData.sellingPrice", "$itemData.purchasePrice"] },
+              "$items.quantity"
+            ]
+          }
+        }
+      },
+
+      {
+        $group: {
+          _id: "$_id",
+          trackingId: { $first: "$trackingId" },
+          vendorId: { $first: "$vendorId" },
+          customerId: { $first: "$customerId" },
+          status: { $first: "$status" },
+          totalAmount: { $first: "$totalAmount" },
+          deliveryAmount: { $first: "$deliveryAmount" },
+          platformFee: { $first: "$platformFee" },
+          items: {
+            $push: {
+              itemId: "$items.itemId",
+              itemName: "$itemData.title",
+              quantity: "$items.quantity",
+              purchasePrice: "$itemData.purchasePrice",
+              sellingPrice: "$itemData.sellingPrice",
+              profit: "$itemProfit"
+            }
+          },
+          totalProfit: { $sum: "$itemProfit" },
+          totalKms: { $first: "$totalKms" },
+          createdAt: { $first: "$createdAt" },
+          deliveryAmount: { $first: "$deliveryAmount" },
+          platformFee: { $first: "$platformFee" },
+          deliveryLocation: { $first: "$deliveryLocation" },
+          itemLocation: { $first: "$itemLocation" },
+        }
+      }
+    ]);
     res.json({
       success: true,
       stats: {
         todayEarnings: todaysEarnings,
         lastWeekEarnings: lastWeekEarnings,
-        totalEarnings: monthlyRevenueAggAll[0].revenue
+        totalEarnings: monthlyRevenueAggAll[0]?.revenue ? monthlyRevenueAggAll[0]?.revenue : 0
       },
       monthlyEarnings: monthlyEarningsss,
       earningsByCategory,
-      bookingTable
+      bookingTable: allBookings,
+      allSale
     });
   } catch (err) {
     console.error('Vendor earnings analytics error:', err);
