@@ -1,8 +1,8 @@
-const asyncHandler = require('express-async-handler');
-const Cart = require('../../models/Cart');
-const Listing = require('../../models/Listing');
-const BookingRequest = require('../../models/Booking');
-const Vendor = require('../../models/Vendor');
+const asyncHandler = require("express-async-handler");
+const Cart = require("../../models/Cart");
+const Listing = require("../../models/Listing");
+const BookingRequest = require("../../models/Booking");
+const Vendor = require("../../models/Vendor");
 
 // Helper function to create listing snapshot
 const createListingSnapshot = (listing) => {
@@ -14,9 +14,9 @@ const createListingSnapshot = (listing) => {
       perHour: listing.pricing?.perHour,
       perDay: listing.pricing?.perDay,
       perEvent: listing.pricing?.perEvent,
-      currency: listing.pricing?.currency || 'EUR'
+      currency: listing.pricing?.currency || "EUR",
     },
-    vendorId: listing.vendor
+    vendorId: listing.vendor,
   };
 };
 
@@ -25,13 +25,13 @@ const checkAvailability = async (listingId, startDate, endDate) => {
   // Check for overlapping bookings that are not rejected or cancelled
   const overlappingBookings = await BookingRequest.find({
     listingId,
-    status: { $nin: ['rejected', 'cancelled'] },
+    status: { $nin: ["rejected", "cancelled"] },
     $or: [
       {
-        'details.startDate': { $lte: endDate },
-        'details.endDate': { $gte: startDate }
-      }
-    ]
+        "details.startDate": { $lte: endDate },
+        "details.endDate": { $gte: startDate },
+      },
+    ],
   });
 
   return overlappingBookings.length === 0;
@@ -46,7 +46,7 @@ const addToCart = asyncHandler(async (req, res) => {
   if (!listingId) {
     return res.status(400).json({
       success: false,
-      message: 'Listing ID is required'
+      message: "Listing ID is required",
     });
   }
 
@@ -54,16 +54,15 @@ const addToCart = asyncHandler(async (req, res) => {
   const listing = await Listing.findOne({
     _id: listingId,
     isActive: true,
-    status: 'active'
-  }).populate('vendor');
+    status: "active",
+  }).populate("vendor");
 
   if (!listing) {
     return res.status(404).json({
       success: false,
-      message: 'Listing not found or not available'
+      message: "Listing not found or not available",
     });
   }
-
 
   // Get or create user's cart
   let cart = await Cart.findOne({ userId: req.user.id });
@@ -72,13 +71,18 @@ const addToCart = asyncHandler(async (req, res) => {
   }
 
   // Check if item is already in cart
-  const alreadyInCart = cart.items.some(item => item.listingId.toString() === listingId);
+  const alreadyInCart = cart.items.some(
+    (item) => item.listingId.toString() === listingId
+  );
   if (alreadyInCart) {
-    await cart.populate('items.listingId', 'title featuredImage pricing vendor');
+    await cart.populate(
+      "items.listingId",
+      "title featuredImage pricing vendor"
+    );
     return res.status(200).json({
       success: false,
-      message: 'Item is already in cart',
-      data: cart.items
+      message: "Item is already in cart",
+      data: cart.items,
     });
   }
 
@@ -89,12 +93,12 @@ const addToCart = asyncHandler(async (req, res) => {
   await cart.addItem(listingId, listingSnapshot, tempDetails);
 
   // Populate cart for response
-  await cart.populate('items.listingId', 'title featuredImage pricing vendor');
+  await cart.populate("items.listingId", "title featuredImage pricing vendor");
 
   res.status(201).json({
     success: true,
-    message: 'Item added to cart successfully',
-    data: cart.items
+    message: "Item added to cart successfully",
+    data: cart.items,
   });
 });
 
@@ -102,17 +106,20 @@ const addToCart = asyncHandler(async (req, res) => {
 // @route   GET /api/cart
 // @access  Private (User)
 const getCart = asyncHandler(async (req, res) => {
-  console.log(req.user.id,"req.user.idreq.user.idreq.user.id");
-  
-  let cart = await Cart.findOne({ userId: req.user.id })
-    .populate({
-      path: 'items.listingId',
-      select: 'title pricing images vendor isActive status',
-      populate: {
-        path: 'vendor',
-        select: 'businessName businessLogo bannerImage'
-      }
-    });
+  console.log(req.user.id, "asdas");
+
+  let cart = await Cart.findOne({ userId: req.user.id }).populate({
+    path: "items.listingId",
+    populate: {
+      path: "vendor",
+    },
+  });
+
+  // const listingsDocs = await Listing.find(query).populate(
+  //   "subCategory",
+  //   "name icon escrowEnabled upfrontFeePercent upfrontHour evenlyoProtectFeePercent"
+  // );
+  console.log(cart, "cartcartcartcartcartcart");
 
   if (!cart) {
     cart = new Cart({ userId: req.user.id, items: [] });
@@ -120,10 +127,11 @@ const getCart = asyncHandler(async (req, res) => {
   }
 
   // Filter out any items that reference inactive or deleted listings
-  const validItems = cart.items.filter(item => 
-    item.listingId && 
-    item.listingId.isActive && 
-    item.listingId.status === 'active'
+  const validItems = cart.items.filter(
+    (item) =>
+      item.listingId &&
+      item.listingId.isActive &&
+      item.listingId.status === "active"
   );
 
   // Update cart if invalid items were found
@@ -132,10 +140,10 @@ const getCart = asyncHandler(async (req, res) => {
     await cart.save();
   }
 
-    res.json({
-      success: true,
-      data: cart.items
-    });
+  res.json({
+    success: true,
+    data: cart.items,
+  });
 });
 
 // @desc    Remove item from cart
@@ -148,7 +156,7 @@ const removeFromCart = asyncHandler(async (req, res) => {
   if (!cart) {
     return res.status(404).json({
       success: false,
-      message: 'Cart not found'
+      message: "Cart not found",
     });
   }
 
@@ -156,20 +164,20 @@ const removeFromCart = asyncHandler(async (req, res) => {
 
   // Populate cart for response
   await cart.populate({
-    path: 'items.listingId',
-    select: 'title featuredImage pricing vendor',
+    path: "items.listingId",
+    select: "title featuredImage pricing vendor",
     populate: {
-      path: 'vendor',
-      select: 'businessName'
-    }
+      path: "vendor",
+      select: "businessName",
+    },
   });
 
   res.json({
     success: true,
-    message: 'Item removed from cart successfully',
+    message: "Item removed from cart successfully",
     data: {
-      cart
-    }
+      cart,
+    },
   });
 });
 
@@ -178,13 +186,21 @@ const removeFromCart = asyncHandler(async (req, res) => {
 // @access  Private (User)
 const updateCartItem = asyncHandler(async (req, res) => {
   const { listingId } = req.params;
-  const { startDate, endDate, startTime, endTime, location, eventLocation, description } = req.body;
+  const {
+    startDate,
+    endDate,
+    startTime,
+    endTime,
+    location,
+    eventLocation,
+    description,
+  } = req.body;
 
   // Validation
   if (!startDate || !eventLocation) {
     return res.status(400).json({
       success: false,
-      message: 'startDate and location are required.'
+      message: "startDate and location are required.",
     });
   }
 
@@ -198,7 +214,7 @@ const updateCartItem = asyncHandler(async (req, res) => {
   if (!isMultiDay && (!startTime || !endTime)) {
     return res.status(400).json({
       success: false,
-      message: 'startTime and endTime are required for single-day events.'
+      message: "startTime and endTime are required for single-day events.",
     });
   }
 
@@ -206,14 +222,14 @@ const updateCartItem = asyncHandler(async (req, res) => {
   if (!cart) {
     return res.status(404).json({
       success: false,
-      message: 'Cart not found'
+      message: "Cart not found",
     });
   }
 
   // Prepare tempDetails conditionally
   let tempDetails = {
     eventLocation: eventLocation,
-    description: description || ''
+    description: description || "",
   };
 
   if (isMultiDay) {
@@ -233,25 +249,25 @@ const updateCartItem = asyncHandler(async (req, res) => {
 
     // Populate cart for response
     await cart.populate({
-      path: 'items.listingId',
-      select: 'title featuredImage pricing vendor',
+      path: "items.listingId",
+      select: "title featuredImage pricing vendor",
       populate: {
-        path: 'vendor',
-        select: 'businessName'
-      }
+        path: "vendor",
+        select: "businessName",
+      },
     });
 
     res.json({
       success: true,
-      message: 'Cart item updated successfully',
+      message: "Cart item updated successfully",
       data: {
-        cart
-      }
+        cart,
+      },
     });
   } catch (error) {
     res.status(404).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 });
@@ -261,26 +277,30 @@ const updateCartItem = asyncHandler(async (req, res) => {
 /// @access Private (User)
 const submitCart = asyncHandler(async (req, res) => {
   const { startDate, endDate, listingIds } = req.body;
-  const cart = await Cart.findOne({ userId: req.user.id })
-    .populate('items.listingId', 'title pricing vendor isActive status');
+  const cart = await Cart.findOne({ userId: req.user.id }).populate(
+    "items.listingId",
+    "title pricing vendor isActive status"
+  );
 
   if (!cart || cart.items.length === 0) {
     return res.status(400).json({
       success: false,
-      message: 'Cart is empty'
+      message: "Cart is empty",
     });
   }
 
   // If listingIds provided, filter items; else process all
   let itemsToProcess = cart.items;
   if (Array.isArray(listingIds) && listingIds.length > 0) {
-    itemsToProcess = cart.items.filter(item => listingIds.includes(item.listingId._id.toString()));
+    itemsToProcess = cart.items.filter((item) =>
+      listingIds.includes(item.listingId._id.toString())
+    );
   }
 
   if (itemsToProcess.length === 0) {
     return res.status(400).json({
       success: false,
-      message: 'No valid listings selected for booking request.'
+      message: "No valid listings selected for booking request.",
     });
   }
 
@@ -294,11 +314,11 @@ const submitCart = asyncHandler(async (req, res) => {
       const tempDetails = cartItem.tempDetails;
 
       // Validate listing is still active
-      if (!listing || !listing.isActive || listing.status !== 'active') {
+      if (!listing || !listing.isActive || listing.status !== "active") {
         errors.push({
           listingId: listing?._id,
           listingTitle: listing?.title,
-          error: 'Listing is no longer available'
+          error: "Listing is no longer available",
         });
         continue;
       }
@@ -311,7 +331,7 @@ const submitCart = asyncHandler(async (req, res) => {
         errors.push({
           listingId: listing._id,
           listingTitle: listing.title,
-          error: 'Missing required booking details (date, location)'
+          error: "Missing required booking details (date, location)",
         });
         continue;
       }
@@ -324,14 +344,17 @@ const submitCart = asyncHandler(async (req, res) => {
         errors.push({
           listingId: listing._id,
           listingTitle: listing.title,
-          error: 'Selected dates are not available'
+          error: "Selected dates are not available",
         });
         continue;
       }
 
       // Calculate duration
       const diffTime = Math.abs(end - start);
-      const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
+      const diffDays = Math.max(
+        1,
+        Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+      );
       const isMultiDay = diffDays > 1;
 
       // Calculate hours per day (use 24h for multi-day, or fallback to 1h)
@@ -340,11 +363,11 @@ const submitCart = asyncHandler(async (req, res) => {
 
       // Pricing calculation
       let bookingPrice = 0;
-      if (listing.pricing.type === 'daily') {
+      if (listing.pricing.type === "daily") {
         bookingPrice = listing.pricing.amount * diffDays;
-      } else if (listing.pricing.type === 'hourly') {
+      } else if (listing.pricing.type === "hourly") {
         bookingPrice = listing.pricing.amount * totalHours;
-      } else if (listing.pricing.type === 'per_event') {
+      } else if (listing.pricing.type === "per_event") {
         bookingPrice = listing.pricing.amount * (isMultiDay ? diffDays : 1);
       }
 
@@ -370,7 +393,7 @@ const submitCart = asyncHandler(async (req, res) => {
           eventType: tempDetails.eventType,
           guestCount: tempDetails.guestCount,
           specialRequests: tempDetails.specialRequests,
-          contactPreference: tempDetails.contactPreference || 'email'
+          contactPreference: tempDetails.contactPreference || "email",
         },
         pricing: {
           bookingPrice,
@@ -378,36 +401,44 @@ const submitCart = asyncHandler(async (req, res) => {
           totalPrice: bookingPrice + (listing.pricing.securityFee || 0),
           ...(isMultiDay && {
             dailyRate: Math.round(bookingPrice / diffDays),
-            multiDayDiscount: listing.pricing.multiDayDiscount || ''
-          })
-        }
+            multiDayDiscount: listing.pricing.multiDayDiscount || "",
+          }),
+        },
       });
 
       await bookingRequest.save();
       await bookingRequest.populate([
-        { path: 'vendorId', select: 'businessName businessEmail businessPhone' },
-        { path: 'listingId', select: 'title featuredImage pricing' }
+        {
+          path: "vendorId",
+          select: "businessName businessEmail businessPhone",
+        },
+        { path: "listingId", select: "title featuredImage pricing" },
       ]);
 
       bookingResults.push({
         bookingId: bookingRequest._id,
         listingTitle: listing.title,
         totalPrice: bookingRequest.pricing.totalPrice,
-        status: 'success'
+        status: "success",
       });
-
     } catch (error) {
       errors.push({
         listingId: cartItem.listingId?._id,
         listingTitle: cartItem.listingId?.title,
-        error: error.message
+        error: error.message,
       });
     }
   }
 
   // Remove only processed items from cart if any bookings were created successfully
   if (bookingResults.length > 0) {
-    cart.items = cart.items.filter(item => !itemsToProcess.some(proc => proc.listingId._id.toString() === item.listingId._id.toString()));
+    cart.items = cart.items.filter(
+      (item) =>
+        !itemsToProcess.some(
+          (proc) =>
+            proc.listingId._id.toString() === item.listingId._id.toString()
+        )
+    );
     await cart.save();
   }
 
@@ -420,9 +451,9 @@ const submitCart = asyncHandler(async (req, res) => {
       summary: {
         total: cart.items.length + bookingResults.length,
         successful: bookingResults.length,
-        failed: errors.length
-      }
-    }
+        failed: errors.length,
+      },
+    },
   });
 });
 
@@ -434,7 +465,7 @@ const clearCart = asyncHandler(async (req, res) => {
   if (!cart) {
     return res.status(404).json({
       success: false,
-      message: 'Cart not found'
+      message: "Cart not found",
     });
   }
 
@@ -442,13 +473,12 @@ const clearCart = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    message: 'Cart cleared successfully',
+    message: "Cart cleared successfully",
     data: {
-      cart
-    }
+      cart,
+    },
   });
 });
-
 
 const addToCart2 = asyncHandler(async (req, res) => {
   const { listingId, tempDetails } = req.body;
@@ -456,7 +486,7 @@ const addToCart2 = asyncHandler(async (req, res) => {
   if (!listingId) {
     return res.status(400).json({
       success: false,
-      message: 'Listing ID is required'
+      message: "Listing ID is required",
     });
   }
 
@@ -467,16 +497,21 @@ const addToCart2 = asyncHandler(async (req, res) => {
   }
 
   // Toggle: if item exists -> remove, else -> add
-  const alreadyInCart = cart.items.some(item => item.listingId.toString() === listingId);
+  const alreadyInCart = cart.items.some(
+    (item) => item.listingId.toString() === listingId
+  );
 
   if (alreadyInCart) {
     // Remove item without requiring listing to still be active
     await cart.removeItem(listingId);
-    await cart.populate('items.listingId', 'title featuredImage pricing vendor');
+    await cart.populate(
+      "items.listingId",
+      "title featuredImage pricing vendor"
+    );
     return res.status(200).json({
       success: true,
-      message: 'Item removed from cart successfully',
-      data: cart.items
+      message: "Item removed from cart successfully",
+      data: cart.items,
     });
   }
 
@@ -484,13 +519,13 @@ const addToCart2 = asyncHandler(async (req, res) => {
   const listing = await Listing.findOne({
     _id: listingId,
     isActive: true,
-    status: 'active'
-  }).populate('vendor');
+    status: "active",
+  }).populate("vendor");
 
   if (!listing) {
     return res.status(404).json({
       success: false,
-      message: 'Listing not found or not available'
+      message: "Listing not found or not available",
     });
   }
 
@@ -501,12 +536,12 @@ const addToCart2 = asyncHandler(async (req, res) => {
   await cart.addItem(listingId, listingSnapshot, tempDetails);
 
   // Populate cart for response
-  await cart.populate('items.listingId', 'title featuredImage pricing vendor');
+  await cart.populate("items.listingId", "title featuredImage pricing vendor");
 
   return res.status(201).json({
     success: true,
-    message: 'Item added to cart successfully',
-    data: cart.items
+    message: "Item added to cart successfully",
+    data: cart.items,
   });
 });
 
@@ -517,5 +552,5 @@ module.exports = {
   updateCartItem,
   submitCart,
   clearCart,
-  addToCart2
+  addToCart2,
 };
