@@ -125,7 +125,7 @@ const getAllRoleUsers = async (req, res) => {
 		if (!vendorId) return res.status(401).json({ error: 'Unauthorized: vendor authentication required' });
 
 		const employees = await Employee.find({ vendor: vendorId })
-			.populate('designation','_id name')
+			.populate('designation', '_id name')
 			.sort({ createdAt: -1 });
 		console.log(employees, "employeesemployeesemployees");
 
@@ -164,16 +164,16 @@ const deleteDesignation = async (req, res) => {
 };
 
 const deleteRoleUser = async (req, res) => {
+	console.log(req.user, "useruseruser");
+
 	try {
-		const vendorId = req.user && req.user.vendorId;
+		const vendorId = req.user && req.user.id;
 		if (!vendorId) return res.status(401).json({ error: 'Unauthorized: vendor authentication required' });
 		console.log('req.params:', req.params);
 		const { employeeId } = req.params;
 		if (!employeeId) return res.status(400).json({ error: 'employeeId is required' });
-
 		const employee = await Employee.findOneAndDelete({ _id: employeeId, vendor: vendorId });
 		if (!employee) return res.status(404).json({ error: 'Employee not found or not authorized' });
-
 		res.json({ message: 'Employee deleted successfully' });
 	} catch (err) {
 		res.status(500).json({ error: err.message });
