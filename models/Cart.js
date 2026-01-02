@@ -1,51 +1,74 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 // Cart Schema
-const cartSchema = new mongoose.Schema({
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-    unique: true // One cart per user
-  },
-  items: [{
-    listingId: {
+const cartSchema = new mongoose.Schema(
+  {
+    userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Listing',
-      required: true
+      ref: "User",
+      required: true,
+      unique: true, // One cart per user
     },
-    tempDetails: { type: Object, default: {} }, // Temporary details like selected options, duration, etc.
-    addedAt: {
+
+    items: [
+      {
+        listingId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Listing",
+          required: true,
+        },
+        tempDetails: {
+          // For single and multi-day event support
+          startDate: Date,
+          endDate: Date,
+          startTime: String,
+          endTime: String,
+          // Legacy/compatibility fields
+          eventLocation: String,
+          duration: {
+            hours: Number,
+            days: Number,
+          },
+          specialRequests: String,
+          paymentPolicy: {
+            type: Object,
+            default: null,
+          },
+        },
+        addedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        // Store listing snapshot for quick reference
+        listingSnapshot: {
+          title: String,
+          featuredImage: String,
+          vendorId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Vendor",
+          },
+        },
+      },
+    ],
+    lastUpdated: {
       type: Date,
-      default: Date.now
+      default: Date.now,
     },
-    // Store listing snapshot for quick reference
-    listingSnapshot: {
-      title: String,
-      featuredImage: String,
-      vendorId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Vendor'
-      }
-    }
-  }],
-  lastUpdated: {
-    type: Date,
-    default: Date.now
+  },
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
-}, {
-  timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
-});
+);
 
 // Virtual for total items count
-cartSchema.virtual('totalItems').get(function () {
+cartSchema.virtual("totalItems").get(function () {
   return this.items.length;
 });
 
 // Virtual for estimated total (if pricing available)
-cartSchema.virtual('estimatedTotal').get(function () {
+cartSchema.virtual("estimatedTotal").get(function () {
   return this.items.reduce((total, item) => {
     const snapshot = item.listingSnapshot;
     if (!snapshot || !snapshot.pricing) return total;
@@ -53,11 +76,22 @@ cartSchema.virtual('estimatedTotal').get(function () {
     const duration = item.tempDetails?.duration;
     let itemTotal = 0;
 
-    if (snapshot.pricing.type === 'hourly' && snapshot.pricing.perHour && duration?.hours) {
+    if (
+      snapshot.pricing.type === "hourly" &&
+      snapshot.pricing.perHour &&
+      duration?.hours
+    ) {
       itemTotal = snapshot.pricing.perHour * duration.hours;
-    } else if (snapshot.pricing.type === 'daily' && snapshot.pricing.perDay && duration?.days) {
+    } else if (
+      snapshot.pricing.type === "daily" &&
+      snapshot.pricing.perDay &&
+      duration?.days
+    ) {
       itemTotal = snapshot.pricing.perDay * duration.days;
-    } else if (snapshot.pricing.type === 'per_event' && snapshot.pricing.perEvent) {
+    } else if (
+      snapshot.pricing.type === "per_event" &&
+      snapshot.pricing.perEvent
+    ) {
       itemTotal = snapshot.pricing.perEvent;
     }
 
@@ -66,16 +100,20 @@ cartSchema.virtual('estimatedTotal').get(function () {
 });
 
 // Pre-save middleware to update lastUpdated
-cartSchema.pre('save', function (next) {
+cartSchema.pre("save", function (next) {
   this.lastUpdated = new Date();
   next();
 });
 
 // Instance method to add item to cart
-cartSchema.methods.addItem = function (listingId, listingSnapshot, tempDetails = {}) {
+cartSchema.methods.addItem = function (
+  listingId,
+  listingSnapshot,
+  tempDetails = {}
+) {
   // Check if item already exists
-  const existingItem = this.items.find(item =>
-    item.listingId.toString() === listingId.toString()
+  const existingItem = this.items.find(
+    (item) => item.listingId.toString() === listingId.toString()
   );
 
   if (existingItem) {
@@ -91,7 +129,7 @@ cartSchema.methods.addItem = function (listingId, listingSnapshot, tempDetails =
       listingId,
       listingSnapshot,
       tempDetails,
-      addedAt: new Date()
+      addedAt: new Date(),
     });
   }
 
@@ -100,8 +138,8 @@ cartSchema.methods.addItem = function (listingId, listingSnapshot, tempDetails =
 
 // Instance method to remove item from cart
 cartSchema.methods.removeItem = function (listingId) {
-  this.items = this.items.filter(item =>
-    item.listingId.toString() !== listingId.toString()
+  this.items = this.items.filter(
+    (item) => item.listingId.toString() !== listingId.toString()
   );
   return this.save();
 };
@@ -114,8 +152,8 @@ cartSchema.methods.clearCart = function () {
 
 // Instance method to update item details
 cartSchema.methods.updateItemDetails = function (listingId, tempDetails) {
-  const item = this.items.find(item =>
-    item.listingId.toString() === listingId.toString()
+  const item = this.items.find(
+    (item) => item.listingId.toString() === listingId.toString()
   );
 
   if (item) {
@@ -123,12 +161,12 @@ cartSchema.methods.updateItemDetails = function (listingId, tempDetails) {
     return this.save();
   }
 
-  throw new Error('Item not found in cart');
+  throw new Error("Item not found in cart");
 };
 
 // Indexes for better performance
 // cartSchema.index({ userId: 1 }); unique true for userId is already set above..
-cartSchema.index({ 'items.listingId': 1 });
+cartSchema.index({ "items.listingId": 1 });
 cartSchema.index({ lastUpdated: -1 });
 
-module.exports = mongoose.model('Cart', cartSchema);
+module.exports = mongoose.model("Cart", cartSchema);
