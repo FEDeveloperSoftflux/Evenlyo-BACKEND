@@ -14,21 +14,7 @@ const cartSchema = new mongoose.Schema({
       ref: 'Listing',
       required: true
     },
-    tempDetails: {
-      // For single and multi-day event support
-      startDate: Date,
-      endDate: Date,
-      startTime: String,
-      endTime: String,
-      // Legacy/compatibility fields
-      eventLocation: String,
-      duration: {
-        hours: Number,
-        days: Number
-      },
-      specialRequests: String,
-
-    },
+    tempDetails: { type: Object, default: {} }, // Temporary details like selected options, duration, etc.
     addedAt: {
       type: Date,
       default: Date.now
@@ -47,26 +33,26 @@ const cartSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
-}, { 
+}, {
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
 
 // Virtual for total items count
-cartSchema.virtual('totalItems').get(function() {
+cartSchema.virtual('totalItems').get(function () {
   return this.items.length;
 });
 
 // Virtual for estimated total (if pricing available)
-cartSchema.virtual('estimatedTotal').get(function() {
+cartSchema.virtual('estimatedTotal').get(function () {
   return this.items.reduce((total, item) => {
     const snapshot = item.listingSnapshot;
     if (!snapshot || !snapshot.pricing) return total;
-    
+
     const duration = item.tempDetails?.duration;
     let itemTotal = 0;
-    
+
     if (snapshot.pricing.type === 'hourly' && snapshot.pricing.perHour && duration?.hours) {
       itemTotal = snapshot.pricing.perHour * duration.hours;
     } else if (snapshot.pricing.type === 'daily' && snapshot.pricing.perDay && duration?.days) {
@@ -74,24 +60,24 @@ cartSchema.virtual('estimatedTotal').get(function() {
     } else if (snapshot.pricing.type === 'per_event' && snapshot.pricing.perEvent) {
       itemTotal = snapshot.pricing.perEvent;
     }
-    
+
     return total + itemTotal;
   }, 0);
 });
 
 // Pre-save middleware to update lastUpdated
-cartSchema.pre('save', function(next) {
+cartSchema.pre('save', function (next) {
   this.lastUpdated = new Date();
   next();
 });
 
 // Instance method to add item to cart
-cartSchema.methods.addItem = function(listingId, listingSnapshot, tempDetails = {}) {
+cartSchema.methods.addItem = function (listingId, listingSnapshot, tempDetails = {}) {
   // Check if item already exists
-  const existingItem = this.items.find(item => 
+  const existingItem = this.items.find(item =>
     item.listingId.toString() === listingId.toString()
   );
-  
+
   if (existingItem) {
     // Update existing item
     existingItem.tempDetails = { ...existingItem.tempDetails, ...tempDetails };
@@ -108,35 +94,35 @@ cartSchema.methods.addItem = function(listingId, listingSnapshot, tempDetails = 
       addedAt: new Date()
     });
   }
-  
+
   return this.save();
 };
 
 // Instance method to remove item from cart
-cartSchema.methods.removeItem = function(listingId) {
-  this.items = this.items.filter(item => 
+cartSchema.methods.removeItem = function (listingId) {
+  this.items = this.items.filter(item =>
     item.listingId.toString() !== listingId.toString()
   );
   return this.save();
 };
 
 // Instance method to clear cart
-cartSchema.methods.clearCart = function() {
+cartSchema.methods.clearCart = function () {
   this.items = [];
   return this.save();
 };
 
 // Instance method to update item details
-cartSchema.methods.updateItemDetails = function(listingId, tempDetails) {
-  const item = this.items.find(item => 
+cartSchema.methods.updateItemDetails = function (listingId, tempDetails) {
+  const item = this.items.find(item =>
     item.listingId.toString() === listingId.toString()
   );
-  
+
   if (item) {
     item.tempDetails = { ...item.tempDetails, ...tempDetails };
     return this.save();
   }
-  
+
   throw new Error('Item not found in cart');
 };
 
